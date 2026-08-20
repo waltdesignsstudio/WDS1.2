@@ -67,6 +67,23 @@ service cloud.firestore {
         (!('updatedAt' in data) || data.updatedAt is timestamp || data.updatedAt is string);
     }
 
+    // Daily Data Report Validation Blueprint
+    function isValidDailyReport(data) {
+      return data.keys().hasAll(['name', 'email', 'number', 'location', 'requirement', 'status', 'assignedEmployeeUid']) &&
+        data.name is string && data.name.size() > 0 && data.name.size() <= 120 &&
+        data.email is string && data.email.size() > 0 && data.email.size() <= 120 &&
+        data.number is string && data.number.size() > 0 && data.number.size() <= 40 &&
+        data.location is string && data.location.size() > 0 && data.location.size() <= 120 &&
+        data.requirement is string && data.requirement.size() > 0 && data.requirement.size() <= 1000 &&
+        data.status is string && data.status.size() > 0 && data.status.size() <= 50 &&
+        data.assignedEmployeeUid is string && data.assignedEmployeeUid.size() > 0 && data.assignedEmployeeUid.size() <= 128 &&
+        (!('sNo' in data) || data.sNo is number || data.sNo is string) &&
+        (!('assignedEmployeeCode' in data) || (data.assignedEmployeeCode is string && data.assignedEmployeeCode.size() <= 40)) &&
+        (!('assignedEmployeeName' in data) || (data.assignedEmployeeName is string && data.assignedEmployeeName.size() <= 120)) &&
+        (!('createdAt' in data) || data.createdAt is timestamp || data.createdAt is string) &&
+        (!('updatedAt' in data) || data.updatedAt is timestamp || data.updatedAt is string);
+    }
+
     // User Profile Documents: /users/{uid}
     match /users/{uid} {
       // Single Document Read (Get): Only the user themselves OR an authorized Admin
@@ -114,12 +131,16 @@ service cloud.firestore {
         isAdmin() || resource.data.employeeUid == request.auth.uid
       );
 
-      // Create: Signed-in corporate employee creating their own attendance with default status 'pending'
+      // Create: Signed-in corporate employee creating their own attendance
+      // Strictly 1 attendance per employee per calendar day with deterministic ID {employeeUid}_{date}
+      // Status must strictly be 'pending'
       allow create: if isSignedIn() && isValidId(attendanceId) &&
         isValidAttendanceRecord(incoming()) &&
         (
           isAdmin() ||
           (
+            attendanceId == request.auth.uid + '_' + incoming().date &&
+            !exists(/databases/$(database)/documents/attendance/$(attendanceId)) &&
             incoming().employeeUid == request.auth.uid &&
             incoming().status == 'pending' &&
             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
@@ -128,12 +149,41 @@ service cloud.firestore {
           )
         );
 
-      // Update: ONLY Admin can update attendance status (Approve / Reject)
+      // Update: ONLY Admin can update attendance status, ONLY from 'pending' to 'approved' or 'rejected'.
+      // Once status becomes 'approved' or 'rejected', existing().status is NOT 'pending', so it is FINAL and can NEVER be changed again.
       allow update: if isSignedIn() && isValidId(attendanceId) && isAdmin() &&
+        existing().status == 'pending' &&
+        incoming().status in ['approved', 'rejected'] &&
+        incoming().employeeUid == existing().employeeUid &&
+        incoming().employeeCode == existing().employeeCode &&
+        incoming().date == existing().date &&
         isValidAttendanceRecord(incoming());
 
       // Deletion: Admin only
       allow delete: if isSignedIn() && isValidId(attendanceId) && isAdmin();
+    }
+
+    // Daily Data Reports Collection: /daily_reports/{reportId}
+    match /daily_reports/{reportId} {
+      // Read: Admin can read all reports; Corporate employee can ONLY read reports assigned to their own Firebase UID
+      allow get: if isSignedIn() && isValidId(reportId) && (
+        isAdmin() || resource.data.assignedEmployeeUid == request.auth.uid
+      );
+
+      allow list: if isSignedIn() && (
+        isAdmin() || resource.data.assignedEmployeeUid == request.auth.uid
+      );
+
+      // Create: Admin ONLY
+      allow create: if isSignedIn() && isValidId(reportId) && isAdmin() &&
+        isValidDailyReport(incoming());
+
+      // Update: Admin ONLY
+      allow update: if isSignedIn() && isValidId(reportId) && isAdmin() &&
+        isValidDailyReport(incoming());
+
+      // Deletion: Admin ONLY
+      allow delete: if isSignedIn() && isValidId(reportId) && isAdmin();
     }
 
     // WDS Lookup Index: /wds_lookup/{corporateUserId}

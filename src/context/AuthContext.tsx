@@ -58,6 +58,35 @@ export interface AttendanceRecord {
   updatedAt?: string;
 }
 
+export interface DailyReportItem {
+  id: string;
+  sNo: number | string;
+  name: string;
+  email: string;
+  number: string;
+  location: string;
+  requirement: string;
+  status: string;
+  assignedEmployeeUid: string;
+  assignedEmployeeCode: string;
+  assignedEmployeeName: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface CreateDailyReportPayload {
+  sNo?: number | string;
+  name: string;
+  email: string;
+  number: string;
+  location: string;
+  requirement: string;
+  status: string;
+  assignedEmployeeUid: string;
+  assignedEmployeeCode: string;
+  assignedEmployeeName: string;
+}
+
 export interface AdminCreateCorporatePayload {
   name: string;
   phone: string;
@@ -90,6 +119,11 @@ interface AuthContextType {
   updateAttendanceStatus: (attendanceId: string, status: 'pending' | 'approved' | 'rejected') => Promise<{ success: boolean; error?: string }>;
   fetchAllCorporateUsers: () => Promise<UserProfile[]>;
   updateUserProgressByAdmin: (targetUid: string, data: { income?: number; progress?: number }) => Promise<void>;
+  createDailyReport: (data: CreateDailyReportPayload) => Promise<{ success: boolean; error?: string }>;
+  fetchAdminDailyReports: () => Promise<DailyReportItem[]>;
+  fetchEmployeeDailyReports: () => Promise<DailyReportItem[]>;
+  updateDailyReportStatus: (reportId: string, status: string) => Promise<{ success: boolean; error?: string }>;
+  deleteDailyReport: (reportId: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
 }
 
@@ -434,6 +468,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // Submit Corporate Attendance
+  // Enforces strictly 1 attendance per Corporate employee per calendar day with deterministic document ID
   const submitAttendance = async (data: {
     date: string;
     todayWorkHours: number;
@@ -445,12 +480,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     const uid = auth.currentUser.uid;
-    console.log('[Attendance Submission] Step 1: Checking authentication for UID:', uid);
 
-    // Step 2: Ensure user profile exists in Firestore /users/{uid}
+    // Step 1: Ensure user profile exists in Firestore /users/{uid}
     let currentProfile = profile;
     if (!currentProfile || currentProfile.uid !== uid || !currentProfile.corporateUserId) {
-      console.log('[Attendance Submission] Fetching fresh profile for UID:', uid);
       currentProfile = await fetchProfileForUid(uid);
     }
 
@@ -460,14 +493,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { success: false, error: errDetail };
     }
 
-    // Step 3: Check that user has role == 'corporate'
+    // Step 2: Check that user has role == 'corporate'
     if (currentProfile.role !== 'corporate') {
       const errDetail = `User profile role is '${currentProfile.role}', but role must be 'corporate' to submit attendance.`;
       console.error('[Attendance Submission Error]', errDetail);
       return { success: false, error: errDetail };
     }
 
-    // Step 4: Obtain employeeCode strictly from authenticated user's own profile
+    // Step 3: Obtain employeeCode strictly from authenticated user's own profile
     const employeeCode = currentProfile.corporateUserId;
     if (!employeeCode) {
       const errDetail = `Corporate User ID (WDS-XXXX) is missing from user profile /users/${uid}.`;
@@ -476,6 +509,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     const employeeName = currentProfile.name || auth.currentUser.displayName || 'Corporate Representative';
+
+    // Unique deterministic ID {employeeUid}_{date} prevents duplicate attendance at Firestore/backend level
+    const docId = `${uid}_${data.date}`;
+    const docRef = doc(db, 'attendance', docId);
+
+    // Pre-check if attendance for this date has already been submitted
+    try {
+      const existingSnap = await getDoc(docRef);
+      if (existingSnap.exists()) {
+        const existingData = existingSnap.data();
+        return {
+          success: false,
+          error: `Attendance for ${data.date} has already been submitted (Status: ${existingData.status?.toUpperCase() || 'PENDING'}). Only 1 attendance submission is allowed per calendar day.`,
+        };
+      }
+    } catch (checkErr) {
+      console.warn('Attendance existence check notice:', checkErr);
+    }
 
     const recordData = {
       employeeUid: uid,
@@ -489,27 +540,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       updatedAt: serverTimestamp(),
     };
 
-    console.log('[Attendance Submission] Step 5: Preparing to write document at collection: attendance', {
-      employeeUid: recordData.employeeUid,
-      employeeCode: recordData.employeeCode,
-      employeeName: recordData.employeeName,
-      date: recordData.date,
-      todayWorkHours: recordData.todayWorkHours,
-      expectedClients: recordData.expectedClients,
-      status: recordData.status,
-    });
-
     try {
-      const attendanceRef = collection(db, 'attendance');
-      const docRef = await addDoc(attendanceRef, recordData);
-      console.log(`[Attendance Submission Success] Document written successfully at path: attendance/${docRef.id}`);
+      // Deterministic document creation
+      await setDoc(docRef, recordData);
+      console.log(`[Attendance Submission Success] Document written successfully at path: attendance/${docId}`);
       return { success: true };
     } catch (err: any) {
       const errorPayload = {
         code: err?.code || 'unknown',
         message: err?.message || String(err),
         operation: 'create',
-        path: 'attendance/{attendanceId}',
+        path: `attendance/${docId}`,
         authUid: uid,
         profileRole: currentProfile.role,
         employeeCode: employeeCode,
@@ -517,7 +558,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('[Attendance Submission Firebase Error]', errorPayload);
       return {
         success: false,
-        error: `Firebase Error [${errorPayload.code}]: ${errorPayload.message} (Operation: ${errorPayload.operation}, Path: ${errorPayload.path})`,
+        error: `Submission failed [${errorPayload.code}]: ${errorPayload.message}`,
       };
     }
   };
@@ -608,20 +649,200 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // Admin function: Update attendance status (Approve / Reject)
+  // Enforces: Once status becomes Approved or Rejected, it is FINAL and can NEVER be changed again.
   const updateAttendanceStatus = async (
     attendanceId: string,
     status: 'pending' | 'approved' | 'rejected'
   ): Promise<{ success: boolean; error?: string }> => {
     try {
       const docRef = doc(db, 'attendance', attendanceId);
+      const snap = await getDoc(docRef);
+      if (!snap.exists()) {
+        return { success: false, error: 'Attendance record not found.' };
+      }
+
+      const existingData = snap.data();
+      if (existingData.status === 'approved' || existingData.status === 'rejected') {
+        return {
+          success: false,
+          error: `This attendance record has already been finalized as '${existingData.status.toUpperCase()}' and can never be changed again.`,
+        };
+      }
+
       await updateDoc(docRef, {
         status,
-        updatedAt: new Date().toISOString(),
+        updatedAt: serverTimestamp(),
       });
       return { success: true };
     } catch (err: any) {
       handleFirestoreError(err, OperationType.UPDATE, `attendance/${attendanceId}`);
       return { success: false, error: err?.message || 'Failed to update attendance status.' };
+    }
+  };
+
+  // =========================================================================
+  // DAILY DATA REPORT OPERATIONS
+  // =========================================================================
+
+  // Admin: Create Daily Data Report and assign to employee
+  const createDailyReport = async (
+    data: CreateDailyReportPayload
+  ): Promise<{ success: boolean; error?: string }> => {
+    if (!auth.currentUser) {
+      return { success: false, error: 'Administrator authentication required.' };
+    }
+
+    if (!data.assignedEmployeeUid) {
+      return { success: false, error: 'Please select an employee. Employee selection is mandatory.' };
+    }
+
+    if (!data.name.trim() || !data.email.trim() || !data.number.trim() || !data.location.trim() || !data.requirement.trim()) {
+      return { success: false, error: 'Please fill in all mandatory report fields (Name, Email, Number, Location, Requirement).' };
+    }
+
+    try {
+      const reportRef = collection(db, 'daily_reports');
+      const payload = {
+        sNo: data.sNo || Date.now().toString().slice(-4),
+        name: data.name.trim(),
+        email: data.email.trim().toLowerCase(),
+        number: data.number.trim(),
+        location: data.location.trim(),
+        requirement: data.requirement.trim(),
+        status: data.status.trim() || 'Assigned',
+        assignedEmployeeUid: data.assignedEmployeeUid,
+        assignedEmployeeCode: data.assignedEmployeeCode,
+        assignedEmployeeName: data.assignedEmployeeName,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      };
+
+      await addDoc(reportRef, payload);
+      return { success: true };
+    } catch (err: any) {
+      handleFirestoreError(err, OperationType.CREATE, 'daily_reports');
+      return { success: false, error: err?.message || 'Failed to create daily data report.' };
+    }
+  };
+
+  // Admin: Fetch all Daily Data Reports
+  const fetchAdminDailyReports = async (): Promise<DailyReportItem[]> => {
+    try {
+      const reportRef = collection(db, 'daily_reports');
+      const snap = await getDocs(reportRef);
+      const list: DailyReportItem[] = [];
+      snap.forEach((d) => {
+        const raw = d.data();
+        const createdAtStr = raw.createdAt?.toDate
+          ? raw.createdAt.toDate().toISOString()
+          : typeof raw.createdAt === 'string'
+          ? raw.createdAt
+          : new Date().toISOString();
+        const updatedAtStr = raw.updatedAt?.toDate
+          ? raw.updatedAt.toDate().toISOString()
+          : typeof raw.updatedAt === 'string'
+          ? raw.updatedAt
+          : undefined;
+
+        list.push({
+          id: d.id,
+          sNo: raw.sNo ?? '—',
+          name: raw.name || '',
+          email: raw.email || '',
+          number: raw.number || '',
+          location: raw.location || '',
+          requirement: raw.requirement || '',
+          status: raw.status || 'Assigned',
+          assignedEmployeeUid: raw.assignedEmployeeUid,
+          assignedEmployeeCode: raw.assignedEmployeeCode || '',
+          assignedEmployeeName: raw.assignedEmployeeName || '',
+          createdAt: createdAtStr,
+          updatedAt: updatedAtStr,
+        });
+      });
+      return list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    } catch (err) {
+      handleFirestoreError(err, OperationType.LIST, 'daily_reports');
+      return [];
+    }
+  };
+
+  // Corporate: Fetch only Daily Data Reports assigned to this employee's own UID
+  const fetchEmployeeDailyReports = async (): Promise<DailyReportItem[]> => {
+    if (!auth.currentUser) return [];
+    try {
+      const reportRef = collection(db, 'daily_reports');
+      const q = query(
+        reportRef,
+        where('assignedEmployeeUid', '==', auth.currentUser.uid)
+      );
+      const snap = await getDocs(q);
+      const list: DailyReportItem[] = [];
+      snap.forEach((d) => {
+        const raw = d.data();
+        const createdAtStr = raw.createdAt?.toDate
+          ? raw.createdAt.toDate().toISOString()
+          : typeof raw.createdAt === 'string'
+          ? raw.createdAt
+          : new Date().toISOString();
+        const updatedAtStr = raw.updatedAt?.toDate
+          ? raw.updatedAt.toDate().toISOString()
+          : typeof raw.updatedAt === 'string'
+          ? raw.updatedAt
+          : undefined;
+
+        list.push({
+          id: d.id,
+          sNo: raw.sNo ?? '—',
+          name: raw.name || '',
+          email: raw.email || '',
+          number: raw.number || '',
+          location: raw.location || '',
+          requirement: raw.requirement || '',
+          status: raw.status || 'Assigned',
+          assignedEmployeeUid: raw.assignedEmployeeUid,
+          assignedEmployeeCode: raw.assignedEmployeeCode || '',
+          assignedEmployeeName: raw.assignedEmployeeName || '',
+          createdAt: createdAtStr,
+          updatedAt: updatedAtStr,
+        });
+      });
+      return list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    } catch (err) {
+      console.warn('Fetch employee daily reports notice:', err);
+      return [];
+    }
+  };
+
+  // Admin: Update Daily Data Report Status
+  const updateDailyReportStatus = async (
+    reportId: string,
+    status: string
+  ): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const docRef = doc(db, 'daily_reports', reportId);
+      await updateDoc(docRef, {
+        status: status.trim(),
+        updatedAt: serverTimestamp(),
+      });
+      return { success: true };
+    } catch (err: any) {
+      handleFirestoreError(err, OperationType.UPDATE, `daily_reports/${reportId}`);
+      return { success: false, error: err?.message || 'Failed to update report status.' };
+    }
+  };
+
+  // Admin: Delete Daily Data Report
+  const deleteDailyReport = async (
+    reportId: string
+  ): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const docRef = doc(db, 'daily_reports', reportId);
+      await deleteDoc(docRef);
+      return { success: true };
+    } catch (err: any) {
+      handleFirestoreError(err, OperationType.DELETE, `daily_reports/${reportId}`);
+      return { success: false, error: err?.message || 'Failed to delete report.' };
     }
   };
 
@@ -769,6 +990,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         updateAttendanceStatus,
         fetchAllCorporateUsers,
         updateUserProgressByAdmin,
+        createDailyReport,
+        fetchAdminDailyReports,
+        fetchEmployeeDailyReports,
+        updateDailyReportStatus,
+        deleteDailyReport,
         logout,
       }}
     >

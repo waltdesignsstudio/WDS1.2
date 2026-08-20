@@ -153,6 +153,78 @@
         }
       },
       "required": ["corporateUserId", "email", "uid"]
+    },
+    "DailyReportItem": {
+      "title": "DailyReportItem",
+      "description": "Daily data lead / client report created by Admin and assigned to a corporate employee",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique daily report document ID"
+        },
+        "sNo": {
+          "type": "number",
+          "description": "Serial number of the report entry"
+        },
+        "name": {
+          "type": "string",
+          "description": "Client or Lead name",
+          "maxLength": 120
+        },
+        "email": {
+          "type": "string",
+          "description": "Client email address",
+          "format": "email",
+          "maxLength": 120
+        },
+        "number": {
+          "type": "string",
+          "description": "Client contact phone number",
+          "maxLength": 40
+        },
+        "location": {
+          "type": "string",
+          "description": "Client or project location",
+          "maxLength": 120
+        },
+        "requirement": {
+          "type": "string",
+          "description": "Design or business requirement details",
+          "maxLength": 1000
+        },
+        "status": {
+          "type": "string",
+          "description": "Lead/report status (e.g. Assigned, In Progress, Contacted, Closed)",
+          "maxLength": 50
+        },
+        "assignedEmployeeUid": {
+          "type": "string",
+          "description": "Firebase Auth UID of the assigned corporate employee",
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "assignedEmployeeCode": {
+          "type": "string",
+          "description": "Corporate Employee ID (e.g. WDS-4827)",
+          "maxLength": 40
+        },
+        "assignedEmployeeName": {
+          "type": "string",
+          "description": "Full name of the assigned employee",
+          "maxLength": 120
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation timestamp"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last update timestamp"
+        }
+      },
+      "required": ["name", "email", "number", "location", "requirement", "status", "assignedEmployeeUid"]
     }
   },
   "firestore": {
@@ -167,6 +239,12 @@
         "$ref": "#/entities/AttendanceRecord"
       },
       "description": "Collection of employee attendance submissions managed by Admin"
+    },
+    "/daily_reports/{reportId}": {
+      "schema": {
+        "$ref": "#/entities/DailyReportItem"
+      },
+      "description": "Collection of Daily Data Reports created by Admin and assigned to Corporate employees by Firebase UID"
     },
     "/wds_lookup/{corporateUserId}": {
       "schema": {

@@ -22,11 +22,13 @@ import {
   FileText,
   Briefcase,
   XCircle,
+  FileSpreadsheet,
+  Search,
 } from 'lucide-react';
-import { useAuth, AttendanceRecord } from '../context/AuthContext';
+import { useAuth, AttendanceRecord, DailyReportItem } from '../context/AuthContext';
 import { AGENCY_INFO, DIVISIONS } from '../data/agencyData';
 
-type CorporateTab = 'dashboard' | 'profile' | 'portfolio' | 'attendance';
+type CorporateTab = 'dashboard' | 'profile' | 'portfolio' | 'attendance' | 'data-report';
 
 export const CorporateDashboard: React.FC = () => {
   const {
@@ -38,6 +40,7 @@ export const CorporateDashboard: React.FC = () => {
     changeUserPassword,
     submitAttendance,
     fetchUserAttendance,
+    fetchEmployeeDailyReports,
   } = useAuth();
 
   const [activeTab, setActiveTab] = useState<CorporateTab>('dashboard');
@@ -67,6 +70,11 @@ export const CorporateDashboard: React.FC = () => {
   const [attendanceHistory, setAttendanceHistory] = useState<AttendanceRecord[]>([]);
   const [loadingAttendance, setLoadingAttendance] = useState(false);
 
+  // Daily Data Report State (Assigned to this employee)
+  const [dailyReports, setDailyReports] = useState<DailyReportItem[]>([]);
+  const [loadingReports, setLoadingReports] = useState(false);
+  const [reportSearch, setReportSearch] = useState('');
+
   const corporateId = profile?.corporateUserId || 'WDS-ACTIVE';
   const income = profile?.income || 0;
   const progress = profile?.progress || 0;
@@ -80,9 +88,10 @@ export const CorporateDashboard: React.FC = () => {
     }
   }, [profile]);
 
-  // Load attendance records
+  // Load attendance and daily data report records
   useEffect(() => {
     loadAttendance();
+    loadReports();
   }, [user]);
 
   const loadAttendance = async () => {
@@ -97,10 +106,23 @@ export const CorporateDashboard: React.FC = () => {
     }
   };
 
+  const loadReports = async () => {
+    setLoadingReports(true);
+    try {
+      const reports = await fetchEmployeeDailyReports();
+      setDailyReports(reports);
+    } catch (err) {
+      console.error('Failed to load employee daily reports:', err);
+    } finally {
+      setLoadingReports(false);
+    }
+  };
+
   const handleRefresh = async () => {
     setIsRefreshing(true);
     await refreshProfile();
     await loadAttendance();
+    await loadReports();
     setTimeout(() => setIsRefreshing(false), 600);
   };
 
@@ -324,6 +346,25 @@ export const CorporateDashboard: React.FC = () => {
                   activeTab === 'attendance' ? 'bg-black/30 text-black' : 'bg-white/10 text-zinc-300'
                 }`}>
                   {attendanceHistory.length}
+                </span>
+              )}
+            </button>
+
+            <button
+              onClick={() => setActiveTab('data-report')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+                activeTab === 'data-report'
+                  ? 'bg-amber-500 text-black shadow-md'
+                  : 'text-zinc-300 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+              <span>Data Report Status</span>
+              {dailyReports.length > 0 && (
+                <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+                  activeTab === 'data-report' ? 'bg-black/30 text-black' : 'bg-white/10 text-zinc-300'
+                }`}>
+                  {dailyReports.length}
                 </span>
               )}
             </button>
@@ -951,6 +992,126 @@ export const CorporateDashboard: React.FC = () => {
                 )}
               </div>
 
+            </div>
+          </div>
+        )}
+
+        {/* ======================================================================= */}
+        {/* TAB 5: DATA REPORT STATUS (EMPLOYEE ASSIGNED LEADS & DAILY REPORTS) */}
+        {/* ======================================================================= */}
+        {activeTab === 'data-report' && (
+          <div className="space-y-6 animate-in fade-in">
+            <div className="p-6 rounded-2xl bg-[#1c1404]/90 border border-amber-500/30 shadow-xl space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h3 className="font-bold text-base text-white flex items-center gap-2">
+                    <FileSpreadsheet className="w-4 h-4 text-amber-400" />
+                    <span>Data Report Status</span>
+                  </h3>
+                  <p className="text-xs text-zinc-400 mt-0.5">
+                    View daily client reports and lead assignments provisioned directly by Admin
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <div className="relative">
+                    <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      value={reportSearch}
+                      onChange={(e) => setReportSearch(e.target.value)}
+                      placeholder="Search client, location..."
+                      className="pl-8 pr-3 py-1.5 rounded-xl bg-black/40 border border-amber-500/20 text-xs text-white focus:border-amber-500 outline-none w-44"
+                    />
+                  </div>
+
+                  <button
+                    onClick={loadReports}
+                    className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 text-xs flex items-center gap-1.5 border border-white/10 cursor-pointer"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${loadingReports ? 'animate-spin' : ''}`} />
+                    <span>Refresh</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Data Table */}
+              <div className="overflow-x-auto rounded-xl border border-amber-500/20 bg-black/40">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-black/70 text-zinc-400 font-mono uppercase text-[10px] border-b border-amber-500/20">
+                    <tr>
+                      <th className="px-3.5 py-3">S.No</th>
+                      <th className="px-3.5 py-3">Name</th>
+                      <th className="px-3.5 py-3">Email</th>
+                      <th className="px-3.5 py-3">Number</th>
+                      <th className="px-3.5 py-3">Location</th>
+                      <th className="px-3.5 py-3">Requirement</th>
+                      <th className="px-3.5 py-3">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {loadingReports ? (
+                      <tr>
+                        <td colSpan={7} className="px-4 py-8 text-center text-zinc-400">
+                          <div className="w-6 h-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                          <span>Loading Assigned Reports...</span>
+                        </td>
+                      </tr>
+                    ) : dailyReports.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="px-4 py-8 text-center text-zinc-400">
+                          <FileSpreadsheet className="w-8 h-8 text-zinc-600 mx-auto mb-2" />
+                          <p className="font-semibold text-zinc-300">No data reports assigned yet.</p>
+                          <p className="text-[11px] text-zinc-500 mt-0.5">
+                            Any client reports or leads assigned to your Employee ID ({corporateId}) will appear here automatically.
+                          </p>
+                        </td>
+                      </tr>
+                    ) : (
+                      dailyReports
+                        .filter((r) => {
+                          const q = reportSearch.toLowerCase().trim();
+                          return (
+                            !q ||
+                            r.name.toLowerCase().includes(q) ||
+                            r.email.toLowerCase().includes(q) ||
+                            r.number.toLowerCase().includes(q) ||
+                            r.location.toLowerCase().includes(q) ||
+                            r.requirement.toLowerCase().includes(q) ||
+                            String(r.sNo).toLowerCase().includes(q)
+                          );
+                        })
+                        .map((report) => (
+                          <tr key={report.id} className="hover:bg-amber-500/5 transition-colors">
+                            <td className="px-3.5 py-3 font-mono font-bold text-amber-400 whitespace-nowrap">
+                              #{report.sNo}
+                            </td>
+                            <td className="px-3.5 py-3 font-semibold text-white">
+                              {report.name}
+                            </td>
+                            <td className="px-3.5 py-3 font-mono text-zinc-300">
+                              {report.email}
+                            </td>
+                            <td className="px-3.5 py-3 font-mono text-zinc-300 whitespace-nowrap">
+                              {report.number}
+                            </td>
+                            <td className="px-3.5 py-3 text-zinc-300">
+                              {report.location}
+                            </td>
+                            <td className="px-3.5 py-3 text-zinc-200 max-w-sm" title={report.requirement}>
+                              {report.requirement}
+                            </td>
+                            <td className="px-3.5 py-3 whitespace-nowrap">
+                              <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-500/20 border border-amber-500/40 text-amber-300">
+                                {report.status}
+                              </span>
+                            </td>
+                          </tr>
+                        ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}

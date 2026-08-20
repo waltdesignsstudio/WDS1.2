@@ -28,11 +28,16 @@ import {
   Check,
   X,
   Filter,
+  FileSpreadsheet,
+  Lock,
+  Trash2,
+  Plus,
+  Send,
 } from 'lucide-react';
-import { useAuth, UserProfile, AttendanceRecord } from '../context/AuthContext';
+import { useAuth, UserProfile, AttendanceRecord, DailyReportItem } from '../context/AuthContext';
 import { AGENCY_INFO } from '../data/agencyData';
 
-type AdminTab = 'dashboard' | 'profile' | 'portfolio' | 'corporate-registration' | 'attendance';
+type AdminTab = 'dashboard' | 'profile' | 'portfolio' | 'corporate-registration' | 'attendance' | 'daily-report';
 
 export const AdminDashboard: React.FC = () => {
   const {
@@ -47,6 +52,10 @@ export const AdminDashboard: React.FC = () => {
     changeUserPassword,
     fetchAllAttendance,
     updateAttendanceStatus,
+    createDailyReport,
+    fetchAdminDailyReports,
+    updateDailyReportStatus,
+    deleteDailyReport,
   } = useAuth();
 
   const [activeTab, setActiveTab] = useState<AdminTab>('dashboard');
@@ -59,6 +68,25 @@ export const AdminDashboard: React.FC = () => {
   const [loadingAttendance, setLoadingAttendance] = useState(false);
   const [attendanceFilter, setAttendanceFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
   const [attendanceActionId, setAttendanceActionId] = useState<string | null>(null);
+
+  // Daily Data Report state
+  const [dailyReportList, setDailyReportList] = useState<DailyReportItem[]>([]);
+  const [loadingDailyReports, setLoadingDailyReports] = useState(false);
+  const [reportSearchQuery, setReportSearchQuery] = useState('');
+  const [reportFilterEmployee, setReportFilterEmployee] = useState<string>('all');
+  const [reportActionId, setReportActionId] = useState<string | null>(null);
+
+  // Daily Data Report creation form state
+  const [reportSNo, setReportSNo] = useState<string>('');
+  const [reportName, setReportName] = useState<string>('');
+  const [reportEmail, setReportEmail] = useState<string>('');
+  const [reportNumber, setReportNumber] = useState<string>('');
+  const [reportLocation, setReportLocation] = useState<string>('');
+  const [reportRequirement, setReportRequirement] = useState<string>('');
+  const [reportStatus, setReportStatus] = useState<string>('Assigned');
+  const [selectedEmployeeUid, setSelectedEmployeeUid] = useState<string>('');
+  const [reportFormError, setReportFormError] = useState<string | null>(null);
+  const [isCreatingReport, setIsCreatingReport] = useState<boolean>(false);
 
   // Admin Profile Edit State
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -105,6 +133,7 @@ export const AdminDashboard: React.FC = () => {
   useEffect(() => {
     loadCorporateData();
     loadAttendanceData();
+    loadDailyReports();
   }, []);
 
   useEffect(() => {
@@ -135,6 +164,18 @@ export const AdminDashboard: React.FC = () => {
       console.error('Failed to load attendance records:', err);
     } finally {
       setLoadingAttendance(false);
+    }
+  };
+
+  const loadDailyReports = async () => {
+    setLoadingDailyReports(true);
+    try {
+      const list = await fetchAdminDailyReports();
+      setDailyReportList(list);
+    } catch (err) {
+      console.error('Failed to load daily reports:', err);
+    } finally {
+      setLoadingDailyReports(false);
     }
   };
 
@@ -205,7 +246,8 @@ export const AdminDashboard: React.FC = () => {
   };
 
   // Attendance Status Update (Approve / Reject)
-  const handleUpdateAttendanceStatus = async (attendanceId: string, newStatus: 'approved' | 'rejected' | 'pending') => {
+  // Enforces: Once Approved or Rejected, status is permanent and final.
+  const handleUpdateAttendanceStatus = async (attendanceId: string, newStatus: 'approved' | 'rejected') => {
     setAttendanceActionId(attendanceId);
     try {
       const res = await updateAttendanceStatus(attendanceId, newStatus);
@@ -213,13 +255,112 @@ export const AdminDashboard: React.FC = () => {
         setAttendanceList((prev) =>
           prev.map((item) => (item.id === attendanceId ? { ...item, status: newStatus } : item))
         );
-        setUpdateSuccess(`Attendance record status updated to ${newStatus.toUpperCase()}.`);
+        setUpdateSuccess(`Attendance status finalized as ${newStatus.toUpperCase()}. Status is permanent.`);
         setTimeout(() => setUpdateSuccess(null), 3000);
+      } else {
+        setProfileMessage({ type: 'error', text: res.error || 'Failed to update attendance status.' });
       }
     } catch (err) {
       console.error('Failed to update attendance status:', err);
     } finally {
       setAttendanceActionId(null);
+    }
+  };
+
+  // Daily Data Report: Create new report assigned to employee
+  const handleCreateDailyReportSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setReportFormError(null);
+
+    // Mandatory Employee Selection Validation
+    if (!selectedEmployeeUid) {
+      setReportFormError('Please select a corporate employee. Employee selection is mandatory.');
+      return;
+    }
+
+    if (!reportName.trim() || !reportEmail.trim() || !reportNumber.trim() || !reportLocation.trim() || !reportRequirement.trim()) {
+      setReportFormError('Please fill in all mandatory fields (Name, Email, Number, Location, Requirement).');
+      return;
+    }
+
+    const assignedEmp = corporateList.find((c) => c.uid === selectedEmployeeUid);
+    if (!assignedEmp) {
+      setReportFormError('Selected corporate employee profile not found.');
+      return;
+    }
+
+    setIsCreatingReport(true);
+    try {
+      const nextSNo = reportSNo.trim() || (dailyReportList.length + 1).toString();
+      const res = await createDailyReport({
+        sNo: nextSNo,
+        name: reportName.trim(),
+        email: reportEmail.trim().toLowerCase(),
+        number: reportNumber.trim(),
+        location: reportLocation.trim(),
+        requirement: reportRequirement.trim(),
+        status: reportStatus.trim() || 'Assigned',
+        assignedEmployeeUid: assignedEmp.uid,
+        assignedEmployeeCode: assignedEmp.corporateUserId || 'WDS-CORP',
+        assignedEmployeeName: assignedEmp.name || 'Corporate Employee',
+      });
+
+      if (res.success) {
+        setUpdateSuccess(`Daily Data Report #${nextSNo} created and assigned to ${assignedEmp.name} (${assignedEmp.corporateUserId}).`);
+        setReportSNo('');
+        setReportName('');
+        setReportEmail('');
+        setReportNumber('');
+        setReportLocation('');
+        setReportRequirement('');
+        setReportStatus('Assigned');
+        setSelectedEmployeeUid('');
+        await loadDailyReports();
+        setTimeout(() => setUpdateSuccess(null), 4000);
+      } else {
+        setReportFormError(res.error || 'Failed to create daily data report.');
+      }
+    } catch (err: any) {
+      setReportFormError(err?.message || 'An error occurred while creating daily report.');
+    } finally {
+      setIsCreatingReport(false);
+    }
+  };
+
+  // Daily Data Report: Update Status
+  const handleUpdateReportStatus = async (reportId: string, newStatus: string) => {
+    setReportActionId(reportId);
+    try {
+      const res = await updateDailyReportStatus(reportId, newStatus);
+      if (res.success) {
+        setDailyReportList((prev) =>
+          prev.map((item) => (item.id === reportId ? { ...item, status: newStatus } : item))
+        );
+        setUpdateSuccess(`Report status updated to '${newStatus}'.`);
+        setTimeout(() => setUpdateSuccess(null), 3000);
+      }
+    } catch (err) {
+      console.error('Failed to update report status:', err);
+    } finally {
+      setReportActionId(null);
+    }
+  };
+
+  // Daily Data Report: Delete
+  const handleDeleteReport = async (reportId: string) => {
+    if (!window.confirm('Are you sure you want to delete this Daily Data Report?')) return;
+    setReportActionId(reportId);
+    try {
+      const res = await deleteDailyReport(reportId);
+      if (res.success) {
+        setDailyReportList((prev) => prev.filter((item) => item.id !== reportId));
+        setUpdateSuccess('Daily Data Report deleted successfully.');
+        setTimeout(() => setUpdateSuccess(null), 3000);
+      }
+    } catch (err) {
+      console.error('Failed to delete daily report:', err);
+    } finally {
+      setReportActionId(null);
     }
   };
 
@@ -450,6 +591,25 @@ export const AdminDashboard: React.FC = () => {
               {pendingAttendanceCount > 0 && (
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-400 text-black animate-pulse">
                   {pendingAttendanceCount} Pending
+                </span>
+              )}
+            </button>
+
+            <button
+              onClick={() => setActiveTab('daily-report')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+                activeTab === 'daily-report'
+                  ? 'bg-amber-500 text-black shadow-md'
+                  : 'text-zinc-300 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+              <span>Daily Data Report</span>
+              {dailyReportList.length > 0 && (
+                <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+                  activeTab === 'daily-report' ? 'bg-black/30 text-black' : 'bg-white/10 text-zinc-300'
+                }`}>
+                  {dailyReportList.length}
                 </span>
               )}
             </button>
@@ -1405,8 +1565,8 @@ export const AdminDashboard: React.FC = () => {
 
                           {/* Actions */}
                           <td className="px-4 py-3.5 text-right whitespace-nowrap">
-                            <div className="flex items-center justify-end gap-1.5">
-                              {item.status !== 'approved' && (
+                            {item.status === 'pending' ? (
+                              <div className="flex items-center justify-end gap-1.5">
                                 <button
                                   onClick={() => handleUpdateAttendanceStatus(item.id, 'approved')}
                                   disabled={attendanceActionId === item.id}
@@ -1415,9 +1575,7 @@ export const AdminDashboard: React.FC = () => {
                                   <Check className="w-3 h-3" />
                                   <span>Approve</span>
                                 </button>
-                              )}
 
-                              {item.status !== 'rejected' && (
                                 <button
                                   onClick={() => handleUpdateAttendanceStatus(item.id, 'rejected')}
                                   disabled={attendanceActionId === item.id}
@@ -1426,14 +1584,375 @@ export const AdminDashboard: React.FC = () => {
                                   <X className="w-3 h-3" />
                                   <span>Reject</span>
                                 </button>
-                              )}
-                            </div>
+                              </div>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-white/5 border border-white/10 text-zinc-400">
+                                <Lock className="w-3 h-3 text-zinc-500" />
+                                <span>Finalized</span>
+                              </span>
+                            )}
                           </td>
                         </tr>
                       ))
                     )}
                   </tbody>
                 </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ======================================================================= */}
+        {/* TAB 6: DAILY DATA REPORT (ADMIN ENTRY & EMPLOYEE ASSIGNMENT) */}
+        {/* ======================================================================= */}
+        {activeTab === 'daily-report' && (
+          <div className="space-y-6 animate-in fade-in">
+            {/* Header / Intro Card */}
+            <div className="p-6 rounded-2xl bg-[#250529] border border-amber-500/30 shadow-xl space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h3 className="font-bold text-base text-white flex items-center gap-2">
+                    <FileSpreadsheet className="w-4 h-4 text-amber-400" />
+                    <span>Daily Data Report Hub</span>
+                  </h3>
+                  <p className="text-xs text-zinc-400 mt-0.5">
+                    Create client lead reports and assign them directly to verified Corporate employees
+                  </p>
+                </div>
+
+                <button
+                  onClick={loadDailyReports}
+                  className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 text-xs flex items-center gap-1.5 cursor-pointer self-start sm:self-auto border border-white/10"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${loadingDailyReports ? 'animate-spin' : ''}`} />
+                  <span>Refresh Reports</span>
+                </button>
+              </div>
+
+              {/* Create Report Form Card */}
+              <div className="p-5 rounded-xl bg-black/40 border border-white/10 space-y-4">
+                <div className="flex items-center gap-2 border-b border-white/10 pb-3">
+                  <Plus className="w-4 h-4 text-amber-400" />
+                  <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                    Create New Daily Data Report
+                  </h4>
+                </div>
+
+                {reportFormError && (
+                  <div className="p-3 rounded-xl bg-red-950/80 border border-red-500/40 text-red-200 text-xs flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+                    <span>{reportFormError}</span>
+                  </div>
+                )}
+
+                <form onSubmit={handleCreateDailyReportSubmit} className="space-y-4">
+                  {/* Mandatory Employee Selection */}
+                  <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-1.5">
+                    <label className="text-xs font-bold text-amber-300 flex items-center justify-between">
+                      <span>Select Employee (MANDATORY) *</span>
+                      <span className="text-[10px] font-normal text-amber-400">
+                        {corporateList.length} Active Corporate Representatives Available
+                      </span>
+                    </label>
+                    <select
+                      required
+                      value={selectedEmployeeUid}
+                      onChange={(e) => setSelectedEmployeeUid(e.target.value)}
+                      className="w-full bg-[#1e0524] border border-amber-500/50 focus:border-amber-400 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none font-medium cursor-pointer"
+                    >
+                      <option value="">-- Select Active Corporate Employee (Mandatory) * --</option>
+                      {corporateList.map((emp) => (
+                        <option key={emp.uid} value={emp.uid}>
+                          {emp.name} ({emp.corporateUserId || 'WDS-ACTIVE'}) • {emp.corporateRole || 'Sales'} • {emp.location || 'Corporate'}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-[10px] text-zinc-400">
+                      The report will be tied to this employee's unique Firebase UID and will only be visible in their portal.
+                    </p>
+                  </div>
+
+                  {/* Report Details Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                    {/* S.No */}
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-zinc-300">S.No (Optional / Auto)</label>
+                      <input
+                        type="text"
+                        value={reportSNo}
+                        onChange={(e) => setReportSNo(e.target.value)}
+                        placeholder={`e.g. ${dailyReportList.length + 1}`}
+                        className="w-full bg-black/50 border border-white/15 focus:border-amber-500 rounded-xl px-3 py-2 text-xs text-white outline-none font-mono"
+                      />
+                    </div>
+
+                    {/* Client Name */}
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-zinc-300">Client / Lead Name *</label>
+                      <input
+                        type="text"
+                        required
+                        value={reportName}
+                        onChange={(e) => setReportName(e.target.value)}
+                        placeholder="e.g. Acme Retail Enterprises"
+                        className="w-full bg-black/50 border border-white/15 focus:border-amber-500 rounded-xl px-3 py-2 text-xs text-white outline-none"
+                      />
+                    </div>
+
+                    {/* Email */}
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-zinc-300">Email Address *</label>
+                      <input
+                        type="email"
+                        required
+                        value={reportEmail}
+                        onChange={(e) => setReportEmail(e.target.value)}
+                        placeholder="client@example.com"
+                        className="w-full bg-black/50 border border-white/15 focus:border-amber-500 rounded-xl px-3 py-2 text-xs text-white outline-none"
+                      />
+                    </div>
+
+                    {/* Contact Number */}
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-zinc-300">Contact Number *</label>
+                      <input
+                        type="tel"
+                        required
+                        value={reportNumber}
+                        onChange={(e) => setReportNumber(e.target.value)}
+                        placeholder="+91 98765 43210"
+                        className="w-full bg-black/50 border border-white/15 focus:border-amber-500 rounded-xl px-3 py-2 text-xs text-white outline-none font-mono"
+                      />
+                    </div>
+
+                    {/* Location */}
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-zinc-300">Location / City *</label>
+                      <input
+                        type="text"
+                        required
+                        value={reportLocation}
+                        onChange={(e) => setReportLocation(e.target.value)}
+                        placeholder="e.g. Connaught Place, New Delhi"
+                        className="w-full bg-black/50 border border-white/15 focus:border-amber-500 rounded-xl px-3 py-2 text-xs text-white outline-none"
+                      />
+                    </div>
+
+                    {/* Initial Status */}
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-zinc-300">Lead Status</label>
+                      <select
+                        value={reportStatus}
+                        onChange={(e) => setReportStatus(e.target.value)}
+                        className="w-full bg-[#1e0524] border border-white/15 focus:border-amber-500 rounded-xl px-3 py-2 text-xs text-white outline-none"
+                      >
+                        <option value="Assigned">Assigned</option>
+                        <option value="In Progress">In Progress</option>
+                        <option value="Contacted">Contacted</option>
+                        <option value="Meeting Scheduled">Meeting Scheduled</option>
+                        <option value="Proposal Sent">Proposal Sent</option>
+                        <option value="Closed / Won">Closed / Won</option>
+                        <option value="Pending">Pending</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Requirement Details */}
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-zinc-300">Design / Business Requirement *</label>
+                    <textarea
+                      required
+                      rows={2}
+                      value={reportRequirement}
+                      onChange={(e) => setReportRequirement(e.target.value)}
+                      placeholder="e.g. Complete luxury corporate branding, 3D interior renders, and full packaging kit for new flagship branch."
+                      className="w-full bg-black/50 border border-white/15 focus:border-amber-500 rounded-xl p-3 text-xs text-white outline-none resize-none"
+                    />
+                  </div>
+
+                  {/* Submit Button */}
+                  <div className="flex justify-end">
+                    <button
+                      type="submit"
+                      disabled={isCreatingReport}
+                      className="px-6 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs shadow-md transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                    >
+                      {isCreatingReport ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                          <span>Assigning Report...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Send className="w-4 h-4" />
+                          <span>Save & Assign Daily Data Report</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              {/* Data Reports List & Filter */}
+              <div className="space-y-3 pt-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                      All Daily Data Reports ({dailyReportList.length})
+                    </h4>
+                  </div>
+
+                  {/* Search and Employee Filter */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* Search */}
+                    <div className="relative">
+                      <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        value={reportSearchQuery}
+                        onChange={(e) => setReportSearchQuery(e.target.value)}
+                        placeholder="Search name, requirement..."
+                        className="pl-8 pr-3 py-1.5 rounded-xl bg-black/40 border border-white/10 text-xs text-white focus:border-amber-500 outline-none w-48"
+                      />
+                    </div>
+
+                    {/* Employee Filter */}
+                    <select
+                      value={reportFilterEmployee}
+                      onChange={(e) => setReportFilterEmployee(e.target.value)}
+                      className="px-3 py-1.5 rounded-xl bg-black/40 border border-white/10 text-xs text-zinc-200 outline-none"
+                    >
+                      <option value="all">All Assigned Employees</option>
+                      {corporateList.map((emp) => (
+                        <option key={emp.uid} value={emp.uid}>
+                          {emp.name} ({emp.corporateUserId})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Reports Table */}
+                <div className="overflow-x-auto rounded-xl border border-white/10 bg-black/30">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-black/60 text-zinc-400 font-mono uppercase text-[10px] border-b border-white/10">
+                      <tr>
+                        <th className="px-3.5 py-3">S.No</th>
+                        <th className="px-3.5 py-3">Client Name</th>
+                        <th className="px-3.5 py-3">Email</th>
+                        <th className="px-3.5 py-3">Number</th>
+                        <th className="px-3.5 py-3">Location</th>
+                        <th className="px-3.5 py-3">Requirement</th>
+                        <th className="px-3.5 py-3">Assigned Employee</th>
+                        <th className="px-3.5 py-3">Status</th>
+                        <th className="px-3.5 py-3 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {loadingDailyReports ? (
+                        <tr>
+                          <td colSpan={9} className="px-4 py-8 text-center text-zinc-400">
+                            <div className="w-6 h-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                            <span>Loading Daily Data Reports...</span>
+                          </td>
+                        </tr>
+                      ) : dailyReportList.length === 0 ? (
+                        <tr>
+                          <td colSpan={9} className="px-4 py-8 text-center text-zinc-400">
+                            No daily data reports created yet. Use the form above to assign your first report.
+                          </td>
+                        </tr>
+                      ) : (
+                        dailyReportList
+                          .filter((item) => {
+                            const matchesEmp =
+                              reportFilterEmployee === 'all' || item.assignedEmployeeUid === reportFilterEmployee;
+                            const q = reportSearchQuery.toLowerCase().trim();
+                            const matchesSearch =
+                              !q ||
+                              item.name.toLowerCase().includes(q) ||
+                              item.email.toLowerCase().includes(q) ||
+                              item.number.toLowerCase().includes(q) ||
+                              item.location.toLowerCase().includes(q) ||
+                              item.requirement.toLowerCase().includes(q) ||
+                              item.assignedEmployeeName.toLowerCase().includes(q) ||
+                              item.assignedEmployeeCode.toLowerCase().includes(q) ||
+                              String(item.sNo).toLowerCase().includes(q);
+                            return matchesEmp && matchesSearch;
+                          })
+                          .map((item) => (
+                            <tr key={item.id} className="hover:bg-white/5 transition-colors">
+                              {/* S.No */}
+                              <td className="px-3.5 py-3 font-mono font-bold text-amber-400 whitespace-nowrap">
+                                #{item.sNo}
+                              </td>
+
+                              {/* Client Name */}
+                              <td className="px-3.5 py-3 font-semibold text-white">
+                                {item.name}
+                              </td>
+
+                              {/* Email */}
+                              <td className="px-3.5 py-3 font-mono text-zinc-300">
+                                {item.email}
+                              </td>
+
+                              {/* Number */}
+                              <td className="px-3.5 py-3 font-mono text-zinc-300 whitespace-nowrap">
+                                {item.number}
+                              </td>
+
+                              {/* Location */}
+                              <td className="px-3.5 py-3 text-zinc-300">
+                                {item.location}
+                              </td>
+
+                              {/* Requirement */}
+                              <td className="px-3.5 py-3 text-zinc-200 max-w-xs truncate" title={item.requirement}>
+                                {item.requirement}
+                              </td>
+
+                              {/* Assigned Employee */}
+                              <td className="px-3.5 py-3 whitespace-nowrap">
+                                <div className="font-semibold text-white">{item.assignedEmployeeName}</div>
+                                <div className="text-[10px] font-mono text-amber-300">{item.assignedEmployeeCode}</div>
+                              </td>
+
+                              {/* Status with Quick Change */}
+                              <td className="px-3.5 py-3 whitespace-nowrap">
+                                <select
+                                  value={item.status}
+                                  onChange={(e) => handleUpdateReportStatus(item.id, e.target.value)}
+                                  disabled={reportActionId === item.id}
+                                  className="bg-black/50 border border-white/20 rounded-lg px-2 py-1 text-[11px] font-semibold text-amber-300 outline-none cursor-pointer hover:border-amber-500"
+                                >
+                                  <option value="Assigned">Assigned</option>
+                                  <option value="In Progress">In Progress</option>
+                                  <option value="Contacted">Contacted</option>
+                                  <option value="Meeting Scheduled">Meeting Scheduled</option>
+                                  <option value="Proposal Sent">Proposal Sent</option>
+                                  <option value="Closed / Won">Closed / Won</option>
+                                  <option value="Pending">Pending</option>
+                                </select>
+                              </td>
+
+                              {/* Actions */}
+                              <td className="px-3.5 py-3 text-right whitespace-nowrap">
+                                <button
+                                  onClick={() => handleDeleteReport(item.id)}
+                                  disabled={reportActionId === item.id}
+                                  className="p-1.5 rounded-lg bg-red-950/40 hover:bg-red-900 border border-red-500/40 text-red-300 text-xs transition-colors cursor-pointer disabled:opacity-50"
+                                  title="Delete Report"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </td>
+                            </tr>
+                          ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           </div>
