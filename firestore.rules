@@ -1,0 +1,112 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Deny-by-default Catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Hardened Helper Primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Role Resolution: Check database document or bootstrapped admin email
+    function isAdmin() {
+      return isSignedIn() && (
+        (request.auth.token.email == "priyanshukumarjha604@gmail.com") ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+      );
+    }
+
+    // Entity Schema Validation Blueprint for User Profiles
+    function isValidUserProfile(data) {
+      return data.keys().hasAll(['uid', 'name', 'email', 'phone', 'role']) &&
+        data.uid is string && data.uid.size() > 0 && data.uid.size() <= 128 &&
+        data.name is string && data.name.size() >= 2 && data.name.size() <= 100 &&
+        data.email is string && data.email.size() <= 120 &&
+        data.phone is string && data.phone.size() >= 6 && data.phone.size() <= 25 &&
+        data.role in ['corporate', 'admin'] &&
+        (!('location' in data) || (data.location is string && data.location.size() <= 100)) &&
+        (!('corporateRole' in data) || (data.corporateRole is string && data.corporateRole.size() <= 80)) &&
+        (!('avlId' in data) || (data.avlId is string && data.avlId.size() <= 40)) &&
+        (!('income' in data) || (data.income is number)) &&
+        (!('progress' in data) || (data.progress is number)) &&
+        (!('createdAt' in data) || (data.createdAt is timestamp || data.createdAt is string)) &&
+        (!('updatedAt' in data) || (data.updatedAt is timestamp || data.updatedAt is string));
+    }
+
+    // User Profiles Collection: /users/{uid}
+    match /users/{uid} {
+      // Single Document Read (Get): Only the user themselves or an Admin
+      allow get: if isSignedIn() && isValidId(uid) && (
+        request.auth.uid == uid || isAdmin()
+      );
+
+      // List Queries: Only Admin or query constrained to user's own UID
+      allow list: if isSignedIn() && (
+        isAdmin() || resource.data.uid == request.auth.uid
+      );
+
+      // Document Creation: User registers their own document
+      // Corporate role is default public; Admin requires bootstrap or existing admin
+      allow create: if isSignedIn() && isValidId(uid) &&
+        request.auth.uid == uid &&
+        incoming().uid == request.auth.uid &&
+        isValidUserProfile(incoming()) &&
+        (
+          incoming().role == 'corporate' ||
+          (incoming().role == 'admin' && (request.auth.token.email == "priyanshukumarjha604@gmail.com" || isAdmin()))
+        );
+
+      // Document Update:
+      // 1. Corporate user can update their profile BUT CANNOT escalate role or alter immutable fields
+      // 2. Admin can update records (progress, income, etc.)
+      allow update: if isSignedIn() && isValidId(uid) && isValidUserProfile(incoming()) && (
+        (
+          request.auth.uid == uid &&
+          incoming().uid == existing().uid &&
+          incoming().role == existing().role && // Strict privilege escalation prevention
+          (!('createdAt' in existing()) || incoming().createdAt == existing().createdAt)
+        ) ||
+        isAdmin()
+      );
+
+      // Deletion: Admin only
+      allow delete: if isSignedIn() && isValidId(uid) && isAdmin();
+    }
+
+    // AVL Lookup Collection: /avl_lookup/{avlId}
+    match /avl_lookup/{avlId} {
+      // Allows looking up email by AVL ID during login
+      allow get: if isValidId(avlId);
+      allow list: if isSignedIn() && isAdmin();
+
+      allow create: if isSignedIn() && isValidId(avlId) &&
+        incoming().uid == request.auth.uid &&
+        incoming().email is string &&
+        incoming().avlId is string;
+
+      allow update: if isSignedIn() && isValidId(avlId) &&
+        incoming().uid == request.auth.uid;
+
+      allow delete: if isSignedIn() && isValidId(avlId) && (
+        existing().uid == request.auth.uid || isAdmin()
+      );
+    }
+  }
+}
