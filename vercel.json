@@ -5,48 +5,24 @@
   "cleanUrls": true,
   "rewrites": [
     {
-      "source": "/aboutus",
-      "destination": "/about.html"
-    },
-    {
-      "source": "/aboutus.html",
-      "destination": "/about.html"
+      "source": "/services",
+      "destination": "/services.html"
     },
     {
       "source": "/about",
       "destination": "/about.html"
     },
     {
-      "source": "/about.html",
+      "source": "/aboutus",
       "destination": "/about.html"
-    },
-    {
-      "source": "/contactus",
-      "destination": "/contact.html"
-    },
-    {
-      "source": "/contactus.html",
-      "destination": "/contact.html"
     },
     {
       "source": "/contact",
       "destination": "/contact.html"
     },
     {
-      "source": "/contact.html",
+      "source": "/contactus",
       "destination": "/contact.html"
-    },
-    {
-      "source": "/services",
-      "destination": "/services.html"
-    },
-    {
-      "source": "/services.html",
-      "destination": "/services.html"
-    },
-    {
-      "source": "/index.html",
-      "destination": "/index.html"
     }
   ]
 }
