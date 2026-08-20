@@ -181,7 +181,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPage = 'home' }) => {
                 </div>
               ) : (
                 <button
-                  onClick={() => openAuthModal('corporate')}
+                  onClick={() => openAuthModal()}
                   className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-white/10 hover:bg-white/20 border border-white/15 text-white shadow-sm transition-all whitespace-nowrap cursor-pointer"
                 >
                   <LogIn className="w-3.5 h-3.5 text-amber-400" />
@@ -211,7 +211,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPage = 'home' }) => {
                 </a>
               ) : (
                 <button
-                  onClick={() => openAuthModal('corporate')}
+                  onClick={() => openAuthModal()}
                   className="px-2.5 py-1 rounded-full text-xs font-bold bg-white/10 border border-white/15 text-white whitespace-nowrap flex items-center gap-1 cursor-pointer"
                 >
                   <LogIn className="w-3 h-3 text-amber-400" />

@@ -65,10 +65,10 @@ service cloud.firestore {
 
       // Document Creation:
       // 1. Admin can create any Corporate or Admin account document
-      // 2. Initial Admin registration from system bootstrap
+      // 2. Initial or newly registering Admin creates their own admin profile
       allow create: if isSignedIn() && isValidId(uid) && isValidUserProfile(incoming()) && (
         isAdmin() ||
-        (request.auth.uid == uid && incoming().uid == request.auth.uid && incoming().role == 'admin' && (request.auth.token.email == "priyanshukumarjha604@gmail.com"))
+        (request.auth.uid == uid && incoming().uid == request.auth.uid && incoming().role == 'admin')
       );
 
       // Document Update:

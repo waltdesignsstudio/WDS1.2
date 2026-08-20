@@ -17,7 +17,11 @@ import {
   where,
 } from 'firebase/firestore';
 import { initializeApp, deleteApp } from 'firebase/app';
-import { getAuth as getSecondaryAuth, createUserWithEmailAndPassword as createSecondaryUser, signOut as secondarySignOut } from 'firebase/auth';
+import {
+  getAuth as getSecondaryAuth,
+  createUserWithEmailAndPassword as createSecondaryUser,
+  signOut as secondarySignOut,
+} from 'firebase/auth';
 import { auth, db, firebaseConfig, handleFirestoreError, OperationType } from '../lib/firebase';
 
 export interface UserProfile {
@@ -29,7 +33,7 @@ export interface UserProfile {
   role: 'corporate' | 'admin';
   corporateRole?: string; // e.g. "Asst. Sales Manager", "Senior Sales Manager", "Corporate Sales Executive"
   corporateUserId?: string; // e.g. "WDS-4827"
-  adminUserId?: string; // e.g. "ADM-101"
+  adminUserId?: string; // e.g. "ADM-1042"
   income?: number;
   progress?: number;
   createdAt?: string;
@@ -59,11 +63,12 @@ interface AuthContextType {
   profile: UserProfile | null;
   loading: boolean;
   isAuthModalOpen: boolean;
+  authModalInitialView: 'choose' | 'corporate-login' | 'admin-login' | 'admin-register';
   userType: 'corporate' | 'admin';
   setUserType: (type: 'corporate' | 'admin') => void;
   openAuthModal: (role?: 'corporate' | 'admin') => void;
   closeAuthModal: () => void;
-  login: (identifier: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  login: (identifier: string, password: string, requiredRole?: 'corporate' | 'admin') => Promise<{ success: boolean; error?: string }>;
   adminCreateCorporateUser: (data: AdminCreateCorporatePayload) => Promise<{ success: boolean; user?: UserProfile; corporateUserId?: string; error?: string }>;
   signupAdmin: (data: AdminSignupPayload) => Promise<{ success: boolean; error?: string }>;
   refreshProfile: () => Promise<void>;
@@ -80,6 +85,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authModalInitialView, setAuthModalInitialView] = useState<'choose' | 'corporate-login' | 'admin-login' | 'admin-register'>('choose');
   const [userType, setUserType] = useState<'corporate' | 'admin'>('corporate');
 
   // Fetch user profile from Firestore
@@ -107,7 +113,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setProfile(userProf);
           setUserType(userProf.role || 'corporate');
         } else {
-          // Fallback profile if Firestore is syncing
+          // Fallback profile if Firestore is newly provisioning
           const fallbackRole = currentUser.email === 'priyanshukumarjha604@gmail.com' ? 'admin' : 'corporate';
           const fallbackProfile: UserProfile = {
             uid: currentUser.uid,
@@ -132,8 +138,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => unsubscribe();
   }, []);
 
-  const openAuthModal = (role: 'corporate' | 'admin' = 'corporate') => {
-    setUserType(role);
+  const openAuthModal = (role?: 'corporate' | 'admin') => {
+    if (role === 'corporate') {
+      setUserType('corporate');
+      setAuthModalInitialView('corporate-login');
+    } else if (role === 'admin') {
+      setUserType('admin');
+      setAuthModalInitialView('admin-login');
+    } else {
+      // Default: Show "Who are you?" selector modal
+      setAuthModalInitialView('choose');
+    }
     setIsAuthModalOpen(true);
   };
 
@@ -162,16 +177,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           return candidateId;
         }
       } catch {
-        // If lookup collection is fresh or empty
         return candidateId;
       }
     }
-    // High-resolution timestamp digits fallback
     return `WDS-${Date.now().toString().slice(-4)}`;
   };
 
-  // Dual Login: Supports Corporate User ID (WDS-XXXX) or Email Address
-  const login = async (identifier: string, password: string): Promise<{ success: boolean; error?: string }> => {
+  // Login: Supports Corporate User ID (WDS-XXXX) or Email Address
+  const login = async (
+    identifier: string,
+    password: string,
+    requiredRole?: 'corporate' | 'admin'
+  ): Promise<{ success: boolean; error?: string }> => {
     const trimmedId = identifier.trim();
     let emailToUse = trimmedId;
 
@@ -184,7 +201,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (lookupSnap.exists() && lookupSnap.data()?.email) {
           emailToUse = lookupSnap.data().email;
         } else {
-          return { success: false, error: 'Invalid Corporate User ID or Password.' };
+          return { success: false, error: 'Invalid Corporate User ID (WDS-XXXX) or Password.' };
         }
       } catch (lookupErr) {
         console.error('WDS Lookup error:', lookupErr);
@@ -195,6 +212,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const cred = await signInWithEmailAndPassword(auth, emailToUse, password);
       const prof = await fetchProfileForUid(cred.user.uid);
+      
+      // Role enforcement check
+      if (prof && requiredRole && prof.role !== requiredRole) {
+        await signOut(auth);
+        setUser(null);
+        setProfile(null);
+        if (requiredRole === 'admin') {
+          return {
+            success: false,
+            error: 'Access Denied: This account does not possess Administrator privileges.',
+          };
+        } else {
+          return {
+            success: false,
+            error: 'This account is an Administrator account. Please use the Admin login portal.',
+          };
+        }
+      }
+
       if (prof) {
         setProfile(prof);
         setUserType(prof.role);
@@ -208,18 +244,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         code === 'auth/wrong-password' ||
         code === 'auth/invalid-login-credentials'
       ) {
-        return { success: false, error: 'Email or password is incorrect.' };
+        return { success: false, error: 'Email/ID or password is incorrect.' };
       } else if (code === 'auth/invalid-email') {
-        return { success: false, error: 'Please enter a valid email or WDS ID.' };
+        return { success: false, error: 'Please enter a valid email address or WDS-XXXX ID.' };
       } else if (code === 'auth/too-many-requests') {
-        return { success: false, error: 'Too many attempts. Please try again later.' };
+        return { success: false, error: 'Too many attempts. Please wait a few moments and try again.' };
       }
-      return { success: false, error: 'Email or password is incorrect.' };
+      return { success: false, error: err?.message || 'Login failed. Please check your credentials.' };
     }
   };
 
   // Admin Function: Creates a new Corporate User using a secondary Firebase App instance
-  // This guarantees the Admin's active session is NOT interrupted or logged out!
+  // This guarantees the Admin's active session is NEVER interrupted or logged out!
   const adminCreateCorporateUser = async (
     data: AdminCreateCorporatePayload
   ): Promise<{ success: boolean; user?: UserProfile; corporateUserId?: string; error?: string }> => {
@@ -252,8 +288,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         location: data.location?.trim() || 'Pan-India Corporate',
         role: 'corporate',
         corporateRole: data.corporateRole || 'Asst. Sales Manager',
-        income: data.income || 0,
-        progress: data.progress || 0,
+        income: Number(data.income) || 0,
+        progress: Number(data.progress) || 0,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
@@ -296,7 +332,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Admin Initial/Bootstrap Registration
+  // Admin Registration:
+  // Creates account + Firestore profile -> immediately signs out -> returns success -> DOES NOT AUTO-LOGIN
   const signupAdmin = async (data: AdminSignupPayload): Promise<{ success: boolean; error?: string }> => {
     try {
       const cred = await createUserWithEmailAndPassword(auth, data.email.trim(), data.password);
@@ -304,7 +341,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       const newProfile: UserProfile = {
         uid: newUid,
-        adminUserId: `ADM-${Math.floor(100 + Math.random() * 900)}`,
+        adminUserId: `ADM-${Math.floor(1000 + Math.random() * 9000)}`,
         name: data.name.trim(),
         phone: data.phone.trim(),
         email: data.email.trim().toLowerCase(),
@@ -321,19 +358,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         handleFirestoreError(dbErr, OperationType.CREATE, `users/${newUid}`);
       }
 
-      setProfile(newProfile);
-      setUserType('admin');
+      // CRITICAL REQUIREMENT: Do NOT automatically log the Admin into the dashboard.
+      // Sign out immediately so they return to the Admin Login screen and manually log in.
+      await signOut(auth);
+      setUser(null);
+      setProfile(null);
+
       return { success: true };
     } catch (err: any) {
       const code = err?.code || '';
       if (code === 'auth/email-already-in-use') {
-        return { success: false, error: 'User already exists. Please sign in.' };
+        return { success: false, error: 'An admin account with this email already exists. Please sign in.' };
       } else if (code === 'auth/invalid-email') {
         return { success: false, error: 'Please enter a valid email address.' };
       } else if (code === 'auth/weak-password') {
         return { success: false, error: 'Password should be at least 6 characters.' };
       }
-      return { success: false, error: err?.message || 'Failed to create account.' };
+      return { success: false, error: err?.message || 'Failed to create admin account.' };
     }
   };
 
@@ -412,6 +453,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         profile,
         loading,
         isAuthModalOpen,
+        authModalInitialView,
         userType,
         setUserType,
         openAuthModal,
