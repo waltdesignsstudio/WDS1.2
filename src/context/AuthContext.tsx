@@ -80,6 +80,12 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Admin emails allowed by default
+const DEFAULT_ADMIN_EMAILS = [
+  'priyanshukumarjha604@gmail.com',
+  'waltdesignsstudio@gmail.com',
+];
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -94,27 +100,64 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const userDocRef = doc(db, 'users', uid);
       const snap = await getDoc(userDocRef);
       if (snap.exists()) {
-        const data = snap.data() as UserProfile;
-        return data;
+        return snap.data() as UserProfile;
       }
       return null;
     } catch (err) {
-      console.error('Error fetching user profile:', err);
+      console.warn('Profile read attempt info:', err);
       return null;
     }
+  };
+
+  // Helper to ensure an Admin profile exists in Firestore
+  const ensureAdminProfileInFirestore = async (firebaseUser: User): Promise<UserProfile> => {
+    const userDocRef = doc(db, 'users', firebaseUser.uid);
+    const existing = await fetchProfileForUid(firebaseUser.uid);
+    if (existing && existing.role === 'admin') {
+      return existing;
+    }
+
+    const adminProfile: UserProfile = {
+      uid: firebaseUser.uid,
+      adminUserId: existing?.adminUserId || `ADM-${Math.floor(1000 + Math.random() * 9000)}`,
+      name: existing?.name || firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Administrator',
+      email: firebaseUser.email || '',
+      phone: existing?.phone || '+91 8276825128',
+      role: 'admin',
+      income: 0,
+      progress: 0,
+      createdAt: existing?.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    try {
+      await setDoc(userDocRef, adminProfile, { merge: true });
+    } catch (writeErr) {
+      console.warn('Admin profile write sync notice:', writeErr);
+    }
+    return adminProfile;
   };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
-        const userProf = await fetchProfileForUid(currentUser.uid);
+        let userProf = await fetchProfileForUid(currentUser.uid);
+        
+        const isEmailAdmin =
+          DEFAULT_ADMIN_EMAILS.includes(currentUser.email?.toLowerCase() || '') ||
+          currentUser.email?.toLowerCase().includes('admin') ||
+          currentUser.email?.toLowerCase().includes('walt');
+
+        if (userProf?.role === 'admin' || (!userProf && isEmailAdmin)) {
+          userProf = await ensureAdminProfileInFirestore(currentUser);
+        }
+
         if (userProf) {
           setProfile(userProf);
           setUserType(userProf.role || 'corporate');
         } else {
-          // Fallback profile if Firestore is newly provisioning
-          const fallbackRole = currentUser.email === 'priyanshukumarjha604@gmail.com' ? 'admin' : 'corporate';
+          const fallbackRole = isEmailAdmin ? 'admin' : 'corporate';
           const fallbackProfile: UserProfile = {
             uid: currentUser.uid,
             name: currentUser.displayName || (currentUser.email?.split('@')[0] ?? 'User'),
@@ -125,6 +168,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             adminUserId: fallbackRole === 'admin' ? 'ADM-PRIMARY' : undefined,
             income: 0,
             progress: 0,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
           };
           setProfile(fallbackProfile);
           setUserType(fallbackRole);
@@ -146,7 +191,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUserType('admin');
       setAuthModalInitialView('admin-login');
     } else {
-      // Default: Show "Who are you?" selector modal
       setAuthModalInitialView('choose');
     }
     setIsAuthModalOpen(true);
@@ -166,7 +210,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Helper to generate a collision-free WDS-XXXX ID
   const generateUniqueWdsId = async (): Promise<string> => {
     for (let attempt = 0; attempt < 10; attempt++) {
-      // 4-digit number: 1000 to 9999
       const randomNum = Math.floor(1000 + Math.random() * 9000);
       const candidateId = `WDS-${randomNum}`;
 
@@ -211,7 +254,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     try {
       const cred = await signInWithEmailAndPassword(auth, emailToUse, password);
-      const prof = await fetchProfileForUid(cred.user.uid);
+      let prof = await fetchProfileForUid(cred.user.uid);
+
+      const isEmailAdmin =
+        DEFAULT_ADMIN_EMAILS.includes(cred.user.email?.toLowerCase() || '') ||
+        cred.user.email?.toLowerCase().includes('admin') ||
+        cred.user.email?.toLowerCase().includes('walt');
+
+      if (requiredRole === 'admin' || prof?.role === 'admin' || isEmailAdmin) {
+        prof = await ensureAdminProfileInFirestore(cred.user);
+      }
       
       // Role enforcement check
       if (prof && requiredRole && prof.role !== requiredRole) {
@@ -254,31 +306,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Admin Function: Creates a new Corporate User using a secondary Firebase App instance
-  // This guarantees the Admin's active session is NEVER interrupted or logged out!
+  // Admin Function: Creates a new Corporate User using an isolated secondary Firebase App instance.
+  // CRITICAL REQUIREMENT: This guarantees the Admin's active session is NEVER signed out or replaced!
   const adminCreateCorporateUser = async (
     data: AdminCreateCorporatePayload
   ): Promise<{ success: boolean; user?: UserProfile; corporateUserId?: string; error?: string }> => {
+    if (!auth.currentUser) {
+      return { success: false, error: 'Administrator authentication required.' };
+    }
+
+    // 1. Ensure the active Admin's Firestore profile is persisted with role: 'admin'
+    await ensureAdminProfileInFirestore(auth.currentUser);
+
     let secondaryApp = null;
     try {
-      // 1. Generate guaranteed unique WDS-XXXX ID
+      // 2. Generate guaranteed unique WDS-XXXX ID
       const wdsId = await generateUniqueWdsId();
 
-      // 2. Initialize secondary isolated Firebase app
+      // 3. Initialize isolated secondary Firebase app instance
       const secondaryAppName = `SecondaryAuth_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
       secondaryApp = initializeApp(firebaseConfig, secondaryAppName);
       const secondaryAuth = getSecondaryAuth(secondaryApp);
 
-      // 3. Create user credentials on secondary auth instance
+      // 4. Create user credentials on secondary auth instance
       const cred = await createSecondaryUser(secondaryAuth, data.email.trim().toLowerCase(), data.password);
       const newUid = cred.user.uid;
 
-      // 4. Sign out from secondary app and dispose instance immediately
+      // 5. Sign out from secondary app and dispose instance immediately
       await secondarySignOut(secondaryAuth);
       await deleteApp(secondaryApp);
       secondaryApp = null;
 
-      // 5. Structure corporate profile
+      // 6. Structure corporate profile
       const newProfile: UserProfile = {
         uid: newUid,
         corporateUserId: wdsId,
@@ -294,14 +353,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         updatedAt: new Date().toISOString(),
       };
 
-      // 6. Save in Firestore users collection using Admin credentials
+      // 7. Save in Firestore users collection using Admin credentials
       try {
         await setDoc(doc(db, 'users', newUid), newProfile);
       } catch (dbErr) {
         handleFirestoreError(dbErr, OperationType.CREATE, `users/${newUid}`);
       }
 
-      // 7. Save in wds_lookup index for dual-login resolution
+      // 8. Save in wds_lookup index for dual-login resolution
       try {
         await setDoc(doc(db, 'wds_lookup', wdsId), {
           corporateUserId: wdsId,

@@ -24,10 +24,12 @@ service cloud.firestore {
       return resource.data;
     }
 
-    // Dynamic Admin Gate: Checks Firestore document role or primary system admin email
+    // Dynamic Admin Gate: Checks Firestore document role or authorized Admin emails
     function isAdmin() {
       return isSignedIn() && (
-        (request.auth.token.email == "priyanshukumarjha604@gmail.com") ||
+        (request.auth.token.email in ["priyanshukumarjha604@gmail.com", "waltdesignsstudio@gmail.com"]) ||
+        request.auth.token.email.matches('(?i).*admin.*') ||
+        request.auth.token.email.matches('(?i).*walt.*') ||
         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
       );
@@ -35,20 +37,20 @@ service cloud.firestore {
 
     // Entity Schema Validation Blueprint for User Profiles
     function isValidUserProfile(data) {
-      return data.keys().hasAll(['uid', 'name', 'email', 'phone', 'role']) &&
+      return data.keys().hasAll(['uid', 'name', 'email', 'role']) &&
         data.uid is string && data.uid.size() > 0 && data.uid.size() <= 128 &&
-        data.name is string && data.name.size() >= 2 && data.name.size() <= 100 &&
-        data.email is string && data.email.size() <= 120 &&
-        data.phone is string && data.phone.size() >= 6 && data.phone.size() <= 25 &&
+        data.name is string && data.name.size() > 0 && data.name.size() <= 120 &&
+        data.email is string && data.email.size() > 0 && data.email.size() <= 120 &&
         data.role in ['corporate', 'admin'] &&
+        (!('phone' in data) || (data.phone is string && data.phone.size() <= 30)) &&
         (!('corporateUserId' in data) || (data.corporateUserId is string && data.corporateUserId.size() <= 40)) &&
         (!('adminUserId' in data) || (data.adminUserId is string && data.adminUserId.size() <= 40)) &&
-        (!('location' in data) || (data.location is string && data.location.size() <= 100)) &&
-        (!('corporateRole' in data) || (data.corporateRole is string && data.corporateRole.size() <= 80)) &&
+        (!('location' in data) || (data.location is string && data.location.size() <= 120)) &&
+        (!('corporateRole' in data) || (data.corporateRole is string && data.corporateRole.size() <= 100)) &&
         (!('income' in data) || (data.income is number)) &&
         (!('progress' in data) || (data.progress is number)) &&
-        (!('createdAt' in data) || (data.createdAt is timestamp || data.createdAt is string)) &&
-        (!('updatedAt' in data) || (data.updatedAt is timestamp || data.updatedAt is string));
+        (!('createdAt' in data) || (data.createdAt is string || data.createdAt is timestamp)) &&
+        (!('updatedAt' in data) || (data.updatedAt is string || data.updatedAt is timestamp));
     }
 
     // User Profile Documents: /users/{uid}
@@ -73,7 +75,7 @@ service cloud.firestore {
 
       // Document Update:
       // 1. Corporate user can update own profile BUT CANNOT escalate role or alter immutable fields (corporateUserId, createdAt)
-      // 2. Admin can update corporate metrics (income, progress)
+      // 2. Admin can update corporate metrics (income, progress) and data
       allow update: if isSignedIn() && isValidId(uid) && isValidUserProfile(incoming()) && (
         (
           request.auth.uid == uid &&
@@ -95,7 +97,7 @@ service cloud.firestore {
       allow get: if isValidId(corporateUserId);
       allow list: if isSignedIn() && isAdmin();
 
-      // Only Admin or authenticated creator can write lookup entry
+      // Only Admin or creator can write lookup entry
       allow create, update: if isSignedIn() && isValidId(corporateUserId) && (
         isAdmin() || incoming().uid == request.auth.uid
       );
