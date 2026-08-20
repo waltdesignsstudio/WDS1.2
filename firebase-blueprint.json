@@ -74,9 +74,60 @@
       },
       "required": ["uid", "name", "email", "phone", "role"]
     },
+    "AttendanceRecord": {
+      "title": "AttendanceRecord",
+      "description": "Daily corporate attendance record submitted by employees and approved/rejected by Admin",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique attendance document ID"
+        },
+        "employeeUid": {
+          "type": "string",
+          "description": "Firebase Auth UID of the employee submitting attendance"
+        },
+        "employeeCode": {
+          "type": "string",
+          "description": "Corporate employee code (e.g. WDS-4827)"
+        },
+        "employeeName": {
+          "type": "string",
+          "description": "Full name of the employee"
+        },
+        "date": {
+          "type": "string",
+          "description": "Date of attendance in YYYY-MM-DD format"
+        },
+        "todayWorkHours": {
+          "type": "number",
+          "description": "Logged work hours for the day (e.g. 8)"
+        },
+        "expectedClients": {
+          "type": "number",
+          "description": "Number of client meetings/leads expected"
+        },
+        "status": {
+          "type": "string",
+          "description": "Approval status of the attendance submission",
+          "enum": ["pending", "approved", "rejected"]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp of attendance submission"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp of status update"
+        }
+      },
+      "required": ["employeeUid", "employeeCode", "employeeName", "date", "todayWorkHours", "expectedClients", "status"]
+    },
     "WdsLookup": {
       "title": "WdsLookup",
-      "description": "Lookup index mapping unique corporate WDS IDs to user emails for ID-based login",
+      "description": "Lookup index mapping unique corporate WDS IDs to user emails for ID-based lookup",
       "type": "object",
       "properties": {
         "corporateUserId": {
@@ -111,11 +162,17 @@
       },
       "description": "User profile collection containing Corporate and Admin profiles keyed by Auth UID"
     },
+    "/attendance/{attendanceId}": {
+      "schema": {
+        "$ref": "#/entities/AttendanceRecord"
+      },
+      "description": "Collection of employee attendance submissions managed by Admin"
+    },
     "/wds_lookup/{corporateUserId}": {
       "schema": {
         "$ref": "#/entities/WdsLookup"
       },
-      "description": "Index mapping WDS IDs to email addresses for dual login support"
+      "description": "Index mapping WDS IDs to email addresses for dual lookup"
     }
   }
 }
