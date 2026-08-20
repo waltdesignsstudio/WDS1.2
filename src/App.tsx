@@ -3,8 +3,10 @@ import { HomePage } from './pages/HomePage';
 import { ServicesPage } from './pages/ServicesPage';
 import { AboutPage } from './pages/AboutPage';
 import { ContactPage } from './pages/ContactPage';
+import { DashboardPage } from './pages/DashboardPage';
+import { AuthProvider } from './context/AuthContext';
 
-export default function App() {
+function AppContent() {
   const [currentPath, setCurrentPath] = useState<string>(() => {
     if (typeof window !== 'undefined') {
       return window.location.pathname.toLowerCase();
@@ -22,6 +24,9 @@ export default function App() {
   }, []);
 
   // Determine current page based on pathname
+  if (currentPath.includes('dashboard') || currentPath.includes('login') || currentPath.includes('auth')) {
+    return <DashboardPage />;
+  }
   if (currentPath.includes('services')) {
     return <ServicesPage />;
   }
@@ -33,4 +38,12 @@ export default function App() {
   }
 
   return <HomePage />;
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
+  );
 }
