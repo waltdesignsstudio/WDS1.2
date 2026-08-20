@@ -76,35 +76,30 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setCaptchaResetCount((c) => c + 1);
   };
 
-  // 1. Corporate Login Submit (Email Only + CAPTCHA)
+  // 1. Corporate Login Submit (Email or Corporate User ID + CAPTCHA)
   const handleCorporateLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
 
-    const trimmedEmail = email.trim();
-    if (!trimmedEmail || !password) {
-      setErrorMessage('Please enter your corporate email address and password.');
-      return;
-    }
-
-    if (!trimmedEmail.includes('@')) {
-      setErrorMessage('Please enter a valid Corporate Email address (e.g., name@company.com). Corporate login requires email; WDS ID is for display only.');
+    const trimmedInput = email.trim();
+    if (!trimmedInput || !password) {
+      setErrorMessage('Please enter your Corporate User ID (WDS-XXXX) or email address and password.');
       return;
     }
 
     if (!captchaToken) {
-      setErrorMessage('Please complete the CAPTCHA.');
+      setErrorMessage('Please solve the math question to verify.');
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const result = await login(trimmedEmail, password, 'corporate');
+      const result = await login(trimmedInput, password, 'corporate');
       if (result.success) {
         handleClose();
         window.location.href = '/dashboard';
       } else {
-        setErrorMessage(result.error || 'Invalid Corporate Email or Password.');
+        setErrorMessage(result.error || 'Invalid User ID / Email or Password.');
         setCaptchaToken(null);
         setCaptchaResetCount((c) => c + 1);
       }
@@ -129,7 +124,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
 
     if (!captchaToken) {
-      setErrorMessage('Please complete the CAPTCHA.');
+      setErrorMessage('Please solve the math question to verify.');
       return;
     }
 
@@ -285,24 +280,24 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </div>
               )}
 
-              {/* Email Input */}
+              {/* Corporate User ID or Email Input */}
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-zinc-300 block">
-                  Corporate Email Address
+                  Corporate User ID (WDS-XXXX) or Email
                 </label>
                 <div className="relative">
                   <Mail className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
-                    type="email"
+                    type="text"
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="name@company.com"
-                    className="w-full bg-black/40 border border-white/15 focus:border-amber-500 rounded-xl pl-10 pr-4 py-2.5 text-xs text-white placeholder:text-zinc-500 outline-none transition-all"
+                    placeholder="WDS-4827 or name@company.com"
+                    className="w-full bg-black/40 border border-white/15 focus:border-amber-500 rounded-xl pl-10 pr-4 py-2.5 text-xs text-white placeholder:text-zinc-500 outline-none transition-all font-mono"
                   />
                 </div>
                 <span className="text-[10px] text-zinc-400 block pl-1">
-                  Authenticate using your registered corporate email.
+                  Login with your assigned Corporate ID (e.g., WDS-XXXX) or email.
                 </span>
               </div>
 
@@ -387,20 +382,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </div>
               )}
 
-              {/* Admin Email Input */}
+              {/* Admin Email or User ID Input */}
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-zinc-300 block">
-                  Admin Email
+                  Admin Email or Admin ID
                 </label>
                 <div className="relative">
                   <Mail className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
-                    type="email"
+                    type="text"
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="admin@waltdesignsstudio.com"
-                    className="w-full bg-black/40 border border-white/15 focus:border-amber-500 rounded-xl pl-10 pr-4 py-2.5 text-xs text-white placeholder:text-zinc-500 outline-none transition-all"
+                    placeholder="admin@waltdesignsstudio.com or ADM-XXXX"
+                    className="w-full bg-black/40 border border-white/15 focus:border-amber-500 rounded-xl pl-10 pr-4 py-2.5 text-xs text-white placeholder:text-zinc-500 outline-none transition-all font-mono"
                   />
                 </div>
               </div>

@@ -241,30 +241,75 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // Login Function:
-  // Corporate login enforces EMAIL ONLY (WDS-XXXX is display/business ID only).
+  // Supports login with either Email Address OR Corporate User ID (e.g. WDS-XXXX)
   const login = async (
-    emailInput: string,
+    identifierInput: string,
     passwordInput: string,
     requiredRole?: 'corporate' | 'admin'
   ): Promise<{ success: boolean; error?: string }> => {
-    const trimmedInput = emailInput.trim();
+    const trimmedInput = identifierInput.trim();
 
-    // Enforce Email only (Do not allow WDS-XXXX / Employee ID login)
+    if (!trimmedInput) {
+      return { success: false, error: 'Please enter your email address or Corporate User ID (WDS-XXXX).' };
+    }
+
+    let resolvedEmail = trimmedInput;
+
+    // If identifier is not an email, perform lookup for Corporate User ID (e.g. WDS-XXXX or ADM-XXXX)
     if (!trimmedInput.includes('@')) {
-      if (requiredRole === 'corporate') {
+      const cleanUpper = trimmedInput.replace(/\s+/g, '').toUpperCase();
+      const candidates = [cleanUpper];
+      if (!cleanUpper.startsWith('WDS-') && !cleanUpper.startsWith('ADM-')) {
+        candidates.push(`WDS-${cleanUpper}`);
+        candidates.push(`ADM-${cleanUpper}`);
+      }
+
+      let foundEmail: string | null = null;
+
+      // 1. Try wds_lookup collection
+      for (const candidate of candidates) {
+        try {
+          const lookupDoc = await getDoc(doc(db, 'wds_lookup', candidate));
+          if (lookupDoc.exists() && lookupDoc.data()?.email) {
+            foundEmail = lookupDoc.data().email;
+            break;
+          }
+        } catch {}
+      }
+
+      // 2. If not found in wds_lookup, try querying users collection
+      if (!foundEmail) {
+        for (const candidate of candidates) {
+          try {
+            const qCorp = query(collection(db, 'users'), where('corporateUserId', '==', candidate));
+            const snapCorp = await getDocs(qCorp);
+            if (!snapCorp.empty) {
+              foundEmail = snapCorp.docs[0].data()?.email;
+              break;
+            }
+
+            const qAdmin = query(collection(db, 'users'), where('adminUserId', '==', candidate));
+            const snapAdmin = await getDocs(qAdmin);
+            if (!snapAdmin.empty) {
+              foundEmail = snapAdmin.docs[0].data()?.email;
+              break;
+            }
+          } catch {}
+        }
+      }
+
+      if (!foundEmail) {
         return {
           success: false,
-          error: 'Please enter your registered Corporate Email address. (Corporate login requires Email; WDS ID is for display only).',
+          error: `User ID "${trimmedInput}" was not found. Please verify your Corporate User ID (e.g. WDS-XXXX) or log in using your registered email address.`,
         };
       }
-      return {
-        success: false,
-        error: 'Please enter a valid Email address.',
-      };
+
+      resolvedEmail = foundEmail;
     }
 
     try {
-      const cred = await signInWithEmailAndPassword(auth, trimmedInput, passwordInput);
+      const cred = await signInWithEmailAndPassword(auth, resolvedEmail.toLowerCase(), passwordInput);
       let prof = await fetchProfileForUid(cred.user.uid);
 
       const isEmailAdmin =
@@ -307,9 +352,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         code === 'auth/wrong-password' ||
         code === 'auth/invalid-login-credentials'
       ) {
-        return { success: false, error: 'Email or password is incorrect.' };
+        return { success: false, error: 'User ID / Email or password is incorrect.' };
       } else if (code === 'auth/invalid-email') {
-        return { success: false, error: 'Please enter a valid email address.' };
+        return { success: false, error: 'Please enter a valid email address or Corporate User ID.' };
       } else if (code === 'auth/too-many-requests') {
         return { success: false, error: 'Too many attempts. Please wait a few moments and try again.' };
       }
