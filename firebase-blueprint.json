@@ -10,6 +10,16 @@
           "description": "Firebase Auth UID of the user",
           "pattern": "^[a-zA-Z0-9_\\-]+$"
         },
+        "corporateUserId": {
+          "type": "string",
+          "description": "Unique corporate Sales WDS User ID identifier (e.g. WDS-4827)",
+          "pattern": "^WDS-[0-9]{4,6}$"
+        },
+        "adminUserId": {
+          "type": "string",
+          "description": "Unique Admin User ID identifier (e.g. ADM-101)",
+          "maxLength": 40
+        },
         "name": {
           "type": "string",
           "description": "Full name of the user",
@@ -43,11 +53,6 @@
           "description": "Corporate designation: Asst. Sales Manager, Senior Sales Manager, or Executive",
           "maxLength": 80
         },
-        "avlId": {
-          "type": "string",
-          "description": "Unique corporate Sales AVL ID identifier",
-          "maxLength": 40
-        },
         "income": {
           "type": "number",
           "description": "Calculated or reported corporate income in INR"
@@ -69,19 +74,19 @@
       },
       "required": ["uid", "name", "email", "phone", "role"]
     },
-    "AvlLookup": {
-      "title": "AvlLookup",
-      "description": "Lookup index mapping unique corporate AVL IDs to user emails for ID-based login",
+    "WdsLookup": {
+      "title": "WdsLookup",
+      "description": "Lookup index mapping unique corporate WDS IDs to user emails for ID-based login",
       "type": "object",
       "properties": {
-        "avlId": {
+        "corporateUserId": {
           "type": "string",
-          "description": "Unique Corporate AVL ID",
+          "description": "Unique Corporate WDS ID (e.g. WDS-4827)",
           "maxLength": 40
         },
         "email": {
           "type": "string",
-          "description": "Email address tied to the AVL ID",
+          "description": "Email address tied to the WDS ID",
           "format": "email",
           "maxLength": 120
         },
@@ -96,7 +101,7 @@
           "description": "Creation timestamp"
         }
       },
-      "required": ["avlId", "email", "uid"]
+      "required": ["corporateUserId", "email", "uid"]
     }
   },
   "firestore": {
@@ -106,11 +111,11 @@
       },
       "description": "User profile collection containing Corporate and Admin profiles keyed by Auth UID"
     },
-    "/avl_lookup/{avlId}": {
+    "/wds_lookup/{corporateUserId}": {
       "schema": {
-        "$ref": "#/entities/AvlLookup"
+        "$ref": "#/entities/WdsLookup"
       },
-      "description": "Index mapping AVL IDs to email addresses for dual login support"
+      "description": "Index mapping WDS IDs to email addresses for dual login support"
     }
   }
 }

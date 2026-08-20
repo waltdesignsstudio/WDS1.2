@@ -26,6 +26,12 @@ import {
   Building2,
   AlertTriangle,
   FileSpreadsheet,
+  UserPlus,
+  X,
+  Copy,
+  Lock,
+  Eye,
+  KeyRound,
 } from 'lucide-react';
 import { useAuth, UserProfile } from '../context/AuthContext';
 import { Navbar } from '../components/Navbar';
@@ -39,8 +45,8 @@ export const DashboardPage: React.FC = () => {
     profile,
     loading,
     logout,
-    openAuthModal,
     fetchAllCorporateUsers,
+    adminCreateCorporateUser,
     updateUserProgressByAdmin,
     refreshProfile,
   } = useAuth();
@@ -48,10 +54,34 @@ export const DashboardPage: React.FC = () => {
   const [corporateList, setCorporateList] = useState<UserProfile[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // Admin Editing State
   const [editingUid, setEditingUid] = useState<string | null>(null);
   const [editIncome, setEditIncome] = useState<number>(0);
   const [editProgress, setEditProgress] = useState<number>(0);
   const [updateSuccess, setUpdateSuccess] = useState<string | null>(null);
+
+  // Admin Create Corporate User Modal State
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [createName, setCreateName] = useState('');
+  const [createPhone, setCreatePhone] = useState('');
+  const [createEmail, setCreateEmail] = useState('');
+  const [createLocation, setCreateLocation] = useState('');
+  const [createRole, setCreateRole] = useState('Asst. Sales Manager');
+  const [createPassword, setCreatePassword] = useState('');
+  const [createIncome, setCreateIncome] = useState<number>(0);
+  const [createProgress, setCreateProgress] = useState<number>(0);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
+
+  // Newly Created Corporate User Success State
+  const [createdSuccessUser, setCreatedSuccessUser] = useState<{
+    name: string;
+    email: string;
+    corporateUserId: string;
+    password: string;
+  } | null>(null);
+  const [copiedNotification, setCopiedNotification] = useState(false);
 
   // When logged in as Admin, fetch corporate users list
   useEffect(() => {
@@ -84,7 +114,7 @@ export const DashboardPage: React.FC = () => {
         income: Number(editIncome),
         progress: Number(editProgress),
       });
-      setUpdateSuccess(`Updated progress for UID ${targetUid.slice(0, 8)}...`);
+      setUpdateSuccess(`Updated milestones for User UID ${targetUid.slice(0, 8)}...`);
       setEditingUid(null);
       await loadCorporateUsers();
       setTimeout(() => setUpdateSuccess(null), 4000);
@@ -93,15 +123,79 @@ export const DashboardPage: React.FC = () => {
     }
   };
 
+  const handleAdminCreateCorporate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCreateError(null);
+
+    if (!createName || !createPhone || !createEmail || !createPassword) {
+      setCreateError('Please complete all required fields (Name, Phone, Email, Password).');
+      return;
+    }
+
+    if (createPassword.length < 6) {
+      setCreateError('Password must be at least 6 characters.');
+      return;
+    }
+
+    setIsCreating(true);
+    try {
+      const res = await adminCreateCorporateUser({
+        name: createName,
+        phone: createPhone,
+        email: createEmail,
+        location: createLocation || 'Pan-India Corporate',
+        corporateRole: createRole,
+        password: createPassword,
+        income: Number(createIncome) || 0,
+        progress: Number(createProgress) || 0,
+      });
+
+      if (res.success && res.corporateUserId) {
+        setCreatedSuccessUser({
+          name: createName,
+          email: createEmail,
+          corporateUserId: res.corporateUserId,
+          password: createPassword,
+        });
+
+        // Reset create form fields
+        setCreateName('');
+        setCreatePhone('');
+        setCreateEmail('');
+        setCreateLocation('');
+        setCreatePassword('');
+        setCreateIncome(0);
+        setCreateProgress(0);
+        setIsCreateModalOpen(false);
+
+        // Reload table
+        await loadCorporateUsers();
+      } else {
+        setCreateError(res.error || 'Failed to create corporate user account.');
+      }
+    } catch (err: any) {
+      setCreateError(err?.message || 'An error occurred while provisioning corporate account.');
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const handleCopyCredentials = () => {
+    if (!createdSuccessUser) return;
+    const text = `Walt Designs & Studio Corporate Credentials\nCorporate User ID: ${createdSuccessUser.corporateUserId}\nEmail: ${createdSuccessUser.email}\nTemporary Password: ${createdSuccessUser.password}\nLogin Portal: ${window.location.origin}/dashboard`;
+    navigator.clipboard.writeText(text);
+    setCopiedNotification(true);
+    setTimeout(() => setCopiedNotification(false), 3000);
+  };
+
   const filteredCorporate = corporateList.filter((item) => {
     const q = searchQuery.toLowerCase();
-    return (
-      item.name?.toLowerCase().includes(q) ||
-      item.email?.toLowerCase().includes(q) ||
-      item.avlId?.toLowerCase().includes(q) ||
-      item.phone?.toLowerCase().includes(q) ||
-      item.location?.toLowerCase().includes(q)
-    );
+    const wdsMatch = item.corporateUserId?.toLowerCase().includes(q);
+    const nameMatch = item.name?.toLowerCase().includes(q);
+    const emailMatch = item.email?.toLowerCase().includes(q);
+    const phoneMatch = item.phone?.toLowerCase().includes(q);
+    const locMatch = item.location?.toLowerCase().includes(q);
+    return wdsMatch || nameMatch || emailMatch || phoneMatch || locMatch;
   });
 
   const totalSalesIncome = corporateList.reduce((acc, curr) => acc + (curr.income || 0), 0);
@@ -122,11 +216,13 @@ export const DashboardPage: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-[#29072e] text-white selection:bg-amber-500 selection:text-black">
-      <Navbar />
+      <Navbar currentPage="dashboard" />
 
       <main className="flex-1 pt-28 pb-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full">
         {!user ? (
+          /* ============================================================ */
           /* UNAUTHENTICATED STATE */
+          /* ============================================================ */
           <div className="max-w-xl mx-auto my-6 space-y-6">
             <div className="text-center space-y-2">
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold tracking-wide uppercase bg-amber-500/10 text-amber-300 border border-amber-500/30">
@@ -137,7 +233,7 @@ export const DashboardPage: React.FC = () => {
                 Corporate & Admin Portal
               </h1>
               <p className="text-sm text-zinc-300">
-                Sign in with your AVL User ID or Email to access your specialized dashboard.
+                Sign in with your assigned Corporate User ID (WDS-XXXX) or Email.
               </p>
             </div>
 
@@ -163,13 +259,27 @@ export const DashboardPage: React.FC = () => {
                       Master Role
                     </span>
                   </div>
-                  <p className="text-xs text-zinc-300 mt-1 font-mono">
-                    Admin UID: {user.uid} • Email: {user.email}
-                  </p>
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-zinc-300 mt-1 font-mono">
+                    <span className="text-amber-300 font-bold">Admin ID: {profile?.adminUserId || 'ADM-PRIMARY'}</span>
+                    <span className="text-zinc-400">UID: {user.uid}</span>
+                    <span className="text-zinc-400">Email: {user.email}</span>
+                  </div>
                 </div>
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
+                {/* CREATE CORPORATE USER BUTTON */}
+                <button
+                  onClick={() => {
+                    setIsCreateModalOpen(true);
+                    setCreateError(null);
+                  }}
+                  className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold transition-colors flex items-center gap-2 cursor-pointer shadow-md"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  <span>Create Corporate User</span>
+                </button>
+
                 <button
                   onClick={loadCorporateUsers}
                   className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-xs font-semibold transition-colors flex items-center gap-2 cursor-pointer border border-white/10"
@@ -186,6 +296,58 @@ export const DashboardPage: React.FC = () => {
                 </button>
               </div>
             </div>
+
+            {/* Success Notification after Creating User */}
+            {createdSuccessUser && (
+              <div className="p-5 rounded-2xl bg-emerald-950/90 border border-emerald-500/60 text-emerald-100 shadow-xl animate-in fade-in space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                    <h4 className="font-bold text-sm text-emerald-200">
+                      Corporate Account Successfully Created!
+                    </h4>
+                  </div>
+                  <button
+                    onClick={() => setCreatedSuccessUser(null)}
+                    className="text-emerald-400 hover:text-emerald-200 text-xs font-bold"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 bg-black/40 p-3.5 rounded-xl border border-emerald-500/30 text-xs font-mono">
+                  <div>
+                    <span className="text-zinc-400 block text-[10px] uppercase">Corporate User ID</span>
+                    <span className="font-bold text-amber-300 text-sm">{createdSuccessUser.corporateUserId}</span>
+                  </div>
+                  <div>
+                    <span className="text-zinc-400 block text-[10px] uppercase">Representative Name</span>
+                    <span className="font-semibold text-white">{createdSuccessUser.name}</span>
+                  </div>
+                  <div>
+                    <span className="text-zinc-400 block text-[10px] uppercase">Assigned Email</span>
+                    <span className="text-zinc-200 truncate block">{createdSuccessUser.email}</span>
+                  </div>
+                  <div>
+                    <span className="text-zinc-400 block text-[10px] uppercase">Temporary Password</span>
+                    <span className="text-amber-300 font-bold">{createdSuccessUser.password}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-1">
+                  <p className="text-[11px] text-emerald-300">
+                    The corporate user can now sign in immediately using their assigned <span className="font-bold text-amber-300">{createdSuccessUser.corporateUserId}</span> or email.
+                  </p>
+                  <button
+                    onClick={handleCopyCredentials}
+                    className="px-3 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    <span>{copiedNotification ? 'Copied to Clipboard!' : 'Copy Credentials'}</span>
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Success Toast */}
             {updateSuccess && (
@@ -237,17 +399,17 @@ export const DashboardPage: React.FC = () => {
                 <div>
                   <h3 className="font-bold text-lg text-white">Corporate Sales Personnel</h3>
                   <p className="text-xs text-zinc-400 mt-0.5">
-                    Authorized Firestore data view for active corporate sales executives & managers
+                    Authorized Firestore records for active corporate sales executives & managers
                   </p>
                 </div>
 
-                <div className="w-full sm:w-72 relative">
+                <div className="w-full sm:w-80 relative">
                   <Search className="w-4 h-4 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search by name, AVL ID, email..."
+                    placeholder="Search by WDS ID (e.g. WDS-4827), name..."
                     className="w-full bg-black/40 border border-white/15 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-amber-500 font-sans"
                   />
                 </div>
@@ -258,8 +420,15 @@ export const DashboardPage: React.FC = () => {
                   Loading sales representatives from Firestore...
                 </div>
               ) : filteredCorporate.length === 0 ? (
-                <div className="p-12 text-center text-zinc-400 text-xs">
-                  {searchQuery ? 'No corporate representatives match your search filter.' : 'No corporate sales accounts registered yet. New registrations will automatically populate here.'}
+                <div className="p-12 text-center text-zinc-400 text-xs space-y-3">
+                  <p>{searchQuery ? 'No corporate representatives match your search query.' : 'No corporate sales accounts registered yet.'}</p>
+                  <button
+                    onClick={() => setIsCreateModalOpen(true)}
+                    className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer shadow-md"
+                  >
+                    <UserPlus className="w-3.5 h-3.5" />
+                    <span>Create First Corporate User</span>
+                  </button>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
@@ -267,10 +436,10 @@ export const DashboardPage: React.FC = () => {
                     <thead className="bg-black/30 text-zinc-400 uppercase tracking-wider font-mono text-[10px] border-b border-white/10">
                       <tr>
                         <th className="py-3.5 px-4">Sales Representative</th>
-                        <th className="py-3.5 px-4">AVL User ID</th>
-                        <th className="py-3.5 px-4">Role & Location</th>
-                        <th className="py-3.5 px-4">Phone / Email</th>
-                        <th className="py-3.5 px-4">Progress</th>
+                        <th className="py-3.5 px-4">Corporate User ID</th>
+                        <th className="py-3.5 px-4">Designation & Location</th>
+                        <th className="py-3.5 px-4">Contact Info</th>
+                        <th className="py-3.5 px-4">Target Progress</th>
                         <th className="py-3.5 px-4">Income (INR)</th>
                         <th className="py-3.5 px-4 text-right">Actions</th>
                       </tr>
@@ -288,7 +457,7 @@ export const DashboardPage: React.FC = () => {
                             </td>
                             <td className="py-4 px-4">
                               <span className="px-2.5 py-1 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-300 font-mono font-bold text-xs">
-                                {item.avlId || 'N/A'}
+                                {item.corporateUserId || 'WDS-PENDING'}
                               </span>
                             </td>
                             <td className="py-4 px-4">
@@ -380,6 +549,175 @@ export const DashboardPage: React.FC = () => {
                 </div>
               )}
             </div>
+
+            {/* ============================================================ */}
+            {/* CREATE CORPORATE USER MODAL */}
+            {/* ============================================================ */}
+            {isCreateModalOpen && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+                <div className="w-full max-w-lg bg-[#250529] border border-amber-500/40 rounded-2xl shadow-2xl overflow-hidden p-6 text-white relative max-h-[90vh] overflow-y-auto">
+                  <button
+                    onClick={() => setIsCreateModalOpen(false)}
+                    className="absolute top-4 right-4 p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400">
+                      <UserPlus className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-lg text-white">Create Corporate Account</h3>
+                      <p className="text-xs text-zinc-300">
+                        System will automatically generate a unique <span className="font-mono text-amber-400 font-bold">WDS-XXXX</span> User ID.
+                      </p>
+                    </div>
+                  </div>
+
+                  {createError && (
+                    <div className="mb-4 p-3 rounded-xl bg-red-950/80 border border-red-500/50 text-red-200 text-xs flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+                      <span>{createError}</span>
+                    </div>
+                  )}
+
+                  <form onSubmit={handleAdminCreateCorporate} className="space-y-3.5">
+                    <div>
+                      <label className="block text-xs font-semibold text-zinc-300 mb-1">
+                        Corporate Full Name *
+                      </label>
+                      <input
+                        type="text"
+                        value={createName}
+                        onChange={(e) => setCreateName(e.target.value)}
+                        placeholder="e.g. Rahul Sharma"
+                        required
+                        className="w-full bg-black/40 border border-white/15 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-semibold text-zinc-300 mb-1">
+                          Phone Number *
+                        </label>
+                        <input
+                          type="tel"
+                          value={createPhone}
+                          onChange={(e) => setCreatePhone(e.target.value)}
+                          placeholder="+91 9876543210"
+                          required
+                          className="w-full bg-black/40 border border-white/15 rounded-xl px-3.5 py-2 text-sm text-white font-mono focus:outline-none focus:ring-2 focus:ring-amber-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-zinc-300 mb-1">
+                          Location / Branch
+                        </label>
+                        <input
+                          type="text"
+                          value={createLocation}
+                          onChange={(e) => setCreateLocation(e.target.value)}
+                          placeholder="e.g. Mumbai HQ"
+                          className="w-full bg-black/40 border border-white/15 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-zinc-300 mb-1">
+                        Official Email Address *
+                      </label>
+                      <input
+                        type="email"
+                        value={createEmail}
+                        onChange={(e) => setCreateEmail(e.target.value)}
+                        placeholder="rep.sales@waltdesignsstudio.in"
+                        required
+                        className="w-full bg-black/40 border border-white/15 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-zinc-300 mb-1">
+                        Corporate Designation / Role *
+                      </label>
+                      <select
+                        value={createRole}
+                        onChange={(e) => setCreateRole(e.target.value)}
+                        className="w-full bg-[#1b031e] border border-white/15 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      >
+                        <option value="Asst. Sales Manager">Asst. Sales Manager</option>
+                        <option value="Senior Sales Manager">Senior Sales Manager</option>
+                        <option value="Corporate Sales Executive">Corporate Sales Executive</option>
+                        <option value="Enterprise Territory Lead">Enterprise Territory Lead</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-zinc-300 mb-1">
+                        Temporary Password (Min 6 characters) *
+                      </label>
+                      <input
+                        type="password"
+                        value={createPassword}
+                        onChange={(e) => setCreatePassword(e.target.value)}
+                        placeholder="••••••••"
+                        required
+                        className="w-full bg-black/40 border border-white/15 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-semibold text-zinc-300 mb-1">
+                          Initial Income (INR)
+                        </label>
+                        <input
+                          type="number"
+                          value={createIncome}
+                          onChange={(e) => setCreateIncome(Number(e.target.value))}
+                          placeholder="0"
+                          className="w-full bg-black/40 border border-white/15 rounded-xl px-3.5 py-2 text-sm text-white font-mono focus:outline-none focus:ring-2 focus:ring-amber-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-zinc-300 mb-1">
+                          Initial Progress (%)
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={createProgress}
+                          onChange={(e) => setCreateProgress(Number(e.target.value))}
+                          placeholder="0"
+                          className="w-full bg-black/40 border border-white/15 rounded-xl px-3.5 py-2 text-sm text-white font-mono focus:outline-none focus:ring-2 focus:ring-amber-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="pt-2">
+                      <button
+                        type="submit"
+                        disabled={isCreating}
+                        className="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                      >
+                        {isCreating ? (
+                          <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <>
+                            <UserPlus className="w-4 h-4" />
+                            <span>Generate WDS-ID & Provision User</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           /* ============================================================ */
@@ -404,7 +742,7 @@ export const DashboardPage: React.FC = () => {
                   <div className="flex flex-wrap items-center gap-y-1 gap-x-4 text-xs text-zinc-300 mt-1.5 font-mono">
                     <span className="flex items-center gap-1 text-amber-300 font-bold">
                       <BadgeCheck className="w-3.5 h-3.5 text-amber-400" />
-                      AVL ID: {profile?.avlId || 'AVL-ACTIVE'}
+                      Corporate ID: {profile?.corporateUserId || 'WDS-ACTIVE'}
                     </span>
                     <span className="text-zinc-400">UID: {user.uid}</span>
                   </div>
@@ -511,8 +849,8 @@ export const DashboardPage: React.FC = () => {
                     <span className="font-semibold text-amber-300">{profile?.corporateRole || 'Asst. Sales Manager'}</span>
                   </div>
                   <div className="pt-2 flex justify-between">
-                    <span className="text-zinc-400">Unique AVL ID</span>
-                    <span className="font-mono font-bold text-amber-400">{profile?.avlId || '—'}</span>
+                    <span className="text-zinc-400">Corporate User ID</span>
+                    <span className="font-mono font-bold text-amber-400">{profile?.corporateUserId || '—'}</span>
                   </div>
                   <div className="pt-2 flex justify-between">
                     <span className="text-zinc-400">Firebase Auth UID</span>

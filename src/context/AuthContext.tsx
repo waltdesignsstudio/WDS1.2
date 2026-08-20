@@ -15,9 +15,10 @@ import {
   getDocs,
   query,
   where,
-  serverTimestamp,
 } from 'firebase/firestore';
-import { auth, db, handleFirestoreError, OperationType } from '../lib/firebase';
+import { initializeApp, deleteApp } from 'firebase/app';
+import { getAuth as getSecondaryAuth, createUserWithEmailAndPassword as createSecondaryUser, signOut as secondarySignOut } from 'firebase/auth';
+import { auth, db, firebaseConfig, handleFirestoreError, OperationType } from '../lib/firebase';
 
 export interface UserProfile {
   uid: string;
@@ -26,22 +27,24 @@ export interface UserProfile {
   phone: string;
   location?: string;
   role: 'corporate' | 'admin';
-  corporateRole?: string; // e.g. "Asst. Sales Manager", "Senior Sales Manager"
-  avlId?: string; // e.g. "AVL-74921"
+  corporateRole?: string; // e.g. "Asst. Sales Manager", "Senior Sales Manager", "Corporate Sales Executive"
+  corporateUserId?: string; // e.g. "WDS-4827"
+  adminUserId?: string; // e.g. "ADM-101"
   income?: number;
   progress?: number;
-  createdAt?: any;
-  updatedAt?: any;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
-export interface CorporateSignupPayload {
+export interface AdminCreateCorporatePayload {
   name: string;
   phone: string;
   email: string;
-  location: string;
-  corporateRole: string;
   password: string;
-  avlId: string;
+  location?: string;
+  corporateRole?: string;
+  income?: number;
+  progress?: number;
 }
 
 export interface AdminSignupPayload {
@@ -56,13 +59,12 @@ interface AuthContextType {
   profile: UserProfile | null;
   loading: boolean;
   isAuthModalOpen: boolean;
-  authMode: 'login' | 'signup';
   userType: 'corporate' | 'admin';
   setUserType: (type: 'corporate' | 'admin') => void;
-  openAuthModal: (mode?: 'login' | 'signup', role?: 'corporate' | 'admin') => void;
+  openAuthModal: (role?: 'corporate' | 'admin') => void;
   closeAuthModal: () => void;
   login: (identifier: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  signupCorporate: (data: CorporateSignupPayload) => Promise<{ success: boolean; error?: string }>;
+  adminCreateCorporateUser: (data: AdminCreateCorporatePayload) => Promise<{ success: boolean; user?: UserProfile; corporateUserId?: string; error?: string }>;
   signupAdmin: (data: AdminSignupPayload) => Promise<{ success: boolean; error?: string }>;
   refreshProfile: () => Promise<void>;
   updateProfile: (data: Partial<UserProfile>) => Promise<void>;
@@ -78,10 +80,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
   const [userType, setUserType] = useState<'corporate' | 'admin'>('corporate');
 
-  // Fetch or sync user profile from Firestore
+  // Fetch user profile from Firestore
   const fetchProfileForUid = async (uid: string): Promise<UserProfile | null> => {
     try {
       const userDocRef = doc(db, 'users', uid);
@@ -106,17 +107,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setProfile(userProf);
           setUserType(userProf.role || 'corporate');
         } else {
-          // Fallback profile if document hasn't completed writing yet
+          // Fallback profile if Firestore is syncing
+          const fallbackRole = currentUser.email === 'priyanshukumarjha604@gmail.com' ? 'admin' : 'corporate';
           const fallbackProfile: UserProfile = {
             uid: currentUser.uid,
             name: currentUser.displayName || (currentUser.email?.split('@')[0] ?? 'User'),
             email: currentUser.email || '',
             phone: '',
-            role: currentUser.email === 'priyanshukumarjha604@gmail.com' ? 'admin' : 'corporate',
+            role: fallbackRole,
+            corporateUserId: fallbackRole === 'corporate' ? `WDS-${Math.floor(1000 + Math.random() * 9000)}` : undefined,
+            adminUserId: fallbackRole === 'admin' ? 'ADM-PRIMARY' : undefined,
             income: 0,
             progress: 0,
           };
           setProfile(fallbackProfile);
+          setUserType(fallbackRole);
         }
       } else {
         setProfile(null);
@@ -127,8 +132,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => unsubscribe();
   }, []);
 
-  const openAuthModal = (mode: 'login' | 'signup' = 'login', role: 'corporate' | 'admin' = 'corporate') => {
-    setAuthMode(mode);
+  const openAuthModal = (role: 'corporate' | 'admin' = 'corporate') => {
     setUserType(role);
     setIsAuthModalOpen(true);
   };
@@ -144,25 +148,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Dual Login: Supports either User ID (AVL ID) or Email Address
+  // Helper to generate a collision-free WDS-XXXX ID
+  const generateUniqueWdsId = async (): Promise<string> => {
+    for (let attempt = 0; attempt < 10; attempt++) {
+      // 4-digit number: 1000 to 9999
+      const randomNum = Math.floor(1000 + Math.random() * 9000);
+      const candidateId = `WDS-${randomNum}`;
+
+      try {
+        const lookupRef = doc(db, 'wds_lookup', candidateId);
+        const lookupSnap = await getDoc(lookupRef);
+        if (!lookupSnap.exists()) {
+          return candidateId;
+        }
+      } catch {
+        // If lookup collection is fresh or empty
+        return candidateId;
+      }
+    }
+    // High-resolution timestamp digits fallback
+    return `WDS-${Date.now().toString().slice(-4)}`;
+  };
+
+  // Dual Login: Supports Corporate User ID (WDS-XXXX) or Email Address
   const login = async (identifier: string, password: string): Promise<{ success: boolean; error?: string }> => {
     const trimmedId = identifier.trim();
     let emailToUse = trimmedId;
 
-    // If identifier doesn't contain '@', resolve via avl_lookup or case-insensitive query
+    // If identifier doesn't contain '@', resolve via wds_lookup
     if (!trimmedId.includes('@')) {
-      const normalizedAvlId = trimmedId.toUpperCase();
+      const normalizedWdsId = trimmedId.toUpperCase();
       try {
-        const lookupRef = doc(db, 'avl_lookup', normalizedAvlId);
+        const lookupRef = doc(db, 'wds_lookup', normalizedWdsId);
         const lookupSnap = await getDoc(lookupRef);
         if (lookupSnap.exists() && lookupSnap.data()?.email) {
           emailToUse = lookupSnap.data().email;
         } else {
-          return { success: false, error: 'Email or password is incorrect.' };
+          return { success: false, error: 'Invalid Corporate User ID or Password.' };
         }
       } catch (lookupErr) {
-        console.error('AVL Lookup error:', lookupErr);
-        return { success: false, error: 'Email or password is incorrect.' };
+        console.error('WDS Lookup error:', lookupErr);
+        return { success: false, error: 'Invalid Corporate User ID or Password.' };
       }
     }
 
@@ -184,7 +210,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       ) {
         return { success: false, error: 'Email or password is incorrect.' };
       } else if (code === 'auth/invalid-email') {
-        return { success: false, error: 'Email or password is incorrect.' };
+        return { success: false, error: 'Please enter a valid email or WDS ID.' };
       } else if (code === 'auth/too-many-requests') {
         return { success: false, error: 'Too many attempts. Please try again later.' };
       }
@@ -192,64 +218,85 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Corporate Registration
-  const signupCorporate = async (data: CorporateSignupPayload): Promise<{ success: boolean; error?: string }> => {
+  // Admin Function: Creates a new Corporate User using a secondary Firebase App instance
+  // This guarantees the Admin's active session is NOT interrupted or logged out!
+  const adminCreateCorporateUser = async (
+    data: AdminCreateCorporatePayload
+  ): Promise<{ success: boolean; user?: UserProfile; corporateUserId?: string; error?: string }> => {
+    let secondaryApp = null;
     try {
-      const cred = await createUserWithEmailAndPassword(auth, data.email.trim(), data.password);
-      const newUid = cred.user.uid;
-      const normalizedAvlId = data.avlId.trim().toUpperCase();
+      // 1. Generate guaranteed unique WDS-XXXX ID
+      const wdsId = await generateUniqueWdsId();
 
+      // 2. Initialize secondary isolated Firebase app
+      const secondaryAppName = `SecondaryAuth_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      secondaryApp = initializeApp(firebaseConfig, secondaryAppName);
+      const secondaryAuth = getSecondaryAuth(secondaryApp);
+
+      // 3. Create user credentials on secondary auth instance
+      const cred = await createSecondaryUser(secondaryAuth, data.email.trim().toLowerCase(), data.password);
+      const newUid = cred.user.uid;
+
+      // 4. Sign out from secondary app and dispose instance immediately
+      await secondarySignOut(secondaryAuth);
+      await deleteApp(secondaryApp);
+      secondaryApp = null;
+
+      // 5. Structure corporate profile
       const newProfile: UserProfile = {
         uid: newUid,
+        corporateUserId: wdsId,
         name: data.name.trim(),
         phone: data.phone.trim(),
         email: data.email.trim().toLowerCase(),
-        location: data.location.trim(),
-        corporateRole: data.corporateRole || 'Asst. Sales Manager',
-        avlId: normalizedAvlId,
+        location: data.location?.trim() || 'Pan-India Corporate',
         role: 'corporate',
-        income: 0,
-        progress: 0,
+        corporateRole: data.corporateRole || 'Asst. Sales Manager',
+        income: data.income || 0,
+        progress: data.progress || 0,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
 
-      // 1. Save user profile in Firestore
+      // 6. Save in Firestore users collection using Admin credentials
       try {
         await setDoc(doc(db, 'users', newUid), newProfile);
       } catch (dbErr) {
         handleFirestoreError(dbErr, OperationType.CREATE, `users/${newUid}`);
       }
 
-      // 2. Save AVL lookup mapping for ID-based login
+      // 7. Save in wds_lookup index for dual-login resolution
       try {
-        await setDoc(doc(db, 'avl_lookup', normalizedAvlId), {
-          avlId: normalizedAvlId,
+        await setDoc(doc(db, 'wds_lookup', wdsId), {
+          corporateUserId: wdsId,
           email: data.email.trim().toLowerCase(),
           uid: newUid,
           createdAt: new Date().toISOString(),
         });
-      } catch (avlErr) {
-        console.warn('AVL lookup registration notice:', avlErr);
+      } catch (wdsErr) {
+        console.warn('WDS lookup index registration notice:', wdsErr);
       }
 
-      setProfile(newProfile);
-      setUserType('corporate');
-      return { success: true };
+      return { success: true, user: newProfile, corporateUserId: wdsId };
     } catch (err: any) {
+      if (secondaryApp) {
+        try {
+          await deleteApp(secondaryApp);
+        } catch {}
+      }
       const code = err?.code || '';
       if (code === 'auth/email-already-in-use') {
-        return { success: false, error: 'User already exists. Please sign in.' };
+        return { success: false, error: 'A corporate user with this email address already exists.' };
       } else if (code === 'auth/invalid-email') {
-        return { success: false, error: 'Please enter a valid email address.' };
+        return { success: false, error: 'Please provide a valid email address.' };
       } else if (code === 'auth/weak-password') {
-        return { success: false, error: 'Password should be at least 6 characters.' };
+        return { success: false, error: 'Password should be at least 6 characters long.' };
       }
-      return { success: false, error: err?.message || 'Failed to create account.' };
+      return { success: false, error: err?.message || 'Failed to create corporate user.' };
     }
   };
 
-  // Admin Registration
+  // Admin Initial/Bootstrap Registration
   const signupAdmin = async (data: AdminSignupPayload): Promise<{ success: boolean; error?: string }> => {
     try {
       const cred = await createUserWithEmailAndPassword(auth, data.email.trim(), data.password);
@@ -257,6 +304,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       const newProfile: UserProfile = {
         uid: newUid,
+        adminUserId: `ADM-${Math.floor(100 + Math.random() * 900)}`,
         name: data.name.trim(),
         phone: data.phone.trim(),
         email: data.email.trim().toLowerCase(),
@@ -298,9 +346,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         ...data,
         updatedAt: new Date().toISOString(),
       };
-      // Never allow updating role via normal client update
+      // Prevent client-side role or identity tampering
       delete (updateData as any).role;
       delete (updateData as any).uid;
+      delete (updateData as any).corporateUserId;
+      delete (updateData as any).adminUserId;
       delete (updateData as any).createdAt;
 
       await updateDoc(userRef, updateData);
@@ -340,9 +390,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Universal Logout: signOut + clear state + website reload and redirect directly to '/'
   const logout = async () => {
-    await signOut(auth);
-    setProfile(null);
+    try {
+      await signOut(auth);
+    } catch (err) {
+      console.error('Logout error:', err);
+    } finally {
+      setUser(null);
+      setProfile(null);
+      if (typeof window !== 'undefined') {
+        window.location.href = '/';
+      }
+    }
   };
 
   return (
@@ -352,13 +412,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         profile,
         loading,
         isAuthModalOpen,
-        authMode,
         userType,
         setUserType,
         openAuthModal,
         closeAuthModal,
         login,
-        signupCorporate,
+        adminCreateCorporateUser,
         signupAdmin,
         refreshProfile,
         updateProfile,

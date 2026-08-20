@@ -2,7 +2,7 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Global Deny-by-default Catch-all
+    // 1. Zero-Trust Default Deny Catch-all
     match /{document=**} {
       allow read, write: if false;
     }
@@ -24,7 +24,7 @@ service cloud.firestore {
       return resource.data;
     }
 
-    // Role Resolution: Check database document or bootstrapped admin email
+    // Dynamic Admin Gate: Checks Firestore document role or primary system admin email
     function isAdmin() {
       return isSignedIn() && (
         (request.auth.token.email == "priyanshukumarjha604@gmail.com") ||
@@ -41,46 +41,45 @@ service cloud.firestore {
         data.email is string && data.email.size() <= 120 &&
         data.phone is string && data.phone.size() >= 6 && data.phone.size() <= 25 &&
         data.role in ['corporate', 'admin'] &&
+        (!('corporateUserId' in data) || (data.corporateUserId is string && data.corporateUserId.size() <= 40)) &&
+        (!('adminUserId' in data) || (data.adminUserId is string && data.adminUserId.size() <= 40)) &&
         (!('location' in data) || (data.location is string && data.location.size() <= 100)) &&
         (!('corporateRole' in data) || (data.corporateRole is string && data.corporateRole.size() <= 80)) &&
-        (!('avlId' in data) || (data.avlId is string && data.avlId.size() <= 40)) &&
         (!('income' in data) || (data.income is number)) &&
         (!('progress' in data) || (data.progress is number)) &&
         (!('createdAt' in data) || (data.createdAt is timestamp || data.createdAt is string)) &&
         (!('updatedAt' in data) || (data.updatedAt is timestamp || data.updatedAt is string));
     }
 
-    // User Profiles Collection: /users/{uid}
+    // User Profile Documents: /users/{uid}
     match /users/{uid} {
-      // Single Document Read (Get): Only the user themselves or an Admin
+      // Single Document Read (Get): Only the user themselves OR an authorized Admin
       allow get: if isSignedIn() && isValidId(uid) && (
         request.auth.uid == uid || isAdmin()
       );
 
-      // List Queries: Only Admin or query constrained to user's own UID
+      // List Queries: Only Admin can list all; Corporate users can only query their own record
       allow list: if isSignedIn() && (
         isAdmin() || resource.data.uid == request.auth.uid
       );
 
-      // Document Creation: User registers their own document
-      // Corporate role is default public; Admin requires bootstrap or existing admin
-      allow create: if isSignedIn() && isValidId(uid) &&
-        request.auth.uid == uid &&
-        incoming().uid == request.auth.uid &&
-        isValidUserProfile(incoming()) &&
-        (
-          incoming().role == 'corporate' ||
-          (incoming().role == 'admin' && (request.auth.token.email == "priyanshukumarjha604@gmail.com" || isAdmin()))
-        );
+      // Document Creation:
+      // 1. Admin can create any Corporate or Admin account document
+      // 2. Initial Admin registration from system bootstrap
+      allow create: if isSignedIn() && isValidId(uid) && isValidUserProfile(incoming()) && (
+        isAdmin() ||
+        (request.auth.uid == uid && incoming().uid == request.auth.uid && incoming().role == 'admin' && (request.auth.token.email == "priyanshukumarjha604@gmail.com"))
+      );
 
       // Document Update:
-      // 1. Corporate user can update their profile BUT CANNOT escalate role or alter immutable fields
-      // 2. Admin can update records (progress, income, etc.)
+      // 1. Corporate user can update own profile BUT CANNOT escalate role or alter immutable fields (corporateUserId, createdAt)
+      // 2. Admin can update corporate metrics (income, progress)
       allow update: if isSignedIn() && isValidId(uid) && isValidUserProfile(incoming()) && (
         (
           request.auth.uid == uid &&
           incoming().uid == existing().uid &&
-          incoming().role == existing().role && // Strict privilege escalation prevention
+          incoming().role == existing().role && // Anti-privilege escalation
+          (!('corporateUserId' in existing()) || incoming().corporateUserId == existing().corporateUserId) &&
           (!('createdAt' in existing()) || incoming().createdAt == existing().createdAt)
         ) ||
         isAdmin()
@@ -90,23 +89,18 @@ service cloud.firestore {
       allow delete: if isSignedIn() && isValidId(uid) && isAdmin();
     }
 
-    // AVL Lookup Collection: /avl_lookup/{avlId}
-    match /avl_lookup/{avlId} {
-      // Allows looking up email by AVL ID during login
-      allow get: if isValidId(avlId);
+    // WDS Lookup Index: /wds_lookup/{corporateUserId} (For WDS-XXXX ID dual-login)
+    match /wds_lookup/{corporateUserId} {
+      // Allows looking up email by Corporate User ID during login
+      allow get: if isValidId(corporateUserId);
       allow list: if isSignedIn() && isAdmin();
 
-      allow create: if isSignedIn() && isValidId(avlId) &&
-        incoming().uid == request.auth.uid &&
-        incoming().email is string &&
-        incoming().avlId is string;
-
-      allow update: if isSignedIn() && isValidId(avlId) &&
-        incoming().uid == request.auth.uid;
-
-      allow delete: if isSignedIn() && isValidId(avlId) && (
-        existing().uid == request.auth.uid || isAdmin()
+      // Only Admin or authenticated creator can write lookup entry
+      allow create, update: if isSignedIn() && isValidId(corporateUserId) && (
+        isAdmin() || incoming().uid == request.auth.uid
       );
+
+      allow delete: if isSignedIn() && isValidId(corporateUserId) && isAdmin();
     }
   }
 }
