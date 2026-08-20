@@ -19,6 +19,7 @@ import {
   where,
   addDoc,
   orderBy,
+  serverTimestamp,
 } from 'firebase/firestore';
 import { initializeApp, deleteApp } from 'firebase/app';
 import {
@@ -430,29 +431,86 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     todayWorkHours: number;
     expectedClients: number;
   }): Promise<{ success: boolean; error?: string }> => {
-    if (!auth.currentUser || !profile) {
-      return { success: false, error: 'You must be logged in as a Corporate employee to submit attendance.' };
+    if (!auth.currentUser) {
+      console.error('Attendance Submission Error: No authenticated user found (request.auth.uid is null).');
+      return { success: false, error: 'Authentication required. Please sign in.' };
     }
+
+    const uid = auth.currentUser.uid;
+    console.log('[Attendance Submission] Step 1: Checking authentication for UID:', uid);
+
+    // Step 2: Ensure user profile exists in Firestore /users/{uid}
+    let currentProfile = profile;
+    if (!currentProfile || currentProfile.uid !== uid || !currentProfile.corporateUserId) {
+      console.log('[Attendance Submission] Fetching fresh profile for UID:', uid);
+      currentProfile = await fetchProfileForUid(uid);
+    }
+
+    if (!currentProfile) {
+      const errDetail = `Logged-in Corporate user profile not found in /users/${uid}.`;
+      console.error('[Attendance Submission Error]', errDetail);
+      return { success: false, error: errDetail };
+    }
+
+    // Step 3: Check that user has role == 'corporate'
+    if (currentProfile.role !== 'corporate') {
+      const errDetail = `User profile role is '${currentProfile.role}', but role must be 'corporate' to submit attendance.`;
+      console.error('[Attendance Submission Error]', errDetail);
+      return { success: false, error: errDetail };
+    }
+
+    // Step 4: Obtain employeeCode strictly from authenticated user's own profile
+    const employeeCode = currentProfile.corporateUserId;
+    if (!employeeCode) {
+      const errDetail = `Corporate User ID (WDS-XXXX) is missing from user profile /users/${uid}.`;
+      console.error('[Attendance Submission Error]', errDetail);
+      return { success: false, error: errDetail };
+    }
+
+    const employeeName = currentProfile.name || auth.currentUser.displayName || 'Corporate Representative';
+
+    const recordData = {
+      employeeUid: uid,
+      employeeCode: employeeCode,
+      employeeName: employeeName,
+      date: data.date,
+      todayWorkHours: Number(data.todayWorkHours) || 0,
+      expectedClients: Number(data.expectedClients) || 0,
+      status: 'pending' as const, // Strict pending status
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    };
+
+    console.log('[Attendance Submission] Step 5: Preparing to write document at collection: attendance', {
+      employeeUid: recordData.employeeUid,
+      employeeCode: recordData.employeeCode,
+      employeeName: recordData.employeeName,
+      date: recordData.date,
+      todayWorkHours: recordData.todayWorkHours,
+      expectedClients: recordData.expectedClients,
+      status: recordData.status,
+    });
 
     try {
       const attendanceRef = collection(db, 'attendance');
-      const recordData = {
-        employeeUid: auth.currentUser.uid,
-        employeeCode: profile.corporateUserId || 'WDS-ACTIVE',
-        employeeName: profile.name || auth.currentUser.displayName || 'Corporate Representative',
-        date: data.date,
-        todayWorkHours: Number(data.todayWorkHours) || 0,
-        expectedClients: Number(data.expectedClients) || 0,
-        status: 'pending', // Default status MUST be pending
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-
-      await addDoc(attendanceRef, recordData);
+      const docRef = await addDoc(attendanceRef, recordData);
+      console.log(`[Attendance Submission Success] Document written successfully at path: attendance/${docRef.id}`);
       return { success: true };
     } catch (err: any) {
-      handleFirestoreError(err, OperationType.CREATE, 'attendance');
-      return { success: false, error: err?.message || 'Failed to submit attendance.' };
+      const errorPayload = {
+        code: err?.code || 'unknown',
+        message: err?.message || String(err),
+        operation: 'create',
+        path: 'attendance/{attendanceId}',
+        authUid: uid,
+        profileRole: currentProfile.role,
+        employeeCode: employeeCode,
+      };
+      console.error('[Attendance Submission Firebase Error]', errorPayload);
+      return {
+        success: false,
+        error: `Firebase Error [${errorPayload.code}]: ${errorPayload.message} (Operation: ${errorPayload.operation}, Path: ${errorPayload.path})`,
+      };
     }
   };
 
@@ -468,7 +526,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const snap = await getDocs(q);
       const list: AttendanceRecord[] = [];
       snap.forEach((d) => {
-        list.push({ id: d.id, ...(d.data() as Omit<AttendanceRecord, 'id'>) });
+        const raw = d.data();
+        const createdAtStr = raw.createdAt?.toDate
+          ? raw.createdAt.toDate().toISOString()
+          : typeof raw.createdAt === 'string'
+          ? raw.createdAt
+          : new Date().toISOString();
+        const updatedAtStr = raw.updatedAt?.toDate
+          ? raw.updatedAt.toDate().toISOString()
+          : typeof raw.updatedAt === 'string'
+          ? raw.updatedAt
+          : undefined;
+
+        list.push({
+          id: d.id,
+          employeeUid: raw.employeeUid,
+          employeeCode: raw.employeeCode,
+          employeeName: raw.employeeName,
+          date: raw.date,
+          todayWorkHours: raw.todayWorkHours,
+          expectedClients: raw.expectedClients,
+          status: raw.status,
+          createdAt: createdAtStr,
+          updatedAt: updatedAtStr,
+        });
       });
       // Sort newest first
       return list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -485,7 +566,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const snap = await getDocs(attendanceRef);
       const list: AttendanceRecord[] = [];
       snap.forEach((d) => {
-        list.push({ id: d.id, ...(d.data() as Omit<AttendanceRecord, 'id'>) });
+        const raw = d.data();
+        const createdAtStr = raw.createdAt?.toDate
+          ? raw.createdAt.toDate().toISOString()
+          : typeof raw.createdAt === 'string'
+          ? raw.createdAt
+          : new Date().toISOString();
+        const updatedAtStr = raw.updatedAt?.toDate
+          ? raw.updatedAt.toDate().toISOString()
+          : typeof raw.updatedAt === 'string'
+          ? raw.updatedAt
+          : undefined;
+
+        list.push({
+          id: d.id,
+          employeeUid: raw.employeeUid,
+          employeeCode: raw.employeeCode,
+          employeeName: raw.employeeName,
+          date: raw.date,
+          todayWorkHours: raw.todayWorkHours,
+          expectedClients: raw.expectedClients,
+          status: raw.status,
+          createdAt: createdAtStr,
+          updatedAt: updatedAtStr,
+        });
       });
       // Sort newest first
       return list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());

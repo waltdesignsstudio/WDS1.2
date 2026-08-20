@@ -62,7 +62,9 @@ service cloud.firestore {
         data.date is string && data.date.size() >= 8 && data.date.size() <= 20 &&
         data.todayWorkHours is number && data.todayWorkHours >= 0 && data.todayWorkHours <= 24 &&
         data.expectedClients is number && data.expectedClients >= 0 &&
-        data.status in ['pending', 'approved', 'rejected'];
+        data.status in ['pending', 'approved', 'rejected'] &&
+        (!('createdAt' in data) || data.createdAt is timestamp || data.createdAt is string) &&
+        (!('updatedAt' in data) || data.updatedAt is timestamp || data.updatedAt is string);
     }
 
     // User Profile Documents: /users/{uid}
@@ -117,7 +119,13 @@ service cloud.firestore {
         isValidAttendanceRecord(incoming()) &&
         (
           isAdmin() ||
-          (incoming().employeeUid == request.auth.uid && incoming().status == 'pending')
+          (
+            incoming().employeeUid == request.auth.uid &&
+            incoming().status == 'pending' &&
+            exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'corporate' &&
+            incoming().employeeCode == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.corporateUserId
+          )
         );
 
       // Update: ONLY Admin can update attendance status (Approve / Reject)

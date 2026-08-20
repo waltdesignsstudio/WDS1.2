@@ -207,8 +207,10 @@ export const CorporateDashboard: React.FC = () => {
       } else {
         setAttendanceMessage({ type: 'error', text: res.error || 'Failed to submit attendance.' });
       }
-    } catch {
-      setAttendanceMessage({ type: 'error', text: 'An unexpected error occurred while submitting attendance.' });
+    } catch (err: any) {
+      console.error('Corporate attendance submit exception:', err);
+      const errMsg = err?.message || String(err) || 'Failed to submit attendance.';
+      setAttendanceMessage({ type: 'error', text: `Error: ${errMsg}` });
     } finally {
       setIsSubmittingAttendance(false);
     }
