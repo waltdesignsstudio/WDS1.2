@@ -271,7 +271,7 @@ export const AboutPage: React.FC = () => {
 
                 <div className="pt-1">
                   <a
-                    href="/contact.html"
+                    href="https://www.waltdesignsstudio.in/contact"
                     className="w-full py-2 px-3 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs flex items-center justify-center gap-1.5 transition-colors shadow-md"
                   >
                     <span>Connect With Our Team</span>

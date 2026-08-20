@@ -5,6 +5,10 @@
   "cleanUrls": true,
   "rewrites": [
     {
+      "source": "/index",
+      "destination": "/index.html"
+    },
+    {
       "source": "/services",
       "destination": "/services.html"
     },
