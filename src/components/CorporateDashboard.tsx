@@ -217,12 +217,12 @@ export const CorporateDashboard: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#1a021e] text-white flex flex-col font-sans selection:bg-amber-500 selection:text-black">
+    <div className="min-h-screen bg-gradient-to-b from-[#1c1404] via-[#140e03] to-[#0c0902] text-white flex flex-col font-sans selection:bg-amber-500 selection:text-black">
       
       {/* ========================================================================= */}
       {/* DEDICATED CORPORATE TOP BAR */}
       {/* ========================================================================= */}
-      <header className="bg-[#240528] border-b border-amber-500/30 sticky top-0 z-40 shadow-xl backdrop-blur-md">
+      <header className="bg-[#221805]/95 border-b border-amber-500/30 sticky top-0 z-40 shadow-xl backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5">
           <div className="flex items-center justify-between gap-4">
             
@@ -342,7 +342,7 @@ export const CorporateDashboard: React.FC = () => {
         {activeTab === 'dashboard' && (
           <div className="space-y-6 animate-in fade-in">
             {/* Welcome Banner */}
-            <div className="p-6 rounded-2xl bg-[#250529] border border-amber-500/30 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="p-6 rounded-2xl bg-[#1c1404]/90 border border-amber-500/30 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6">
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
                   <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500 text-black uppercase tracking-wider font-mono">
@@ -373,7 +373,7 @@ export const CorporateDashboard: React.FC = () => {
 
             {/* Milestone Summary Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="p-5 rounded-2xl bg-[#250529] border border-white/10 shadow-md">
+              <div className="p-5 rounded-2xl bg-[#1c1404]/90 border border-amber-500/20 shadow-md">
                 <div className="flex items-center justify-between text-zinc-400 text-xs font-semibold mb-2">
                   <span>My Accrued Sales Income</span>
                   <DollarSign className="w-4 h-4 text-emerald-400" />
@@ -384,7 +384,7 @@ export const CorporateDashboard: React.FC = () => {
                 <span className="text-[11px] text-zinc-400 mt-1 block">Verified earned commissions</span>
               </div>
 
-              <div className="p-5 rounded-2xl bg-[#250529] border border-white/10 shadow-md">
+              <div className="p-5 rounded-2xl bg-[#1c1404]/90 border border-amber-500/20 shadow-md">
                 <div className="flex items-center justify-between text-zinc-400 text-xs font-semibold mb-2">
                   <span>Target Achievement</span>
                   <TrendingUp className="w-4 h-4 text-amber-400" />
@@ -400,7 +400,7 @@ export const CorporateDashboard: React.FC = () => {
                 </div>
               </div>
 
-              <div className="p-5 rounded-2xl bg-[#250529] border border-white/10 shadow-md">
+              <div className="p-5 rounded-2xl bg-[#1c1404]/90 border border-amber-500/20 shadow-md">
                 <div className="flex items-center justify-between text-zinc-400 text-xs font-semibold mb-2">
                   <span>Corporate User ID</span>
                   <Shield className="w-4 h-4 text-amber-400" />
@@ -413,7 +413,7 @@ export const CorporateDashboard: React.FC = () => {
             </div>
 
             {/* Quick Status / Recent Attendance Card */}
-            <div className="p-6 rounded-2xl bg-[#250529] border border-white/10 shadow-xl space-y-4">
+            <div className="p-6 rounded-2xl bg-[#1c1404]/90 border border-amber-500/20 shadow-xl space-y-4">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="font-bold text-base text-white flex items-center gap-2">
@@ -492,7 +492,7 @@ export const CorporateDashboard: React.FC = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               
               {/* Profile Summary & Details */}
-              <div className="p-6 rounded-2xl bg-[#250529] border border-white/10 shadow-xl space-y-6">
+              <div className="p-6 rounded-2xl bg-[#1c1404]/90 border border-amber-500/20 shadow-xl space-y-6">
                 <div>
                   <h3 className="font-bold text-base text-white flex items-center gap-2">
                     <User className="w-4 h-4 text-amber-400" />
@@ -534,14 +534,14 @@ export const CorporateDashboard: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="p-3 rounded-xl bg-black/40 border border-white/10 text-[11px] text-zinc-400 space-y-1">
+                <div className="p-3 rounded-xl bg-black/40 border border-amber-500/20 text-[11px] text-zinc-400 space-y-1">
                   <span className="font-semibold text-amber-300 block">Note on Corporate ID:</span>
-                  <span>Corporate users authenticate using their Email address. The WDS-XXXX ID is your permanent business identifier.</span>
+                  <span>Corporate users can authenticate using either their Email address or Corporate ID ({corporateId}).</span>
                 </div>
               </div>
 
               {/* Edit Permitted Profile Details */}
-              <div className="p-6 rounded-2xl bg-[#250529] border border-white/10 shadow-xl space-y-4">
+              <div className="p-6 rounded-2xl bg-[#1c1404]/90 border border-amber-500/20 shadow-xl space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="font-bold text-base text-white flex items-center gap-2">
@@ -621,7 +621,7 @@ export const CorporateDashboard: React.FC = () => {
               </div>
 
               {/* Secure Password Change */}
-              <div className="p-6 rounded-2xl bg-[#250529] border border-white/10 shadow-xl space-y-4">
+              <div className="p-6 rounded-2xl bg-[#1c1404]/90 border border-amber-500/20 shadow-xl space-y-4">
                 <div>
                   <h3 className="font-bold text-base text-white flex items-center gap-2">
                     <KeyRound className="w-4 h-4 text-amber-400" />
@@ -710,7 +710,7 @@ export const CorporateDashboard: React.FC = () => {
         {/* ======================================================================= */}
         {activeTab === 'portfolio' && (
           <div className="space-y-6 animate-in fade-in">
-            <div className="p-6 rounded-2xl bg-[#250529] border border-white/10 shadow-xl space-y-4">
+            <div className="p-6 rounded-2xl bg-[#1c1404]/90 border border-amber-500/20 shadow-xl space-y-4">
               <div>
                 <h3 className="font-bold text-base text-white flex items-center gap-2">
                   <Layers className="w-4 h-4 text-amber-400" />
@@ -725,7 +725,7 @@ export const CorporateDashboard: React.FC = () => {
                 {DIVISIONS.map((div) => (
                   <div
                     key={div.id}
-                    className="p-4 rounded-xl bg-black/30 border border-white/10 flex items-start gap-3.5 hover:border-amber-500/40 transition-colors"
+                    className="p-4 rounded-xl bg-black/30 border border-amber-500/15 flex items-start gap-3.5 hover:border-amber-500/40 transition-colors"
                   >
                     <img
                       src={div.image}
@@ -761,7 +761,7 @@ export const CorporateDashboard: React.FC = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               
               {/* Attendance Submission Form */}
-              <div className="p-6 rounded-2xl bg-[#250529] border border-amber-500/30 shadow-xl space-y-4">
+              <div className="p-6 rounded-2xl bg-[#1c1404]/90 border border-amber-500/30 shadow-xl space-y-4">
                 <div>
                   <h3 className="font-bold text-base text-white flex items-center gap-2">
                     <Calendar className="w-4 h-4 text-amber-400" />
@@ -875,7 +875,7 @@ export const CorporateDashboard: React.FC = () => {
               </div>
 
               {/* Attendance History & Real-Time Status Tracking */}
-              <div className="lg:col-span-2 p-6 rounded-2xl bg-[#250529] border border-white/10 shadow-xl space-y-4">
+              <div className="lg:col-span-2 p-6 rounded-2xl bg-[#1c1404]/90 border border-amber-500/20 shadow-xl space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="font-bold text-base text-white flex items-center gap-2">

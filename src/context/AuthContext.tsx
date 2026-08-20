@@ -242,7 +242,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // Login Function:
-  // Supports login with either Email Address OR Corporate User ID (e.g. WDS-XXXX)
+  // Corporate login supports BOTH Email OR Employee ID (WDS-XXXX) + Password + CAPTCHA.
+  // Admin login strictly supports Email + Password + CAPTCHA.
   const login = async (
     identifierInput: string,
     passwordInput: string,
@@ -251,58 +252,65 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const trimmedInput = identifierInput.trim();
 
     if (!trimmedInput) {
-      return { success: false, error: 'Please enter your email address or Corporate User ID (WDS-XXXX).' };
+      return {
+        success: false,
+        error: requiredRole === 'admin'
+          ? 'Please enter your administrator email address.'
+          : 'Please enter your Corporate Email or Employee ID (WDS-XXXX).',
+      };
+    }
+
+    // 1. Admin Login: Strictly Email only
+    if (requiredRole === 'admin') {
+      if (!trimmedInput.includes('@')) {
+        return {
+          success: false,
+          error: 'Please enter your registered Admin email address.',
+        };
+      }
     }
 
     let resolvedEmail = trimmedInput;
 
-    // If identifier is not an email, perform lookup for Corporate User ID (e.g. WDS-XXXX or ADM-XXXX)
+    // 2. Corporate Login: If input starts with WDS- or does not contain @, securely find registered email
     if (!trimmedInput.includes('@')) {
       const cleanUpper = trimmedInput.replace(/\s+/g, '').toUpperCase();
-      const candidates = [cleanUpper];
-      if (!cleanUpper.startsWith('WDS-') && !cleanUpper.startsWith('ADM-')) {
-        candidates.push(`WDS-${cleanUpper}`);
-        candidates.push(`ADM-${cleanUpper}`);
-      }
+      const formattedWdsId = cleanUpper.startsWith('WDS-') ? cleanUpper : `WDS-${cleanUpper}`;
 
       let foundEmail: string | null = null;
 
-      // 1. Try wds_lookup collection
-      for (const candidate of candidates) {
-        try {
-          const lookupDoc = await getDoc(doc(db, 'wds_lookup', candidate));
-          if (lookupDoc.exists() && lookupDoc.data()?.email) {
-            foundEmail = lookupDoc.data().email;
-            break;
+      // Step A: Secure Backend API Lookup (/api/lookup-employee)
+      try {
+        const res = await fetch('/api/lookup-employee', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ employeeId: formattedWdsId }),
+        });
+
+        if (res.ok) {
+          const resData = await res.json();
+          if (resData.success && resData.email) {
+            foundEmail = resData.email;
           }
-        } catch {}
+        }
+      } catch (apiErr) {
+        console.warn('Backend employee lookup API notice:', apiErr);
       }
 
-      // 2. If not found in wds_lookup, try querying users collection
+      // Step B: Fallback to secured wds_lookup collection document
       if (!foundEmail) {
-        for (const candidate of candidates) {
-          try {
-            const qCorp = query(collection(db, 'users'), where('corporateUserId', '==', candidate));
-            const snapCorp = await getDocs(qCorp);
-            if (!snapCorp.empty) {
-              foundEmail = snapCorp.docs[0].data()?.email;
-              break;
-            }
-
-            const qAdmin = query(collection(db, 'users'), where('adminUserId', '==', candidate));
-            const snapAdmin = await getDocs(qAdmin);
-            if (!snapAdmin.empty) {
-              foundEmail = snapAdmin.docs[0].data()?.email;
-              break;
-            }
-          } catch {}
-        }
+        try {
+          const lookupDoc = await getDoc(doc(db, 'wds_lookup', formattedWdsId));
+          if (lookupDoc.exists() && lookupDoc.data()?.email) {
+            foundEmail = lookupDoc.data().email;
+          }
+        } catch {}
       }
 
       if (!foundEmail) {
         return {
           success: false,
-          error: `User ID "${trimmedInput}" was not found. Please verify your Corporate User ID (e.g. WDS-XXXX) or log in using your registered email address.`,
+          error: `Employee ID "${formattedWdsId}" was not found. Please verify your Employee ID or log in using your registered email address.`,
         };
       }
 
@@ -355,7 +363,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       ) {
         return { success: false, error: 'User ID / Email or password is incorrect.' };
       } else if (code === 'auth/invalid-email') {
-        return { success: false, error: 'Please enter a valid email address or Corporate User ID.' };
+        return { success: false, error: 'Please enter a valid email address or Employee ID (WDS-XXXX).' };
       } else if (code === 'auth/too-many-requests') {
         return { success: false, error: 'Too many attempts. Please wait a few moments and try again.' };
       }
