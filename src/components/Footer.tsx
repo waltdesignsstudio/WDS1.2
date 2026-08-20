@@ -118,7 +118,7 @@ export const Footer: React.FC = () => {
               {DIVISIONS.map((div) => (
                 <li key={div.id}>
                   <a 
-                    href={`https://www.waltdesignsstudio.in/services#${div.id}`} 
+                    href={`/services#${div.id}`} 
                     className="hover:text-black transition-colors flex items-center gap-1 group"
                   >
                     <span className="text-[#6e370f] font-mono">0{div.divisionNumber}</span>
@@ -136,19 +136,19 @@ export const Footer: React.FC = () => {
             </h4>
             <ul className="space-y-1.5 text-xs font-medium text-[#2d180b]">
               <li>
-                <a href="https://www.waltdesignsstudio.in/index" className="hover:text-black transition-colors">Home Page</a>
+                <a href="/" className="hover:text-black transition-colors">Home Page</a>
               </li>
               <li>
-                <a href="https://www.waltdesignsstudio.in/services" className="hover:text-black transition-colors">Services & Pricing</a>
+                <a href="/services" className="hover:text-black transition-colors">Services & Pricing</a>
               </li>
               <li>
-                <a href="https://www.waltdesignsstudio.in/about" className="hover:text-black transition-colors">About Walt Story</a>
+                <a href="/about" className="hover:text-black transition-colors">About Walt Story</a>
               </li>
               <li>
-                <a href="https://www.waltdesignsstudio.in/contact" className="hover:text-black transition-colors">Direct Contact & Inquiry</a>
+                <a href="/contact" className="hover:text-black transition-colors">Direct Contact & Inquiry</a>
               </li>
               <li>
-                <a href="https://www.waltdesignsstudio.in/contact#ai-planner" className="hover:text-black transition-colors flex items-center gap-1">
+                <a href="/contact#ai-planner" className="hover:text-black transition-colors flex items-center gap-1">
                   <Sparkles className="w-3 h-3 text-[#6e370f]" />
                   <span>AI Business Blueprint</span>
                 </a>

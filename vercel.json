@@ -3,11 +3,8 @@
   "buildCommand": "vite build",
   "outputDirectory": "dist",
   "cleanUrls": true,
+  "trailingSlash": false,
   "rewrites": [
-    {
-      "source": "/index",
-      "destination": "/index.html"
-    },
     {
       "source": "/services",
       "destination": "/services.html"
@@ -27,6 +24,14 @@
     {
       "source": "/contactus",
       "destination": "/contact.html"
+    },
+    {
+      "source": "/index",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/((?!assets/|.*\\..*).*)",
+      "destination": "/index.html"
     }
   ]
 }

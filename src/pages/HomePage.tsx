@@ -63,7 +63,7 @@ export const HomePage: React.FC = () => {
               {/* Hero Action CTAs */}
               <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
                 <a
-                  href="https://www.waltdesignsstudio.in/services"
+                  href="/services"
                   className="w-full sm:w-auto px-6 py-2.5 rounded-full bg-amber-500 hover:bg-amber-400 text-black font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2"
                 >
                   <span>Explore 5 Specialized Divisions</span>
@@ -227,7 +227,7 @@ export const HomePage: React.FC = () => {
                       </span>
 
                       <a 
-                        href={`https://www.waltdesignsstudio.in/services#${div.id}`}
+                        href={`/services#${div.id}`}
                         className="inline-flex items-center gap-1 text-xs font-bold text-amber-400 hover:text-amber-300 group-hover:translate-x-0.5 transition-all"
                       >
                         <span>View Details</span>

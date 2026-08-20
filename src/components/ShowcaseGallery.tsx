@@ -210,7 +210,7 @@ export const ShowcaseGallery: React.FC = () => {
                   Need similar results for your business?
                 </span>
                 <a
-                  href="/contact.html"
+                  href="/contact"
                   onClick={() => setSelectedProject(null)}
                   className="w-full sm:w-auto px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-colors"
                 >

@@ -19,10 +19,10 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPage = 'home' }) => {
   }, []);
 
   const navLinks = [
-    { label: 'Home', href: 'https://www.waltdesignsstudio.in/index', key: 'home' },
-    { label: 'Services', href: 'https://www.waltdesignsstudio.in/services', key: 'services' },
-    { label: 'About us', href: 'https://www.waltdesignsstudio.in/about', key: 'about' },
-    { label: 'Contact us', href: 'https://www.waltdesignsstudio.in/contact', key: 'contact' },
+    { label: 'Home', href: '/', key: 'home' },
+    { label: 'Services', href: '/services', key: 'services' },
+    { label: 'About us', href: '/about', key: 'about' },
+    { label: 'Contact us', href: '/contact', key: 'contact' },
   ];
 
   return (
@@ -34,7 +34,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPage = 'home' }) => {
           
           {/* ZONE 1: Brand Title & Wordmark (Preventing overlap with shrink & truncate) */}
           <a 
-            href="https://www.waltdesignsstudio.in/index" 
+            href="/" 
             className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1 sm:flex-initial group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 rounded-lg pr-1"
           >
             <img 
@@ -78,7 +78,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPage = 'home' }) => {
             </a>
             
             <a
-              href="https://www.waltdesignsstudio.in/contact"
+              href="/contact"
               className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold bg-amber-500 hover:bg-amber-400 text-black shadow-sm transition-all whitespace-nowrap"
             >
               <Sparkles className="w-3 h-3" />
@@ -90,7 +90,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPage = 'home' }) => {
           {/* Mobile Actions Container (Zero Overlap Guaranteed) */}
           <div className="flex md:hidden items-center gap-1.5 shrink-0">
             <a
-              href="https://www.waltdesignsstudio.in/contact"
+              href="/contact"
               className="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500 text-black whitespace-nowrap"
             >
               Inquire
@@ -140,7 +140,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPage = 'home' }) => {
               <span>Call +91 8276825128</span>
             </a>
             <a
-              href="https://www.waltdesignsstudio.in/contact"
+              href="/contact"
               onClick={() => setMobileMenuOpen(false)}
               className="flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold bg-amber-500 text-black shadow-sm"
             >
