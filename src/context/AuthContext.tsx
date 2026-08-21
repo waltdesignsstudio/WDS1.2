@@ -88,6 +88,31 @@ export interface CreateDailyReportPayload {
   assignedEmployeeName: string;
 }
 
+export interface ExpectedDataItem {
+  id: string;
+  businessName: string;
+  location: string;
+  number: string;
+  date: string;
+  status: 'Pending' | 'Interested' | 'Not Interested';
+  assignedEmployeeUid: string;
+  assignedEmployeeCode: string;
+  assignedEmployeeName: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface CreateExpectedDataPayload {
+  businessName: string;
+  location: string;
+  number: string;
+  date: string;
+  assignedEmployeeUid: string;
+  assignedEmployeeCode: string;
+  assignedEmployeeName: string;
+  status?: 'Pending' | 'Interested' | 'Not Interested';
+}
+
 export interface AdminCreateCorporatePayload {
   name: string;
   phone: string;
@@ -125,6 +150,11 @@ interface AuthContextType {
   fetchEmployeeDailyReports: () => Promise<DailyReportItem[]>;
   updateDailyReportStatus: (reportId: string, status: string) => Promise<{ success: boolean; error?: string }>;
   deleteDailyReport: (reportId: string) => Promise<{ success: boolean; error?: string }>;
+  createExpectedData: (data: CreateExpectedDataPayload) => Promise<{ success: boolean; error?: string }>;
+  fetchAdminExpectedData: () => Promise<ExpectedDataItem[]>;
+  fetchEmployeeExpectedData: () => Promise<ExpectedDataItem[]>;
+  updateExpectedDataStatus: (id: string, status: 'Pending' | 'Interested' | 'Not Interested') => Promise<{ success: boolean; error?: string }>;
+  deleteExpectedData: (id: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
 }
 
@@ -847,6 +877,166 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // =========================================================================
+  // EXPECTED DATA OPERATIONS
+  // =========================================================================
+
+  // Admin: Create Expected Data Entry and assign to employee
+  const createExpectedData = async (
+    data: CreateExpectedDataPayload
+  ): Promise<{ success: boolean; error?: string }> => {
+    if (!auth.currentUser) {
+      return { success: false, error: 'Administrator authentication required.' };
+    }
+
+    if (!data.assignedEmployeeUid) {
+      return { success: false, error: 'Please select an employee. Employee selection is mandatory.' };
+    }
+
+    if (!data.businessName.trim() || !data.location.trim() || !data.number.trim()) {
+      return { success: false, error: 'Please fill in all mandatory fields (Business Name, Location, Number).' };
+    }
+
+    try {
+      const expectedRef = collection(db, 'expected_data');
+      const payload = {
+        businessName: data.businessName.trim(),
+        location: data.location.trim(),
+        number: data.number.trim(),
+        date: data.date.trim() || new Date().toLocaleDateString('en-CA'),
+        status: data.status || 'Pending',
+        assignedEmployeeUid: data.assignedEmployeeUid,
+        assignedEmployeeCode: data.assignedEmployeeCode,
+        assignedEmployeeName: data.assignedEmployeeName,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      };
+
+      await addDoc(expectedRef, payload);
+      return { success: true };
+    } catch (err: any) {
+      handleFirestoreError(err, OperationType.CREATE, 'expected_data');
+      return { success: false, error: err?.message || 'Failed to create expected data entry.' };
+    }
+  };
+
+  // Admin: Fetch all Expected Data entries
+  const fetchAdminExpectedData = async (): Promise<ExpectedDataItem[]> => {
+    try {
+      const expectedRef = collection(db, 'expected_data');
+      const snap = await getDocs(expectedRef);
+      const list: ExpectedDataItem[] = [];
+      snap.forEach((d) => {
+        const raw = d.data();
+        const createdAtStr = raw.createdAt?.toDate
+          ? raw.createdAt.toDate().toISOString()
+          : typeof raw.createdAt === 'string'
+          ? raw.createdAt
+          : new Date().toISOString();
+        const updatedAtStr = raw.updatedAt?.toDate
+          ? raw.updatedAt.toDate().toISOString()
+          : typeof raw.updatedAt === 'string'
+          ? raw.updatedAt
+          : undefined;
+
+        list.push({
+          id: d.id,
+          businessName: raw.businessName || '',
+          location: raw.location || '',
+          number: raw.number || '',
+          date: raw.date || '',
+          status: (raw.status as 'Pending' | 'Interested' | 'Not Interested') || 'Pending',
+          assignedEmployeeUid: raw.assignedEmployeeUid || '',
+          assignedEmployeeCode: raw.assignedEmployeeCode || '',
+          assignedEmployeeName: raw.assignedEmployeeName || '',
+          createdAt: createdAtStr,
+          updatedAt: updatedAtStr,
+        });
+      });
+      return list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    } catch (err) {
+      handleFirestoreError(err, OperationType.LIST, 'expected_data');
+      return [];
+    }
+  };
+
+  // Corporate: Fetch only Expected Data assigned to current logged-in employee
+  const fetchEmployeeExpectedData = async (): Promise<ExpectedDataItem[]> => {
+    if (!auth.currentUser) return [];
+    try {
+      const expectedRef = collection(db, 'expected_data');
+      const q = query(
+        expectedRef,
+        where('assignedEmployeeUid', '==', auth.currentUser.uid)
+      );
+      const snap = await getDocs(q);
+      const list: ExpectedDataItem[] = [];
+      snap.forEach((d) => {
+        const raw = d.data();
+        const createdAtStr = raw.createdAt?.toDate
+          ? raw.createdAt.toDate().toISOString()
+          : typeof raw.createdAt === 'string'
+          ? raw.createdAt
+          : new Date().toISOString();
+        const updatedAtStr = raw.updatedAt?.toDate
+          ? raw.updatedAt.toDate().toISOString()
+          : typeof raw.updatedAt === 'string'
+          ? raw.updatedAt
+          : undefined;
+
+        list.push({
+          id: d.id,
+          businessName: raw.businessName || '',
+          location: raw.location || '',
+          number: raw.number || '',
+          date: raw.date || '',
+          status: (raw.status as 'Pending' | 'Interested' | 'Not Interested') || 'Pending',
+          assignedEmployeeUid: raw.assignedEmployeeUid || '',
+          assignedEmployeeCode: raw.assignedEmployeeCode || '',
+          assignedEmployeeName: raw.assignedEmployeeName || '',
+          createdAt: createdAtStr,
+          updatedAt: updatedAtStr,
+        });
+      });
+      return list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    } catch (err) {
+      console.warn('Fetch employee expected data notice:', err);
+      return [];
+    }
+  };
+
+  // Employee or Admin: Update Expected Data Status (e.g. Interested, Not Interested)
+  const updateExpectedDataStatus = async (
+    id: string,
+    status: 'Pending' | 'Interested' | 'Not Interested'
+  ): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const docRef = doc(db, 'expected_data', id);
+      await updateDoc(docRef, {
+        status,
+        updatedAt: serverTimestamp(),
+      });
+      return { success: true };
+    } catch (err: any) {
+      handleFirestoreError(err, OperationType.UPDATE, `expected_data/${id}`);
+      return { success: false, error: err?.message || 'Failed to update expected data status.' };
+    }
+  };
+
+  // Admin: Delete Expected Data entry
+  const deleteExpectedData = async (
+    id: string
+  ): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const docRef = doc(db, 'expected_data', id);
+      await deleteDoc(docRef);
+      return { success: true };
+    } catch (err: any) {
+      handleFirestoreError(err, OperationType.DELETE, `expected_data/${id}`);
+      return { success: false, error: err?.message || 'Failed to delete expected data entry.' };
+    }
+  };
+
   // Admin Function: Creates a new Corporate User using an isolated secondary Firebase App instance.
   // The Admin's active session is NEVER signed out.
   const adminCreateCorporateUser = async (
@@ -996,6 +1186,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         fetchEmployeeDailyReports,
         updateDailyReportStatus,
         deleteDailyReport,
+        createExpectedData,
+        fetchAdminExpectedData,
+        fetchEmployeeExpectedData,
+        updateExpectedDataStatus,
+        deleteExpectedData,
         logout,
       }}
     >

@@ -84,6 +84,21 @@ service cloud.firestore {
         (!('updatedAt' in data) || data.updatedAt is timestamp || data.updatedAt is string);
     }
 
+    // Expected Data Validation Blueprint
+    function isValidExpectedData(data) {
+      return data.keys().hasAll(['businessName', 'location', 'number', 'date', 'assignedEmployeeUid', 'status']) &&
+        data.businessName is string && data.businessName.size() > 0 && data.businessName.size() <= 150 &&
+        data.location is string && data.location.size() > 0 && data.location.size() <= 150 &&
+        data.number is string && data.number.size() > 0 && data.number.size() <= 50 &&
+        data.date is string && data.date.size() >= 8 && data.date.size() <= 30 &&
+        data.assignedEmployeeUid is string && data.assignedEmployeeUid.size() > 0 && data.assignedEmployeeUid.size() <= 128 &&
+        data.status is string && (data.status in ['Pending', 'Interested', 'Not Interested'] || data.status.size() <= 50) &&
+        (!('assignedEmployeeCode' in data) || (data.assignedEmployeeCode is string && data.assignedEmployeeCode.size() <= 40)) &&
+        (!('assignedEmployeeName' in data) || (data.assignedEmployeeName is string && data.assignedEmployeeName.size() <= 120)) &&
+        (!('createdAt' in data) || data.createdAt is timestamp || data.createdAt is string) &&
+        (!('updatedAt' in data) || data.updatedAt is timestamp || data.updatedAt is string);
+    }
+
     // User Profile Documents: /users/{uid}
     match /users/{uid} {
       // Single Document Read (Get): Only the user themselves OR an authorized Admin
@@ -184,6 +199,40 @@ service cloud.firestore {
 
       // Deletion: Admin ONLY
       allow delete: if isSignedIn() && isValidId(reportId) && isAdmin();
+    }
+
+    // Expected Data Collection: /expected_data/{dataId}
+    match /expected_data/{dataId} {
+      // Read: Admin can read all; Corporate employee can ONLY read expected data assigned to their UID
+      allow get: if isSignedIn() && isValidId(dataId) && (
+        isAdmin() || resource.data.assignedEmployeeUid == request.auth.uid
+      );
+
+      allow list: if isSignedIn() && (
+        isAdmin() || resource.data.assignedEmployeeUid == request.auth.uid
+      );
+
+      // Create: Admin ONLY
+      allow create: if isSignedIn() && isValidId(dataId) && isAdmin() &&
+        isValidExpectedData(incoming());
+
+      // Update: Admin can update all fields; Assigned employee can update the status (Interested / Not Interested)
+      allow update: if isSignedIn() && isValidId(dataId) && (
+        (isAdmin() && isValidExpectedData(incoming())) ||
+        (
+          resource.data.assignedEmployeeUid == request.auth.uid &&
+          incoming().assignedEmployeeUid == existing().assignedEmployeeUid &&
+          incoming().businessName == existing().businessName &&
+          incoming().location == existing().location &&
+          incoming().number == existing().number &&
+          incoming().date == existing().date &&
+          incoming().status in ['Pending', 'Interested', 'Not Interested'] &&
+          isValidExpectedData(incoming())
+        )
+      );
+
+      // Deletion: Admin ONLY
+      allow delete: if isSignedIn() && isValidId(dataId) && isAdmin();
     }
 
     // WDS Lookup Index: /wds_lookup/{corporateUserId}

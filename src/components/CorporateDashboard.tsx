@@ -32,11 +32,23 @@ import {
   Moon,
   Sparkles,
   X,
+  Target,
+  ThumbsUp,
+  ThumbsDown,
+  Filter,
+  Check,
+  PhoneCall,
+  MessageSquare,
 } from 'lucide-react';
-import { useAuth, AttendanceRecord, DailyReportItem } from '../context/AuthContext';
+import {
+  useAuth,
+  AttendanceRecord,
+  DailyReportItem,
+  ExpectedDataItem,
+} from '../context/AuthContext';
 import { AGENCY_INFO, DIVISIONS } from '../data/agencyData';
 
-type CorporateTab = 'dashboard' | 'profile' | 'portfolio' | 'attendance' | 'data-report';
+type CorporateTab = 'dashboard' | 'profile' | 'portfolio' | 'attendance' | 'data-report' | 'expected-data';
 
 export const CorporateDashboard: React.FC = () => {
   const {
@@ -49,12 +61,14 @@ export const CorporateDashboard: React.FC = () => {
     submitAttendance,
     fetchUserAttendance,
     fetchEmployeeDailyReports,
+    fetchEmployeeExpectedData,
+    updateExpectedDataStatus,
   } = useAuth();
 
   const [activeTab, setActiveTab] = useState<CorporateTab>('dashboard');
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Live Timing Clock
+  // Live Timing Clock (Ticks every 1s)
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
 
   useEffect(() => {
@@ -64,7 +78,17 @@ export const CorporateDashboard: React.FC = () => {
     return () => clearInterval(timer);
   }, []);
 
-  // Compute Time Greeting & Icon
+  // Helper for consistent local YYYY-MM-DD calculation
+  const getLocalDateString = (d: Date = new Date()) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const localTodayStr = getLocalDateString(currentTime);
+
+  // Compute Time Greeting & Icon based on local hour
   const getGreetingData = (date: Date) => {
     const hours = date.getHours();
     if (hours >= 5 && hours < 12) {
@@ -119,8 +143,7 @@ export const CorporateDashboard: React.FC = () => {
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
 
   // Attendance Form State (Clear initially)
-  const todayDateStr = new Date().toISOString().split('T')[0];
-  const [attendanceDate, setAttendanceDate] = useState<string>(todayDateStr);
+  const [attendanceDate, setAttendanceDate] = useState<string>(localTodayStr);
   const [workHours, setWorkHours] = useState<string>('');
   const [expectedClients, setExpectedClients] = useState<string>('');
   const [isSubmittingAttendance, setIsSubmittingAttendance] = useState(false);
@@ -133,13 +156,34 @@ export const CorporateDashboard: React.FC = () => {
   const [loadingReports, setLoadingReports] = useState(false);
   const [reportSearch, setReportSearch] = useState('');
 
+  // Expected Data State (Assigned to this employee)
+  const [expectedDataList, setExpectedDataList] = useState<ExpectedDataItem[]>([]);
+  const [loadingExpectedData, setLoadingExpectedData] = useState(false);
+  const [expectedSearch, setExpectedSearch] = useState('');
+  const [expectedStatusFilter, setExpectedStatusFilter] = useState<'all' | 'Pending' | 'Interested' | 'Not Interested'>('all');
+  const [expectedDateFilter, setExpectedDateFilter] = useState<string>('all');
+  const [expectedLocationFilter, setExpectedLocationFilter] = useState<string>('all');
+  const [updatingExpectedId, setUpdatingExpectedId] = useState<string | null>(null);
+  const [expectedFeedbackMsg, setExpectedFeedbackMsg] = useState<{ id: string; text: string } | null>(null);
+
   const corporateId = profile?.corporateUserId || 'WDS-ACTIVE';
   const income = profile?.income || 0;
   const progress = profile?.progress || 0;
 
-  // Check if attendance has already been submitted for today
-  const todayAttendanceRecord = attendanceHistory.find((record) => record.date === todayDateStr);
+  // Check if attendance has already been submitted for today (using localTodayStr)
+  const todayAttendanceRecord = attendanceHistory.find((record) => record.date === localTodayStr);
   const hasMarkedTodayAttendance = Boolean(todayAttendanceRecord);
+
+  // Calculate live countdown to next day 12:00 AM (Midnight)
+  const getMidnightUnlockCountdown = () => {
+    const nextMidnight = new Date(currentTime);
+    nextMidnight.setHours(24, 0, 0, 0); // Next 12:00 AM
+    const diffMs = Math.max(0, nextMidnight.getTime() - currentTime.getTime());
+    const hours = Math.floor(diffMs / (1000 * 60 * 60));
+    const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((diffMs % (1000 * 60)) / 1000);
+    return `${hours}h ${minutes}m ${seconds}s`;
+  };
 
   // Initialize edit fields when profile changes
   useEffect(() => {
@@ -150,10 +194,18 @@ export const CorporateDashboard: React.FC = () => {
     }
   }, [profile]);
 
-  // Load attendance and daily data report records
+  // Keep attendanceDate synced with localTodayStr if not customized
+  useEffect(() => {
+    if (!attendanceDate || attendanceDate !== localTodayStr) {
+      setAttendanceDate(localTodayStr);
+    }
+  }, [localTodayStr]);
+
+  // Load attendance, daily data reports, and expected data
   useEffect(() => {
     loadAttendance();
     loadReports();
+    loadExpectedData();
   }, [user]);
 
   const loadAttendance = async () => {
@@ -180,11 +232,24 @@ export const CorporateDashboard: React.FC = () => {
     }
   };
 
+  const loadExpectedData = async () => {
+    setLoadingExpectedData(true);
+    try {
+      const list = await fetchEmployeeExpectedData();
+      setExpectedDataList(list);
+    } catch (err) {
+      console.error('Failed to load employee expected data:', err);
+    } finally {
+      setLoadingExpectedData(false);
+    }
+  };
+
   const handleRefresh = async () => {
     setIsRefreshing(true);
     await refreshProfile();
     await loadAttendance();
     await loadReports();
+    await loadExpectedData();
     setTimeout(() => setIsRefreshing(false), 600);
   };
 
@@ -262,16 +327,16 @@ export const CorporateDashboard: React.FC = () => {
     }
   };
 
-  // Handle Attendance Submission (1 attendance per day limit with form clear)
+  // Handle Attendance Submission (1 attendance per calendar day limit with auto-lock until next 12 AM)
   const handleAttendanceSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setAttendanceMessage(null);
 
-    // Double check daily limit
-    if (hasMarkedTodayAttendance && attendanceDate === todayDateStr) {
+    // Strict local date lock check
+    if (hasMarkedTodayAttendance && attendanceDate === localTodayStr) {
       setAttendanceMessage({
         type: 'error',
-        text: `You have already marked attendance for today (${todayDateStr}). Only 1 submission allowed per day.`,
+        text: `You have already marked attendance for today (${localTodayStr}). The portal is locked and will automatically reopen tomorrow after 12:00 AM.`,
       });
       return;
     }
@@ -304,12 +369,12 @@ export const CorporateDashboard: React.FC = () => {
       if (res.success) {
         setAttendanceMessage({
           type: 'success',
-          text: `Attendance for ${attendanceDate} submitted successfully! Your submission is logged and will unlock next day.`,
+          text: `Attendance for ${attendanceDate} submitted successfully! Your submission is recorded and locked until tomorrow 12:00 AM.`,
         });
         // Clear form fields as requested
         setWorkHours('');
         setExpectedClients('');
-        setAttendanceDate(new Date().toISOString().split('T')[0]);
+        setAttendanceDate(localTodayStr);
         await loadAttendance();
       } else {
         setAttendanceMessage({ type: 'error', text: res.error || 'Failed to submit attendance.' });
@@ -320,6 +385,36 @@ export const CorporateDashboard: React.FC = () => {
       setAttendanceMessage({ type: 'error', text: `Error: ${errMsg}` });
     } finally {
       setIsSubmittingAttendance(false);
+    }
+  };
+
+  // Employee: Handle Expected Data Status Change (Interested / Not Interested)
+  const handleEmployeeExpectedStatusChange = async (
+    item: ExpectedDataItem,
+    newStatus: 'Interested' | 'Not Interested'
+  ) => {
+    if (item.status === newStatus) return;
+    setUpdatingExpectedId(item.id);
+    setExpectedFeedbackMsg(null);
+
+    try {
+      const res = await updateExpectedDataStatus(item.id, newStatus);
+      if (res.success) {
+        setExpectedDataList((prev) =>
+          prev.map((it) => (it.id === item.id ? { ...it, status: newStatus } : it))
+        );
+        setExpectedFeedbackMsg({
+          id: item.id,
+          text: `Status updated to '${newStatus}'! Updated in Admin Dashboard in real-time.`,
+        });
+        setTimeout(() => setExpectedFeedbackMsg(null), 4000);
+      } else {
+        alert(res.error || 'Failed to update status.');
+      }
+    } catch (err) {
+      console.error('Error updating expected data status:', err);
+    } finally {
+      setUpdatingExpectedId(null);
     }
   };
 
@@ -337,6 +432,40 @@ export const CorporateDashboard: React.FC = () => {
     day: 'numeric',
     year: 'numeric',
   });
+
+  // Expected Data Filter Calculations
+  const expectedUniqueLocations = Array.from(
+    new Set(expectedDataList.map((i) => i.location).filter(Boolean))
+  );
+  const expectedUniqueDates = Array.from(
+    new Set(expectedDataList.map((i) => i.date).filter(Boolean))
+  );
+
+  const filteredExpectedData = expectedDataList.filter((item) => {
+    const q = expectedSearch.toLowerCase().trim();
+    const matchesSearch =
+      !q ||
+      item.businessName.toLowerCase().includes(q) ||
+      item.location.toLowerCase().includes(q) ||
+      item.number.toLowerCase().includes(q);
+
+    const matchesStatus =
+      expectedStatusFilter === 'all' || item.status === expectedStatusFilter;
+
+    const matchesDate =
+      expectedDateFilter === 'all' || item.date === expectedDateFilter;
+
+    const matchesLocation =
+      expectedLocationFilter === 'all' || item.location === expectedLocationFilter;
+
+    return matchesSearch && matchesStatus && matchesDate && matchesLocation;
+  });
+
+  // KPI calculations for Expected Data
+  const totalExpectedAssigned = expectedDataList.length;
+  const totalInterested = expectedDataList.filter((i) => i.status === 'Interested').length;
+  const totalNotInterested = expectedDataList.filter((i) => i.status === 'Not Interested').length;
+  const totalPendingAction = expectedDataList.filter((i) => i.status === 'Pending').length;
 
   return (
     <div className="min-h-screen bg-[#FEF3C7] text-amber-950 flex flex-col font-sans selection:bg-amber-500 selection:text-black">
@@ -466,6 +595,26 @@ export const CorporateDashboard: React.FC = () => {
               )}
             </button>
 
+            {/* NEW EXPECTED DATA TAB */}
+            <button
+              onClick={() => setActiveTab('expected-data')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+                activeTab === 'expected-data'
+                  ? 'bg-amber-400 text-purple-950 shadow-md font-extrabold'
+                  : 'text-purple-200 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              <Target className="w-4 h-4" />
+              <span>Expected Data</span>
+              {expectedDataList.length > 0 && (
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
+                  activeTab === 'expected-data' ? 'bg-purple-950 text-amber-300' : 'bg-purple-800 text-white'
+                }`}>
+                  {expectedDataList.length}
+                </span>
+              )}
+            </button>
+
             <button
               onClick={() => setActiveTab('data-report')}
               className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
@@ -525,7 +674,7 @@ export const CorporateDashboard: React.FC = () => {
                 </h1>
                 
                 <p className="text-xs sm:text-sm text-amber-900/80 max-w-2xl leading-relaxed">
-                  Access your assigned enterprise sales metrics, target achievement indices, and daily attendance logs.
+                  Access your assigned enterprise sales metrics, expected client prospects, target achievement indices, and daily attendance logs.
                 </p>
 
                 {/* Mobile Live Clock Display */}
@@ -549,6 +698,9 @@ export const CorporateDashboard: React.FC = () => {
                       <div className="text-[11px] text-emerald-800 font-mono">
                         Hours: {todayAttendanceRecord?.todayWorkHours}h • Status: {todayAttendanceRecord?.status?.toUpperCase()}
                       </div>
+                      <div className="text-[10px] text-emerald-700 mt-0.5">
+                        Unlocks in: <span className="font-mono font-bold">{getMidnightUnlockCountdown()}</span>
+                      </div>
                     </div>
                   </div>
                 ) : (
@@ -569,13 +721,13 @@ export const CorporateDashboard: React.FC = () => {
             </div>
 
             {/* Milestone Summary Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
               <div className="p-6 rounded-2xl bg-[#FFFBEB] border border-amber-300 shadow-sm">
                 <div className="flex items-center justify-between text-amber-800 text-xs font-bold mb-2">
                   <span>My Accrued Sales Income</span>
                   <DollarSign className="w-5 h-5 text-emerald-600" />
                 </div>
-                <div className="text-3xl font-extrabold text-emerald-800 font-mono">
+                <div className="text-2xl font-extrabold text-emerald-800 font-mono">
                   ₹{income.toLocaleString('en-IN')}
                 </div>
                 <span className="text-[11px] text-amber-700 font-medium mt-1.5 block">Verified earned commissions</span>
@@ -586,7 +738,7 @@ export const CorporateDashboard: React.FC = () => {
                   <span>Target Achievement</span>
                   <TrendingUp className="w-5 h-5 text-amber-700" />
                 </div>
-                <div className="text-3xl font-extrabold text-amber-900 font-mono">
+                <div className="text-2xl font-extrabold text-amber-900 font-mono">
                   {progress}%
                 </div>
                 <div className="w-full bg-amber-200 rounded-full h-2 mt-2.5 overflow-hidden">
@@ -599,13 +751,30 @@ export const CorporateDashboard: React.FC = () => {
 
               <div className="p-6 rounded-2xl bg-[#FFFBEB] border border-amber-300 shadow-sm">
                 <div className="flex items-center justify-between text-amber-800 text-xs font-bold mb-2">
+                  <span>Expected Data Leads</span>
+                  <Target className="w-5 h-5 text-purple-700" />
+                </div>
+                <div className="text-2xl font-extrabold text-purple-950 font-mono flex items-center gap-2">
+                  <span>{expectedDataList.length}</span>
+                  <span className="text-xs font-normal text-emerald-700">({totalInterested} interested)</span>
+                </div>
+                <button
+                  onClick={() => setActiveTab('expected-data')}
+                  className="text-[11px] text-purple-900 font-bold hover:underline mt-1.5 block cursor-pointer"
+                >
+                  Manage expected leads →
+                </button>
+              </div>
+
+              <div className="p-6 rounded-2xl bg-[#FFFBEB] border border-amber-300 shadow-sm">
+                <div className="flex items-center justify-between text-amber-800 text-xs font-bold mb-2">
                   <span>Corporate User ID</span>
                   <Shield className="w-5 h-5 text-purple-700" />
                 </div>
-                <div className="text-2xl font-extrabold text-amber-950 font-mono">
+                <div className="text-xl font-extrabold text-amber-950 font-mono">
                   {corporateId}
                 </div>
-                <span className="text-[11px] text-amber-700 font-medium mt-1.5 block">Permanent Enterprise Identifier</span>
+                <span className="text-[11px] text-amber-700 font-medium mt-1.5 block">Permanent Enterprise ID</span>
               </div>
             </div>
 
@@ -618,7 +787,7 @@ export const CorporateDashboard: React.FC = () => {
                     <span>Latest Attendance Status</span>
                   </h3>
                   <p className="text-xs text-amber-800/80 mt-0.5">
-                    Your daily work logs reviewed by agency management
+                    Your daily work logs reviewed by agency management (Opens daily at 12:00 AM)
                   </p>
                 </div>
                 <button
@@ -1035,7 +1204,7 @@ export const CorporateDashboard: React.FC = () => {
         )}
 
         {/* ======================================================================= */}
-        {/* TAB 4: ATTENDANCE (1 PER DAY LOCK & CLEAR FORM) */}
+        {/* TAB 4: ATTENDANCE (1 PER DAY STRICT LOCK & UNLOCKS AT NEXT 12:00 AM) */}
         {/* ======================================================================= */}
         {activeTab === 'attendance' && (
           <div className="space-y-6 animate-in fade-in">
@@ -1049,20 +1218,29 @@ export const CorporateDashboard: React.FC = () => {
                     <span>Submit Attendance</span>
                   </h3>
                   <p className="text-xs text-amber-800 mt-0.5">
-                    Log your daily work hours and client outreach (1 submission / day)
+                    Log your daily work hours and client outreach (1 submission / calendar day)
                   </p>
                 </div>
 
                 {/* Daily Submission Limit Alert Notice */}
-                {hasMarkedTodayAttendance && (
-                  <div className="p-4 rounded-2xl bg-amber-100 border-2 border-amber-400 text-amber-950 space-y-1.5 shadow-sm">
+                {hasMarkedTodayAttendance ? (
+                  <div className="p-4 rounded-2xl bg-amber-100 border-2 border-amber-400 text-amber-950 space-y-2 shadow-sm">
                     <div className="flex items-center gap-2 font-extrabold text-xs text-amber-950">
                       <Lock className="w-4 h-4 text-amber-800" />
                       <span>Today's Attendance Locked</span>
                     </div>
                     <p className="text-[11px] text-amber-900 leading-relaxed">
-                      You have already marked your attendance for today ({todayDateStr}). Status: <strong className="font-mono uppercase">{todayAttendanceRecord?.status}</strong>. The portal will automatically unlock tomorrow for your next entry.
+                      You have already marked your attendance for today ({localTodayStr}). Status: <strong className="font-mono uppercase">{todayAttendanceRecord?.status}</strong>.
                     </p>
+                    <div className="p-2 rounded-xl bg-amber-200/80 border border-amber-300 text-[11px] text-amber-950 flex items-center gap-1.5 font-mono">
+                      <Clock className="w-3.5 h-3.5 text-amber-800 shrink-0" />
+                      <span>Unlocks after 12:00 AM in: <strong>{getMidnightUnlockCountdown()}</strong></span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-3 rounded-xl bg-amber-100/70 border border-amber-300 text-[11px] text-amber-900 flex items-center gap-2 font-medium">
+                    <Clock className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                    <span>Portal is open for today: <strong className="font-mono">{localTodayStr}</strong></span>
                   </div>
                 )}
 
@@ -1102,7 +1280,7 @@ export const CorporateDashboard: React.FC = () => {
                     </span>
                   </div>
 
-                  {/* Date Picker */}
+                  {/* Date Picker (Strictly local date) */}
                   <div className="space-y-1">
                     <label className="text-xs font-bold text-amber-950 block">
                       Date
@@ -1170,7 +1348,7 @@ export const CorporateDashboard: React.FC = () => {
                     ) : hasMarkedTodayAttendance ? (
                       <>
                         <Lock className="w-3.5 h-3.5 text-zinc-600" />
-                        <span>Attendance Already Marked for Today</span>
+                        <span>Attendance Marked for Today (Locked)</span>
                       </>
                     ) : (
                       <>
@@ -1182,81 +1360,98 @@ export const CorporateDashboard: React.FC = () => {
                 </form>
               </div>
 
-              {/* Attendance History & Real-Time Status Tracking */}
+              {/* Attendance History Table Card */}
               <div className="lg:col-span-2 p-6 sm:p-7 rounded-3xl bg-[#FFFBEB] border-2 border-amber-300 shadow-md space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-amber-200">
                   <div>
                     <h3 className="font-extrabold text-base text-amber-950 flex items-center gap-2">
                       <Clock className="w-4 h-4 text-amber-700" />
-                      <span>My Attendance Records</span>
+                      <span>My Attendance Log</span>
                     </h3>
                     <p className="text-xs text-amber-800 mt-0.5">
-                      Real-time approval status from Admin management
+                      Historical log of your daily attendance and admin approval statuses
                     </p>
                   </div>
 
                   <button
                     onClick={loadAttendance}
-                    className="p-1.5 px-2.5 rounded-xl bg-white hover:bg-amber-50 border border-amber-300 text-amber-950 text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs"
+                    className="p-2 rounded-xl bg-amber-200/80 hover:bg-amber-300 text-amber-950 text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-1.5 self-start sm:self-auto"
                   >
                     <RefreshCw className={`w-3.5 h-3.5 ${loadingAttendance ? 'animate-spin' : ''}`} />
                     <span>Refresh</span>
                   </button>
                 </div>
 
-                {attendanceHistory.length === 0 ? (
-                  <div className="p-8 rounded-2xl bg-white border border-dashed border-amber-300 text-center space-y-2">
-                    <Calendar className="w-8 h-8 text-amber-400 mx-auto" />
-                    <p className="text-xs text-amber-950 font-bold">No attendance submissions yet.</p>
-                    <p className="text-[11px] text-amber-800">
-                      Submit today's work hours using the form to have it reviewed by Admin.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {attendanceHistory.map((item) => (
-                      <div
-                        key={item.id}
-                        className="p-4 rounded-2xl bg-white border border-amber-300 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-amber-500 transition-colors shadow-xs"
-                      >
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-sm text-zinc-900 font-mono">{item.date}</span>
-                            <span className="text-xs text-amber-900 font-mono">
-                              • {item.todayWorkHours} Hours • {item.expectedClients} Clients
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2 text-xs text-amber-800">
-                            <span>Attendance sent</span>
-                            <span>•</span>
-                            <span className="font-mono text-amber-950 font-bold">Code: {item.employeeCode}</span>
-                          </div>
-                        </div>
-
-                        <div>
-                          {item.status === 'pending' && (
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-amber-100 border border-amber-400 text-amber-900">
-                              <Clock className="w-3.5 h-3.5 animate-pulse text-amber-700" />
-                              <span>Status: Pending</span>
-                            </span>
-                          )}
-                          {item.status === 'approved' && (
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-emerald-100 border border-emerald-400 text-emerald-900">
-                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" />
-                              <span>Status: Approved</span>
-                            </span>
-                          )}
-                          {item.status === 'rejected' && (
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-red-100 border border-red-400 text-red-900">
-                              <XCircle className="w-3.5 h-3.5 text-red-700" />
-                              <span>Status: Rejected</span>
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <div className="overflow-x-auto rounded-2xl border border-amber-300 bg-white shadow-xs">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-amber-100/90 text-amber-950 font-mono uppercase text-[10px] font-bold border-b border-amber-300">
+                      <tr>
+                        <th className="px-3.5 py-3">Date</th>
+                        <th className="px-3.5 py-3">Employee Code</th>
+                        <th className="px-3.5 py-3">Work Hours</th>
+                        <th className="px-3.5 py-3">Expected Clients</th>
+                        <th className="px-3.5 py-3">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-amber-100">
+                      {loadingAttendance ? (
+                        <tr>
+                          <td colSpan={5} className="px-4 py-8 text-center text-amber-800">
+                            <div className="w-6 h-6 border-2 border-amber-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                            <span>Loading Attendance Logs...</span>
+                          </td>
+                        </tr>
+                      ) : attendanceHistory.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="px-4 py-8 text-center text-amber-800">
+                            <Calendar className="w-8 h-8 text-amber-400 mx-auto mb-2" />
+                            <p className="font-bold text-amber-950">No attendance submitted yet.</p>
+                            <p className="text-[11px] text-amber-800 mt-0.5">
+                              Fill in the form on the left to log your work hours for today ({localTodayStr}).
+                            </p>
+                          </td>
+                        </tr>
+                      ) : (
+                        attendanceHistory.map((rec) => (
+                          <tr key={rec.id} className="hover:bg-amber-50/80 transition-colors">
+                            <td className="px-3.5 py-3 font-mono font-bold text-amber-950">
+                              {rec.date}
+                            </td>
+                            <td className="px-3.5 py-3 font-mono text-zinc-700">
+                              {rec.employeeCode}
+                            </td>
+                            <td className="px-3.5 py-3 font-mono font-bold text-zinc-900">
+                              {rec.todayWorkHours} hrs
+                            </td>
+                            <td className="px-3.5 py-3 font-mono text-zinc-800">
+                              {rec.expectedClients} clients
+                            </td>
+                            <td className="px-3.5 py-3 whitespace-nowrap">
+                              {rec.status === 'pending' && (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 border border-amber-400 text-amber-900">
+                                  <Clock className="w-3 h-3 text-amber-700" />
+                                  <span>Pending</span>
+                                </span>
+                              )}
+                              {rec.status === 'approved' && (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 border border-emerald-400 text-emerald-900">
+                                  <CheckCircle2 className="w-3 h-3 text-emerald-700" />
+                                  <span>Approved</span>
+                                </span>
+                              )}
+                              {rec.status === 'rejected' && (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-red-100 border border-red-400 text-red-900">
+                                  <XCircle className="w-3 h-3 text-red-700" />
+                                  <span>Rejected</span>
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
 
             </div>
@@ -1264,37 +1459,355 @@ export const CorporateDashboard: React.FC = () => {
         )}
 
         {/* ======================================================================= */}
-        {/* TAB 5: DATA REPORT STATUS (GOLDEN BG) */}
+        {/* TAB 5: EXPECTED DATA (EMPLOYEE VIEW & STATUS SELECTOR: INTERESTED / NOT INTERESTED) */}
+        {/* ======================================================================= */}
+        {activeTab === 'expected-data' && (
+          <div className="space-y-6 animate-in fade-in">
+            <div className="p-6 sm:p-8 rounded-3xl bg-[#FFFBEB] border-2 border-amber-300 shadow-md space-y-6">
+              
+              {/* Header & KPI Summary */}
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-amber-200">
+                <div>
+                  <h2 className="font-extrabold text-xl text-amber-950 flex items-center gap-2.5">
+                    <Target className="w-5 h-5 text-amber-700" />
+                    <span>My Expected Data Prospects</span>
+                  </h2>
+                  <p className="text-xs text-amber-800 mt-1">
+                    Client prospects assigned by administration. Review contact details and mark status as <strong>Interested</strong> or <strong>Not Interested</strong>.
+                  </p>
+                </div>
+
+                <button
+                  onClick={loadExpectedData}
+                  className="px-3.5 py-2 rounded-xl bg-amber-200/80 hover:bg-amber-300 text-amber-950 text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-1.5 self-start md:self-auto"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${loadingExpectedData ? 'animate-spin' : ''}`} />
+                  <span>Sync Expected Data</span>
+                </button>
+              </div>
+
+              {/* KPI Quick Badges */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="p-3.5 rounded-2xl bg-white border border-amber-300 shadow-xs">
+                  <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wider block">
+                    Total Assigned
+                  </span>
+                  <div className="text-xl font-extrabold text-amber-950 font-mono mt-0.5">
+                    {totalExpectedAssigned}
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-white border border-emerald-300 shadow-xs">
+                  <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider block">
+                    Interested
+                  </span>
+                  <div className="text-xl font-extrabold text-emerald-700 font-mono mt-0.5">
+                    {totalInterested}
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-white border border-red-300 shadow-xs">
+                  <span className="text-[10px] font-bold text-red-800 uppercase tracking-wider block">
+                    Not Interested
+                  </span>
+                  <div className="text-xl font-extrabold text-red-700 font-mono mt-0.5">
+                    {totalNotInterested}
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-white border border-amber-300 shadow-xs">
+                  <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wider block">
+                    Pending Action
+                  </span>
+                  <div className="text-xl font-extrabold text-amber-800 font-mono mt-0.5">
+                    {totalPendingAction}
+                  </div>
+                </div>
+              </div>
+
+              {/* Toast / Notification on status change */}
+              {expectedFeedbackMsg && (
+                <div className="p-3 rounded-xl bg-emerald-100 border border-emerald-400 text-emerald-900 text-xs font-semibold flex items-center gap-2 animate-in fade-in">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
+                  <span>{expectedFeedbackMsg.text}</span>
+                </div>
+              )}
+
+              {/* Filters Bar */}
+              <div className="p-4 rounded-2xl bg-white border border-amber-300 space-y-3 shadow-xs">
+                <div className="flex items-center gap-2 text-xs font-bold text-amber-950">
+                  <Filter className="w-4 h-4 text-amber-700" />
+                  <span>Filter Expected Leads</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  {/* Search Input */}
+                  <div className="relative">
+                    <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      value={expectedSearch}
+                      onChange={(e) => setExpectedSearch(e.target.value)}
+                      placeholder="Search business, location, number..."
+                      className="w-full bg-amber-50/50 border border-amber-200 focus:border-amber-500 rounded-xl pl-8 pr-3 py-2 text-xs text-zinc-900 outline-none"
+                    />
+                  </div>
+
+                  {/* Status Filter */}
+                  <div>
+                    <select
+                      value={expectedStatusFilter}
+                      onChange={(e) => setExpectedStatusFilter(e.target.value as any)}
+                      className="w-full bg-amber-50/50 border border-amber-200 focus:border-amber-500 rounded-xl px-3 py-2 text-xs text-zinc-900 outline-none cursor-pointer"
+                    >
+                      <option value="all">All Statuses ({expectedDataList.length})</option>
+                      <option value="Interested">Interested ({totalInterested})</option>
+                      <option value="Not Interested">Not Interested ({totalNotInterested})</option>
+                      <option value="Pending">Pending ({totalPendingAction})</option>
+                    </select>
+                  </div>
+
+                  {/* Date Filter */}
+                  <div>
+                    <select
+                      value={expectedDateFilter}
+                      onChange={(e) => setExpectedDateFilter(e.target.value)}
+                      className="w-full bg-amber-50/50 border border-amber-200 focus:border-amber-500 rounded-xl px-3 py-2 text-xs text-zinc-900 outline-none cursor-pointer"
+                    >
+                      <option value="all">All Dates</option>
+                      {expectedUniqueDates.map((dt) => (
+                        <option key={dt} value={dt}>
+                          {dt}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Location Filter */}
+                  <div>
+                    <select
+                      value={expectedLocationFilter}
+                      onChange={(e) => setExpectedLocationFilter(e.target.value)}
+                      className="w-full bg-amber-50/50 border border-amber-200 focus:border-amber-500 rounded-xl px-3 py-2 text-xs text-zinc-900 outline-none cursor-pointer"
+                    >
+                      <option value="all">All Locations</option>
+                      {expectedUniqueLocations.map((loc) => (
+                        <option key={loc} value={loc}>
+                          {loc}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Reset Filters button */}
+                {(expectedSearch || expectedStatusFilter !== 'all' || expectedDateFilter !== 'all' || expectedLocationFilter !== 'all') && (
+                  <div className="flex justify-end pt-1">
+                    <button
+                      onClick={() => {
+                        setExpectedSearch('');
+                        setExpectedStatusFilter('all');
+                        setExpectedDateFilter('all');
+                        setExpectedLocationFilter('all');
+                      }}
+                      className="text-xs text-amber-900 hover:text-purple-900 font-bold underline cursor-pointer"
+                    >
+                      Clear all filters
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Data Table */}
+              <div className="overflow-x-auto rounded-2xl border border-amber-300 bg-white shadow-xs">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-amber-100/90 text-amber-950 font-mono uppercase text-[10px] font-bold border-b border-amber-300">
+                    <tr>
+                      <th className="px-3.5 py-3">Business Name</th>
+                      <th className="px-3.5 py-3">Location</th>
+                      <th className="px-3.5 py-3">Contact Number</th>
+                      <th className="px-3.5 py-3">Assigned Date</th>
+                      <th className="px-3.5 py-3">Current Status</th>
+                      <th className="px-3.5 py-3 text-center">Select Status / Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-amber-100">
+                    {loadingExpectedData ? (
+                      <tr>
+                        <td colSpan={6} className="px-4 py-8 text-center text-amber-800">
+                          <div className="w-6 h-6 border-2 border-amber-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                          <span>Loading Assigned Expected Leads...</span>
+                        </td>
+                      </tr>
+                    ) : filteredExpectedData.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="px-4 py-8 text-center text-amber-800">
+                          <Target className="w-8 h-8 text-amber-400 mx-auto mb-2" />
+                          <p className="font-bold text-amber-950">No expected data records found.</p>
+                          <p className="text-[11px] text-amber-800 mt-0.5">
+                            {expectedDataList.length === 0
+                              ? `Admin has not assigned any expected data entries to your Corporate ID (${corporateId}) yet.`
+                              : 'No records matched your selected search filters.'}
+                          </p>
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredExpectedData.map((item) => {
+                        const isUpdating = updatingExpectedId === item.id;
+                        return (
+                          <tr key={item.id} className="hover:bg-amber-50/80 transition-colors">
+                            
+                            {/* Business Name */}
+                            <td className="px-3.5 py-3 font-bold text-zinc-900">
+                              <div className="flex items-center gap-1.5">
+                                <Briefcase className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                                <span>{item.businessName}</span>
+                              </div>
+                            </td>
+
+                            {/* Location */}
+                            <td className="px-3.5 py-3 text-zinc-700">
+                              <div className="flex items-center gap-1">
+                                <MapPin className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                                <span>{item.location}</span>
+                              </div>
+                            </td>
+
+                            {/* Contact Number */}
+                            <td className="px-3.5 py-3 font-mono text-zinc-800 whitespace-nowrap">
+                              <a
+                                href={`tel:${item.number}`}
+                                className="inline-flex items-center gap-1.5 text-purple-900 font-bold hover:underline"
+                                title="Click to call"
+                              >
+                                <PhoneCall className="w-3.5 h-3.5 text-purple-700" />
+                                <span>{item.number}</span>
+                              </a>
+                            </td>
+
+                            {/* Date */}
+                            <td className="px-3.5 py-3 font-mono text-zinc-700 whitespace-nowrap">
+                              <div className="flex items-center gap-1">
+                                <Calendar className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                                <span>{item.date}</span>
+                              </div>
+                            </td>
+
+                            {/* Current Status Badge */}
+                            <td className="px-3.5 py-3 whitespace-nowrap">
+                              {item.status === 'Interested' && (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 border border-emerald-400 text-emerald-900">
+                                  <ThumbsUp className="w-3 h-3 text-emerald-700" />
+                                  <span>Interested</span>
+                                </span>
+                              )}
+                              {item.status === 'Not Interested' && (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-red-100 border border-red-400 text-red-900">
+                                  <ThumbsDown className="w-3 h-3 text-red-700" />
+                                  <span>Not Interested</span>
+                                </span>
+                              )}
+                              {(!item.status || item.status === 'Pending') && (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 border border-amber-400 text-amber-900">
+                                  <Clock className="w-3 h-3 text-amber-700 animate-pulse" />
+                                  <span>Pending Response</span>
+                                </span>
+                              )}
+                            </td>
+
+                            {/* Select Status: Interested or Not Interested */}
+                            <td className="px-3.5 py-3 text-center whitespace-nowrap">
+                              <div className="inline-flex items-center gap-1.5 p-1 bg-amber-100/70 border border-amber-300 rounded-xl">
+                                
+                                {/* Interested Button */}
+                                <button
+                                  type="button"
+                                  disabled={isUpdating}
+                                  onClick={() => handleEmployeeExpectedStatusChange(item, 'Interested')}
+                                  className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                                    item.status === 'Interested'
+                                      ? 'bg-emerald-600 text-white shadow-xs'
+                                      : 'bg-white hover:bg-emerald-50 text-emerald-800 border border-emerald-300'
+                                  }`}
+                                  title="Mark as Interested"
+                                >
+                                  {isUpdating && item.status !== 'Interested' ? (
+                                    <RefreshCw className="w-3 h-3 animate-spin" />
+                                  ) : (
+                                    <ThumbsUp className="w-3 h-3" />
+                                  )}
+                                  <span>Interested</span>
+                                </button>
+
+                                {/* Not Interested Button */}
+                                <button
+                                  type="button"
+                                  disabled={isUpdating}
+                                  onClick={() => handleEmployeeExpectedStatusChange(item, 'Not Interested')}
+                                  className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                                    item.status === 'Not Interested'
+                                      ? 'bg-red-600 text-white shadow-xs'
+                                      : 'bg-white hover:bg-red-50 text-red-800 border border-red-300'
+                                  }`}
+                                  title="Mark as Not Interested"
+                                >
+                                  {isUpdating && item.status !== 'Not Interested' ? (
+                                    <RefreshCw className="w-3 h-3 animate-spin" />
+                                  ) : (
+                                    <ThumbsDown className="w-3 h-3" />
+                                  )}
+                                  <span>Not Interested</span>
+                                </button>
+
+                              </div>
+                            </td>
+
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+            </div>
+          </div>
+        )}
+
+        {/* ======================================================================= */}
+        {/* TAB 6: DATA REPORT (READ-ONLY ASSIGNED LEADS) */}
         {/* ======================================================================= */}
         {activeTab === 'data-report' && (
           <div className="space-y-6 animate-in fade-in">
             <div className="p-6 sm:p-8 rounded-3xl bg-[#FFFBEB] border-2 border-amber-300 shadow-md space-y-5">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-amber-200">
                 <div>
                   <h3 className="font-extrabold text-base text-amber-950 flex items-center gap-2">
                     <FileSpreadsheet className="w-4 h-4 text-amber-700" />
-                    <span>Data Report Status</span>
+                    <span>Assigned Client Data Reports</span>
                   </h3>
                   <p className="text-xs text-amber-800 mt-0.5">
-                    View daily client reports and lead assignments provisioned directly by Admin
+                    Client leads and service requirements allocated to your Corporate ID
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
+                  {/* Search Bar */}
                   <div className="relative">
                     <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
                     <input
                       type="text"
                       value={reportSearch}
                       onChange={(e) => setReportSearch(e.target.value)}
-                      placeholder="Search client, location..."
-                      className="pl-8 pr-3 py-1.5 rounded-xl bg-white border border-amber-300 text-xs text-zinc-900 focus:border-amber-600 outline-none w-44 shadow-xs"
+                      placeholder="Search reports..."
+                      className="w-48 sm:w-64 bg-white border border-amber-300 focus:border-amber-600 rounded-xl pl-8 pr-3 py-1.5 text-xs text-zinc-900 outline-none"
                     />
                   </div>
 
                   <button
                     onClick={loadReports}
-                    className="p-2 px-3 rounded-xl bg-white hover:bg-amber-50 text-amber-950 text-xs font-semibold flex items-center gap-1.5 border border-amber-300 cursor-pointer shadow-xs"
+                    className="p-2 rounded-xl bg-amber-200/80 hover:bg-amber-300 text-amber-950 text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-1.5"
                   >
                     <RefreshCw className={`w-3.5 h-3.5 ${loadingReports ? 'animate-spin' : ''}`} />
                     <span>Refresh</span>

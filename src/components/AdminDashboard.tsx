@@ -3,43 +3,51 @@ import {
   LayoutDashboard,
   User,
   Layers,
-  UserPlus,
   Calendar,
   LogOut,
   Shield,
-  Search,
-  CheckCircle2,
-  AlertTriangle,
-  Copy,
-  Edit3,
-  Save,
-  DollarSign,
   TrendingUp,
-  Users,
+  DollarSign,
   MapPin,
   Mail,
   Phone,
-  KeyRound,
-  Terminal,
+  CheckCircle2,
   Clock,
-  RefreshCw,
-  XCircle,
   AlertCircle,
-  Check,
-  X,
-  Filter,
+  KeyRound,
+  RefreshCw,
+  Edit3,
+  Save,
+  Briefcase,
+  XCircle,
   FileSpreadsheet,
-  Lock,
-  Trash2,
-  Plus,
-  Send,
+  Search,
   Eye,
   EyeOff,
+  UserPlus,
+  Users,
+  Copy,
+  Check,
+  Building,
+  CheckSquare,
+  Trash2,
+  Send,
+  Target,
+  ThumbsUp,
+  ThumbsDown,
+  Filter,
+  PhoneCall,
 } from 'lucide-react';
-import { useAuth, UserProfile, AttendanceRecord, DailyReportItem } from '../context/AuthContext';
+import {
+  useAuth,
+  UserProfile,
+  AttendanceRecord,
+  DailyReportItem,
+  ExpectedDataItem,
+} from '../context/AuthContext';
 import { AGENCY_INFO } from '../data/agencyData';
 
-type AdminTab = 'dashboard' | 'profile' | 'portfolio' | 'corporate-registration' | 'attendance' | 'daily-report';
+type AdminTab = 'dashboard' | 'profile' | 'portfolio' | 'corporate-registration' | 'attendance' | 'daily-report' | 'expected-data';
 
 export const AdminDashboard: React.FC = () => {
   const {
@@ -58,6 +66,10 @@ export const AdminDashboard: React.FC = () => {
     fetchAdminDailyReports,
     updateDailyReportStatus,
     deleteDailyReport,
+    createExpectedData,
+    fetchAdminExpectedData,
+    updateExpectedDataStatus,
+    deleteExpectedData,
   } = useAuth();
 
   const [activeTab, setActiveTab] = useState<AdminTab>('dashboard');
@@ -89,6 +101,34 @@ export const AdminDashboard: React.FC = () => {
   const [selectedEmployeeUid, setSelectedEmployeeUid] = useState<string>('');
   const [reportFormError, setReportFormError] = useState<string | null>(null);
   const [isCreatingReport, setIsCreatingReport] = useState<boolean>(false);
+
+  // Expected Data state
+  const [expectedDataList, setExpectedDataList] = useState<ExpectedDataItem[]>([]);
+  const [loadingExpectedData, setLoadingExpectedData] = useState(false);
+  const [expectedSearchQuery, setExpectedSearchQuery] = useState('');
+  const [expectedFilterEmployee, setExpectedFilterEmployee] = useState<string>('all');
+  const [expectedFilterStatus, setExpectedFilterStatus] = useState<string>('all');
+  const [expectedFilterDate, setExpectedFilterDate] = useState<string>('all');
+  const [expectedFilterLocation, setExpectedFilterLocation] = useState<string>('all');
+  const [expectedActionId, setExpectedActionId] = useState<string | null>(null);
+
+  // Expected Data creation form state
+  const getTodayLocalStr = () => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const [expectedBusinessName, setExpectedBusinessName] = useState<string>('');
+  const [expectedLocation, setExpectedLocation] = useState<string>('');
+  const [expectedNumber, setExpectedNumber] = useState<string>('');
+  const [expectedDate, setExpectedDate] = useState<string>(getTodayLocalStr());
+  const [expectedSelectedEmployeeUid, setExpectedSelectedEmployeeUid] = useState<string>('');
+  const [expectedStatus, setExpectedStatus] = useState<'Pending' | 'Interested' | 'Not Interested'>('Pending');
+  const [expectedFormError, setExpectedFormError] = useState<string | null>(null);
+  const [isCreatingExpected, setIsCreatingExpected] = useState<boolean>(false);
 
   // Admin Profile Edit State
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -140,6 +180,7 @@ export const AdminDashboard: React.FC = () => {
     loadCorporateData();
     loadAttendanceData();
     loadDailyReports();
+    loadExpectedData();
   }, []);
 
   useEffect(() => {
@@ -185,16 +226,26 @@ export const AdminDashboard: React.FC = () => {
     }
   };
 
+  const loadExpectedData = async () => {
+    setLoadingExpectedData(true);
+    try {
+      const list = await fetchAdminExpectedData();
+      setExpectedDataList(list);
+    } catch (err) {
+      console.error('Failed to load admin expected data:', err);
+    } finally {
+      setLoadingExpectedData(false);
+    }
+  };
+
   // Profile Edit for Admin
   const handleSaveAdminProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setProfileMessage(null);
-
     if (!adminName.trim()) {
       setProfileMessage({ type: 'error', text: 'Name cannot be empty.' });
       return;
     }
-
     setIsUpdatingProfile(true);
     try {
       const res = await updateProfile({
@@ -368,6 +419,105 @@ export const AdminDashboard: React.FC = () => {
     }
   };
 
+  // =========================================================================
+  // EXPECTED DATA OPERATIONS
+  // =========================================================================
+
+  // Admin: Create Expected Data and assign to employee
+  const handleCreateExpectedDataSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setExpectedFormError(null);
+
+    if (!expectedSelectedEmployeeUid) {
+      setExpectedFormError('Please select a corporate employee. Employee selection is mandatory.');
+      return;
+    }
+
+    if (!expectedBusinessName.trim() || !expectedLocation.trim() || !expectedNumber.trim()) {
+      setExpectedFormError('Please fill in all mandatory fields (Business Name, Location, Contact Number).');
+      return;
+    }
+
+    const assignedEmp = corporateList.find((c) => c.uid === expectedSelectedEmployeeUid);
+    if (!assignedEmp) {
+      setExpectedFormError('Selected corporate employee profile not found.');
+      return;
+    }
+
+    setIsCreatingExpected(true);
+    try {
+      const res = await createExpectedData({
+        businessName: expectedBusinessName.trim(),
+        location: expectedLocation.trim(),
+        number: expectedNumber.trim(),
+        date: expectedDate.trim() || getTodayLocalStr(),
+        status: expectedStatus || 'Pending',
+        assignedEmployeeUid: assignedEmp.uid,
+        assignedEmployeeCode: assignedEmp.corporateUserId || 'WDS-CORP',
+        assignedEmployeeName: assignedEmp.name || 'Corporate Employee',
+      });
+
+      if (res.success) {
+        setUpdateSuccess(`Expected Data for "${expectedBusinessName.trim()}" created & assigned to ${assignedEmp.name} (${assignedEmp.corporateUserId})!`);
+        // Reset form fields
+        setExpectedBusinessName('');
+        setExpectedLocation('');
+        setExpectedNumber('');
+        setExpectedDate(getTodayLocalStr());
+        setExpectedSelectedEmployeeUid('');
+        setExpectedStatus('Pending');
+        await loadExpectedData();
+        setTimeout(() => setUpdateSuccess(null), 4000);
+      } else {
+        setExpectedFormError(res.error || 'Failed to create expected data entry.');
+      }
+    } catch (err: any) {
+      setExpectedFormError(err?.message || 'An error occurred while creating expected data entry.');
+    } finally {
+      setIsCreatingExpected(false);
+    }
+  };
+
+  // Admin: Update Expected Data Status (Interested / Not Interested / Pending)
+  const handleAdminUpdateExpectedStatus = async (
+    id: string,
+    newStatus: 'Pending' | 'Interested' | 'Not Interested'
+  ) => {
+    setExpectedActionId(id);
+    try {
+      const res = await updateExpectedDataStatus(id, newStatus);
+      if (res.success) {
+        setExpectedDataList((prev) =>
+          prev.map((item) => (item.id === id ? { ...item, status: newStatus } : item))
+        );
+        setUpdateSuccess(`Expected data status updated to '${newStatus}'.`);
+        setTimeout(() => setUpdateSuccess(null), 3000);
+      }
+    } catch (err) {
+      console.error('Failed to update expected data status:', err);
+    } finally {
+      setExpectedActionId(null);
+    }
+  };
+
+  // Admin: Delete Expected Data Entry
+  const handleDeleteExpectedData = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this Expected Data entry?')) return;
+    setExpectedActionId(id);
+    try {
+      const res = await deleteExpectedData(id);
+      if (res.success) {
+        setExpectedDataList((prev) => prev.filter((item) => item.id !== id));
+        setUpdateSuccess('Expected Data entry deleted successfully.');
+        setTimeout(() => setUpdateSuccess(null), 3000);
+      }
+    } catch (err) {
+      console.error('Failed to delete expected data entry:', err);
+    } finally {
+      setExpectedActionId(null);
+    }
+  };
+
   // Portfolio Milestone Editing
   const handleStartEdit = (item: UserProfile) => {
     setEditingUid(item.uid);
@@ -449,43 +599,64 @@ export const AdminDashboard: React.FC = () => {
 
   const copyCreatedCredentials = () => {
     if (!createdUser) return;
-    const text = `WALT DESIGNS & STUDIO - CORPORATE CREDENTIALS\nName: ${createdUser.name}\nDesignation: ${createdUser.role}\nCorporate User ID: ${createdUser.corporateUserId}\nLogin Email: ${createdUser.email}\nPassword: ${createdUser.password}\nPortal URL: ${window.location.origin}/dashboard`;
+    const text = `WALT DESIGNS & STUDIO - CORPORATE ACCESS CREDENTIALS\nName: ${createdUser.name}\nDesignation: ${createdUser.role}\nCorporate User ID: ${createdUser.corporateUserId}\nEmail: ${createdUser.email}\nPassword: ${createdUser.password}\nPortal URL: ${window.location.origin}`;
     navigator.clipboard.writeText(text);
     setCopiedNotification(true);
     setTimeout(() => setCopiedNotification(false), 3000);
   };
 
-  // Computed Metrics
-  const totalFleetIncome = corporateList.reduce((acc, curr) => acc + (curr.income || 0), 0);
-  const avgProgress = corporateList.length
-    ? Math.round(corporateList.reduce((acc, curr) => acc + (curr.progress || 0), 0) / corporateList.length)
-    : 0;
+  // Calculations for KPI summaries
+  const pendingAttendanceCount = attendanceList.filter((a) => a.status === 'pending').length;
+  const approvedAttendanceCount = attendanceList.filter((a) => a.status === 'approved').length;
 
-  const filteredCorporateList = corporateList.filter(
-    (u) =>
-      u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      u.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (u.corporateUserId && u.corporateUserId.toLowerCase().includes(searchQuery.toLowerCase()))
+  const totalExpectedCount = expectedDataList.length;
+  const expectedInterestedCount = expectedDataList.filter((i) => i.status === 'Interested').length;
+  const expectedNotInterestedCount = expectedDataList.filter((i) => i.status === 'Not Interested').length;
+  const expectedPendingCount = expectedDataList.filter((i) => i.status === 'Pending' || !i.status).length;
+
+  const expectedUniqueLocations = Array.from(
+    new Set(expectedDataList.map((i) => i.location).filter(Boolean))
+  );
+  const expectedUniqueDates = Array.from(
+    new Set(expectedDataList.map((i) => i.date).filter(Boolean))
   );
 
-  const filteredAttendanceList = attendanceList.filter((item) => {
-    if (attendanceFilter === 'all') return true;
-    return item.status === attendanceFilter;
+  const filteredExpectedList = expectedDataList.filter((item) => {
+    const matchesEmployee =
+      expectedFilterEmployee === 'all' || item.assignedEmployeeUid === expectedFilterEmployee;
+
+    const matchesStatus =
+      expectedFilterStatus === 'all' || item.status === expectedFilterStatus;
+
+    const matchesDate =
+      expectedFilterDate === 'all' || item.date === expectedFilterDate;
+
+    const matchesLocation =
+      expectedFilterLocation === 'all' || item.location === expectedFilterLocation;
+
+    const q = expectedSearchQuery.toLowerCase().trim();
+    const matchesQuery =
+      !q ||
+      item.businessName.toLowerCase().includes(q) ||
+      item.location.toLowerCase().includes(q) ||
+      item.number.toLowerCase().includes(q) ||
+      (item.assignedEmployeeName && item.assignedEmployeeName.toLowerCase().includes(q)) ||
+      (item.assignedEmployeeCode && item.assignedEmployeeCode.toLowerCase().includes(q));
+
+    return matchesEmployee && matchesStatus && matchesDate && matchesLocation && matchesQuery;
   });
 
-  const pendingAttendanceCount = attendanceList.filter((a) => a.status === 'pending').length;
-
   return (
-    <div className="min-h-screen bg-[#FDF2F4] text-zinc-900 flex flex-col font-sans selection:bg-purple-600 selection:text-white">
+    <div className="min-h-screen bg-[#FCE7F3] text-purple-950 flex flex-col font-sans selection:bg-pink-500 selection:text-white">
       
       {/* ========================================================================= */}
-      {/* PURPLE HEADER */}
+      {/* PURPLE HEADER FOR ADMIN DASHBOARD */}
       {/* ========================================================================= */}
       <header className="bg-[#3B0764] text-white border-b border-purple-900 sticky top-0 z-40 shadow-xl">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5">
           <div className="flex items-center justify-between gap-4">
             
-            {/* Admin Brand & Operations Identity */}
+            {/* Brand Title */}
             <div className="flex items-center gap-3">
               <img
                 src={AGENCY_INFO.logoUrl}
@@ -498,21 +669,30 @@ export const AdminDashboard: React.FC = () => {
                     Walt Designs & Studio
                   </span>
                   <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-pink-500 text-white uppercase tracking-wider shadow-sm">
-                    Admin IT Hub
+                    Admin Executive
                   </span>
                 </div>
-                <p className="text-xs text-purple-200 font-mono hidden sm:block">
-                  Admin User ID: <span className="text-amber-300 font-bold">{profile?.adminUserId || 'ADM-PRIMARY'}</span> • {user?.email}
+                <p className="text-xs text-purple-200 font-mono">
+                  Super Administrator Control Center • {user?.email}
                 </p>
               </div>
             </div>
 
-            {/* Admin Header Actions */}
+            {/* Top Right Actions */}
             <div className="flex items-center gap-3">
-              <div className="hidden lg:flex items-center gap-2 px-3 py-1 rounded-full bg-purple-900/60 border border-purple-700/60 text-xs font-mono text-purple-200">
-                <Terminal className="w-3.5 h-3.5 text-pink-400" />
-                <span>IT & Data Operations</span>
-              </div>
+              <button
+                onClick={() => {
+                  loadCorporateData();
+                  loadAttendanceData();
+                  loadDailyReports();
+                  loadExpectedData();
+                }}
+                className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-purple-100 hover:text-white transition-all cursor-pointer hidden sm:flex items-center gap-1.5 text-xs font-semibold"
+                title="Refresh All Database Records"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 text-pink-300 ${loadingUsers ? 'animate-spin' : ''}`} />
+                <span>Sync Data</span>
+              </button>
 
               <button
                 onClick={() => logout()}
@@ -599,6 +779,26 @@ export const AdminDashboard: React.FC = () => {
               )}
             </button>
 
+            {/* NEW EXPECTED DATA TAB */}
+            <button
+              onClick={() => setActiveTab('expected-data')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+                activeTab === 'expected-data'
+                  ? 'bg-pink-500 text-white shadow-md font-extrabold'
+                  : 'text-purple-200 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              <Target className="w-4 h-4" />
+              <span>Expected Data</span>
+              {expectedDataList.length > 0 && (
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
+                  activeTab === 'expected-data' ? 'bg-purple-950 text-pink-300' : 'bg-purple-800 text-white'
+                }`}>
+                  {expectedDataList.length}
+                </span>
+              )}
+            </button>
+
             <button
               onClick={() => setActiveTab('daily-report')}
               className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
@@ -626,548 +826,574 @@ export const AdminDashboard: React.FC = () => {
       {/* ========================================================================= */}
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 space-y-6">
 
-        {/* Global Toast for Success */}
+        {/* Global Toast Success Message */}
         {updateSuccess && (
-          <div className="p-4 rounded-2xl bg-emerald-100 border border-emerald-400 text-emerald-900 text-xs font-bold flex items-center gap-2 shadow-md animate-in fade-in">
-            <CheckCircle2 className="w-4 h-4 text-emerald-700" />
+          <div className="p-4 rounded-2xl bg-emerald-100 border border-emerald-400 text-emerald-900 text-xs font-semibold flex items-center gap-2.5 shadow-sm animate-in fade-in">
+            <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
             <span>{updateSuccess}</span>
           </div>
         )}
 
         {/* ======================================================================= */}
-        {/* TAB 1: DASHBOARD (BABY PINK BG & CLEAN WHITE/PINK CARDS) */}
+        {/* TAB 1: DASHBOARD OVERVIEW */}
         {/* ======================================================================= */}
         {activeTab === 'dashboard' && (
           <div className="space-y-6 animate-in fade-in">
-            {/* Top Welcome Banner */}
-            <div className="p-6 sm:p-8 rounded-3xl bg-white border-2 border-pink-200 shadow-md flex flex-col md:flex-row md:items-center justify-between gap-6">
-              <div className="space-y-1.5">
-                <div className="flex items-center gap-2">
-                  <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-pink-100 text-purple-950 uppercase tracking-wider border border-pink-300">
-                    Master Administrator
-                  </span>
-                  <span className="text-xs font-mono font-bold text-pink-700">
-                    ID: {profile?.adminUserId || 'ADM-PRIMARY'}
-                  </span>
-                </div>
-                <h1 className="text-2xl sm:text-3xl font-extrabold text-purple-950 tracking-tight">
-                  Welcome back, {profile?.name || 'Administrator'}
-                </h1>
-                <p className="text-xs sm:text-sm text-zinc-600 max-w-2xl">
-                  Walt Designs & Studio operational oversight node. Manage corporate sales forces, verify employee attendance records, and assign daily data reports.
-                </p>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-3">
-                <button
-                  onClick={() => setActiveTab('corporate-registration')}
-                  className="px-4 py-2.5 rounded-xl bg-purple-900 hover:bg-purple-950 text-white text-xs font-bold shadow-md transition-all flex items-center gap-2 cursor-pointer"
-                >
-                  <UserPlus className="w-4 h-4 text-pink-300" />
-                  <span>Register Corporate User</span>
-                </button>
-                <button
-                  onClick={() => setActiveTab('daily-report')}
-                  className="px-4 py-2.5 rounded-xl bg-pink-500 hover:bg-pink-600 text-white text-xs font-bold shadow-md transition-all flex items-center gap-2 cursor-pointer"
-                >
-                  <FileSpreadsheet className="w-4 h-4 text-white" />
-                  <span>Daily Data Report</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Quick Metrics Grid */}
+            
+            {/* Top Metrics Cards in Baby Pink Frame */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="p-5 rounded-2xl bg-white border border-pink-200 shadow-sm">
-                <div className="flex items-center justify-between text-zinc-500 text-xs font-bold mb-2">
-                  <span>Corporate Reps</span>
-                  <Users className="w-4 h-4 text-purple-600" />
+              
+              <div className="p-6 rounded-3xl bg-[#FDF2F8] border border-pink-300 shadow-sm">
+                <div className="flex items-center justify-between text-pink-900 text-xs font-bold mb-2">
+                  <span>Registered Corporate Staff</span>
+                  <Users className="w-5 h-5 text-pink-600" />
                 </div>
                 <div className="text-3xl font-extrabold text-purple-950 font-mono">
                   {corporateList.length}
                 </div>
-                <span className="text-[11px] text-pink-700 font-medium mt-1 block">Active sales team members</span>
+                <button
+                  onClick={() => setActiveTab('corporate-registration')}
+                  className="text-[11px] text-pink-700 hover:text-purple-900 font-bold mt-2 inline-flex items-center gap-1 cursor-pointer"
+                >
+                  <UserPlus className="w-3 h-3" /> Register new employee →
+                </button>
               </div>
 
-              <div className="p-5 rounded-2xl bg-white border border-pink-200 shadow-sm">
-                <div className="flex items-center justify-between text-zinc-500 text-xs font-bold mb-2">
-                  <span>Cumulative Sales</span>
-                  <DollarSign className="w-4 h-4 text-emerald-600" />
-                </div>
-                <div className="text-3xl font-extrabold text-emerald-700 font-mono">
-                  ₹{totalFleetIncome.toLocaleString('en-IN')}
-                </div>
-                <span className="text-[11px] text-zinc-500 mt-1 block">Fleet income tracked</span>
-              </div>
-
-              <div className="p-5 rounded-2xl bg-white border border-pink-200 shadow-sm">
-                <div className="flex items-center justify-between text-zinc-500 text-xs font-bold mb-2">
+              <div className="p-6 rounded-3xl bg-[#FDF2F8] border border-pink-300 shadow-sm">
+                <div className="flex items-center justify-between text-pink-900 text-xs font-bold mb-2">
                   <span>Pending Attendance</span>
-                  <Clock className="w-4 h-4 text-amber-500" />
+                  <Clock className="w-5 h-5 text-amber-600" />
                 </div>
-                <div className="text-3xl font-extrabold text-amber-600 font-mono">
+                <div className="text-3xl font-extrabold text-amber-700 font-mono">
                   {pendingAttendanceCount}
                 </div>
-                <span className="text-[11px] text-zinc-500 mt-1 block">Awaiting admin review</span>
+                <button
+                  onClick={() => setActiveTab('attendance')}
+                  className="text-[11px] text-pink-700 hover:text-purple-900 font-bold mt-2 inline-flex items-center gap-1 cursor-pointer"
+                >
+                  Review daily logs ({attendanceList.length} total) →
+                </button>
               </div>
 
-              <div className="p-5 rounded-2xl bg-white border border-pink-200 shadow-sm">
-                <div className="flex items-center justify-between text-zinc-500 text-xs font-bold mb-2">
-                  <span>Daily Data Reports</span>
-                  <FileSpreadsheet className="w-4 h-4 text-pink-500" />
+              <div className="p-6 rounded-3xl bg-[#FDF2F8] border border-pink-300 shadow-sm">
+                <div className="flex items-center justify-between text-pink-900 text-xs font-bold mb-2">
+                  <span>Expected Data Leads</span>
+                  <Target className="w-5 h-5 text-purple-600" />
                 </div>
-                <div className="text-3xl font-extrabold text-pink-600 font-mono">
+                <div className="text-3xl font-extrabold text-purple-950 font-mono flex items-center gap-2">
+                  <span>{expectedDataList.length}</span>
+                  <span className="text-xs font-normal text-emerald-700 font-sans">({expectedInterestedCount} interested)</span>
+                </div>
+                <button
+                  onClick={() => setActiveTab('expected-data')}
+                  className="text-[11px] text-pink-700 hover:text-purple-900 font-bold mt-2 inline-flex items-center gap-1 cursor-pointer"
+                >
+                  Manage expected leads →
+                </button>
+              </div>
+
+              <div className="p-6 rounded-3xl bg-[#FDF2F8] border border-pink-300 shadow-sm">
+                <div className="flex items-center justify-between text-pink-900 text-xs font-bold mb-2">
+                  <span>Daily Data Reports</span>
+                  <FileSpreadsheet className="w-5 h-5 text-purple-600" />
+                </div>
+                <div className="text-3xl font-extrabold text-purple-950 font-mono">
                   {dailyReportList.length}
                 </div>
-                <span className="text-[11px] text-zinc-500 mt-1 block">Total client lead records</span>
-              </div>
-            </div>
-
-            {/* Quick Actions / Navigation Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div 
-                onClick={() => setActiveTab('corporate-registration')}
-                className="p-6 rounded-2xl bg-white border border-pink-200 hover:border-pink-400 shadow-sm hover:shadow-md transition-all cursor-pointer space-y-2 group"
-              >
-                <div className="w-10 h-10 rounded-xl bg-pink-100 text-purple-900 flex items-center justify-center group-hover:scale-105 transition-transform">
-                  <UserPlus className="w-5 h-5" />
-                </div>
-                <h3 className="font-bold text-base text-purple-950">Add Corporate Representative</h3>
-                <p className="text-xs text-zinc-600 leading-relaxed">
-                  Provision new employee accounts and generate unique WDS Corporate IDs with initial target quotas.
-                </p>
-              </div>
-
-              <div 
-                onClick={() => setActiveTab('attendance')}
-                className="p-6 rounded-2xl bg-white border border-pink-200 hover:border-pink-400 shadow-sm hover:shadow-md transition-all cursor-pointer space-y-2 group"
-              >
-                <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center group-hover:scale-105 transition-transform">
-                  <Calendar className="w-5 h-5" />
-                </div>
-                <h3 className="font-bold text-base text-purple-950">Verify Daily Attendance</h3>
-                <p className="text-xs text-zinc-600 leading-relaxed">
-                  Review logged work hours, examine reported expected clients, and approve or reject submissions permanently.
-                </p>
-              </div>
-
-              <div 
-                onClick={() => setActiveTab('daily-report')}
-                className="p-6 rounded-2xl bg-white border border-pink-200 hover:border-pink-400 shadow-sm hover:shadow-md transition-all cursor-pointer space-y-2 group"
-              >
-                <div className="w-10 h-10 rounded-xl bg-purple-100 text-purple-900 flex items-center justify-center group-hover:scale-105 transition-transform">
-                  <FileSpreadsheet className="w-5 h-5" />
-                </div>
-                <h3 className="font-bold text-base text-purple-950">Daily Data Report Hub</h3>
-                <p className="text-xs text-zinc-600 leading-relaxed">
-                  Create daily lead reports and assign client requirements to specific sales employees with tracking.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ======================================================================= */}
-        {/* TAB 2: MY PROFILE (BABY PINK BG) */}
-        {/* ======================================================================= */}
-        {activeTab === 'profile' && (
-          <div className="space-y-6 animate-in fade-in">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              
-              {/* Admin Profile Overview */}
-              <div className="p-6 sm:p-7 rounded-3xl bg-white border-2 border-pink-200 shadow-md space-y-5">
-                <div>
-                  <h3 className="font-extrabold text-base text-purple-950 flex items-center gap-2">
-                    <Shield className="w-4 h-4 text-pink-600" />
-                    <span>Administrator Identity</span>
-                  </h3>
-                  <p className="text-xs text-zinc-500 mt-0.5">
-                    Root administrative authority credentials
-                  </p>
-                </div>
-
-                <div className="space-y-3 text-xs divide-y divide-pink-100 font-sans">
-                  <div className="pt-2 flex justify-between">
-                    <span className="text-zinc-500">Admin User ID</span>
-                    <span className="font-mono font-bold text-purple-950">{profile?.adminUserId || 'ADM-PRIMARY'}</span>
-                  </div>
-                  <div className="pt-2 flex justify-between">
-                    <span className="text-zinc-500">Authority Role</span>
-                    <span className="font-bold text-purple-900">Master Agency Administrator</span>
-                  </div>
-                  <div className="pt-2 flex justify-between">
-                    <span className="text-zinc-500">Full Name</span>
-                    <span className="font-bold text-zinc-900">{profile?.name || 'Administrator'}</span>
-                  </div>
-                  <div className="pt-2 flex justify-between">
-                    <span className="text-zinc-500">Login Email</span>
-                    <span className="font-mono text-zinc-900 truncate max-w-[160px]">{user?.email}</span>
-                  </div>
-                  <div className="pt-2 flex justify-between">
-                    <span className="text-zinc-500">Contact Phone</span>
-                    <span className="font-mono text-zinc-900">{profile?.phone || '—'}</span>
-                  </div>
-                  <div className="pt-2 flex justify-between">
-                    <span className="text-zinc-500">Security UID</span>
-                    <span className="font-mono text-[10px] text-zinc-400 truncate max-w-[140px]">{user?.uid}</span>
-                  </div>
-                </div>
-
-                <div className="p-3.5 rounded-2xl bg-pink-50 border border-pink-200 text-[11px] text-pink-900 space-y-1">
-                  <span className="font-bold text-purple-950 block">Administrator Privilege Notice:</span>
-                  <span>You have root privileges to provision corporate accounts, review attendance, and assign client lead reports.</span>
-                </div>
-              </div>
-
-              {/* Edit Admin Contact Info */}
-              <div className="p-6 sm:p-7 rounded-3xl bg-white border-2 border-pink-200 shadow-md space-y-4">
-                <div>
-                  <h3 className="font-extrabold text-base text-purple-950 flex items-center gap-2">
-                    <Edit3 className="w-4 h-4 text-pink-600" />
-                    <span>Edit Profile Details</span>
-                  </h3>
-                  <p className="text-xs text-zinc-500 mt-0.5">
-                    Update your official display name and contact phone
-                  </p>
-                </div>
-
-                {profileMessage && (
-                  <div
-                    className={`p-3 rounded-xl text-xs flex items-center gap-2 ${
-                      profileMessage.type === 'success'
-                        ? 'bg-emerald-100 border border-emerald-400 text-emerald-900 font-medium'
-                        : 'bg-red-100 border border-red-400 text-red-900 font-medium'
-                    }`}
-                  >
-                    {profileMessage.type === 'success' ? (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-700" />
-                    ) : (
-                      <AlertCircle className="w-4 h-4 text-red-700" />
-                    )}
-                    <span>{profileMessage.text}</span>
-                  </div>
-                )}
-
-                <form onSubmit={handleSaveAdminProfile} className="space-y-3.5">
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-zinc-700">Display Name</label>
-                    <input
-                      type="text"
-                      required
-                      value={adminName}
-                      onChange={(e) => setAdminName(e.target.value)}
-                      placeholder="e.g. Priyanshu Kumar"
-                      className="w-full bg-white border border-pink-300 focus:border-purple-600 rounded-xl px-3.5 py-2 text-xs text-zinc-900 outline-none"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-zinc-700">Contact Phone</label>
-                    <input
-                      type="text"
-                      value={adminPhone}
-                      onChange={(e) => setAdminPhone(e.target.value)}
-                      placeholder="+91 8276825128"
-                      className="w-full bg-white border border-pink-300 focus:border-purple-600 rounded-xl px-3.5 py-2 text-xs text-zinc-900 outline-none"
-                    />
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={isUpdatingProfile}
-                    className="w-full py-2.5 rounded-xl bg-purple-900 hover:bg-purple-950 text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-                  >
-                    {isUpdatingProfile ? (
-                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <Save className="w-3.5 h-3.5 text-pink-300" />
-                    )}
-                    <span>Save Administrator Profile</span>
-                  </button>
-                </form>
-              </div>
-
-              {/* Change Admin Password with Hide / Unhide Toggle */}
-              <div className="p-6 sm:p-7 rounded-3xl bg-white border-2 border-pink-200 shadow-md space-y-4">
-                <div>
-                  <h3 className="font-extrabold text-base text-purple-950 flex items-center gap-2">
-                    <KeyRound className="w-4 h-4 text-pink-600" />
-                    <span>Change Password</span>
-                  </h3>
-                  <p className="text-xs text-zinc-500 mt-0.5">
-                    Update your Firebase Authentication password
-                  </p>
-                </div>
-
-                {passwordMessage && (
-                  <div
-                    className={`p-3 rounded-xl text-xs flex items-center gap-2 ${
-                      passwordMessage.type === 'success'
-                        ? 'bg-emerald-100 border border-emerald-400 text-emerald-900 font-medium'
-                        : 'bg-red-100 border border-red-400 text-red-900 font-medium'
-                    }`}
-                  >
-                    {passwordMessage.type === 'success' ? (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-700" />
-                    ) : (
-                      <AlertCircle className="w-4 h-4 text-red-700" />
-                    )}
-                    <span>{passwordMessage.text}</span>
-                  </div>
-                )}
-
-                <form onSubmit={handleChangeAdminPassword} className="space-y-3">
-                  {/* Current Password with Hide/Unhide */}
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-zinc-700">Current Password</label>
-                    <div className="relative">
-                      <input
-                        type={showCurrentPassword ? 'text' : 'password'}
-                        required
-                        value={currentPassword}
-                        onChange={(e) => setCurrentPassword(e.target.value)}
-                        placeholder="••••••••"
-                        className="w-full bg-white border border-pink-300 focus:border-purple-600 rounded-xl pl-3.5 pr-10 py-2 text-xs text-zinc-900 outline-none"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-800 cursor-pointer p-1"
-                        title={showCurrentPassword ? 'Hide password' : 'Show password'}
-                      >
-                        {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* New Password with Hide/Unhide */}
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-zinc-700">New Password</label>
-                    <div className="relative">
-                      <input
-                        type={showNewPassword ? 'text' : 'password'}
-                        required
-                        value={newPassword}
-                        onChange={(e) => setNewPassword(e.target.value)}
-                        placeholder="At least 6 characters"
-                        className="w-full bg-white border border-pink-300 focus:border-purple-600 rounded-xl pl-3.5 pr-10 py-2 text-xs text-zinc-900 outline-none"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowNewPassword(!showNewPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-800 cursor-pointer p-1"
-                        title={showNewPassword ? 'Hide password' : 'Show password'}
-                      >
-                        {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Confirm New Password with Hide/Unhide */}
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-zinc-700">Confirm New Password</label>
-                    <div className="relative">
-                      <input
-                        type={showConfirmPassword ? 'text' : 'password'}
-                        required
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        placeholder="Re-enter new password"
-                        className="w-full bg-white border border-pink-300 focus:border-purple-600 rounded-xl pl-3.5 pr-10 py-2 text-xs text-zinc-900 outline-none"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-800 cursor-pointer p-1"
-                        title={showConfirmPassword ? 'Hide password' : 'Show password'}
-                      >
-                        {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
-                    </div>
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={isChangingPassword}
-                    className="w-full py-2.5 rounded-xl bg-purple-900 hover:bg-purple-950 text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-                  >
-                    {isChangingPassword ? (
-                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <KeyRound className="w-3.5 h-3.5 text-pink-300" />
-                    )}
-                    <span>Update Password</span>
-                  </button>
-                </form>
+                <button
+                  onClick={() => setActiveTab('daily-report')}
+                  className="text-[11px] text-pink-700 hover:text-purple-900 font-bold mt-2 inline-flex items-center gap-1 cursor-pointer"
+                >
+                  Manage client reports →
+                </button>
               </div>
 
             </div>
-          </div>
-        )}
 
-        {/* ======================================================================= */}
-        {/* TAB 3: PORTFOLIO (CORPORATE EMPLOYEES & MILESTONES) (BABY PINK BG) */}
-        {/* ======================================================================= */}
-        {activeTab === 'portfolio' && (
-          <div className="space-y-6 animate-in fade-in">
-            <div className="p-6 sm:p-8 rounded-3xl bg-white border-2 border-pink-200 shadow-md space-y-5">
+            {/* Quick Actions & Recent Employees Table */}
+            <div className="p-6 sm:p-8 rounded-3xl bg-[#FDF2F8] border-2 border-pink-300 shadow-md space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <h3 className="font-extrabold text-base text-purple-950 flex items-center gap-2">
-                    <Layers className="w-4 h-4 text-pink-600" />
-                    <span>Corporate Sales Representatives</span>
+                  <h3 className="font-extrabold text-lg text-purple-950 flex items-center gap-2">
+                    <Shield className="w-5 h-5 text-pink-600" />
+                    <span>Active Corporate Representatives</span>
                   </h3>
-                  <p className="text-xs text-zinc-500 mt-0.5">
-                    Manage corporate milestones, earned commissions, and target completion indices
+                  <p className="text-xs text-pink-900/80 mt-0.5">
+                    Live roster of authorized sales staff and performance status
                   </p>
                 </div>
 
-                <div className="flex items-center gap-3">
-                  <div className="relative w-full sm:w-64">
-                    <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                    <input
-                      type="text"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Search by ID, name, email..."
-                      className="w-full bg-white border border-pink-300 focus:border-purple-600 rounded-xl pl-9 pr-3 py-1.5 text-xs text-zinc-900 placeholder:text-zinc-400 outline-none shadow-xs"
-                    />
-                  </div>
-
-                  <button
-                    onClick={loadCorporateData}
-                    className="p-2 px-3 rounded-xl bg-pink-50 hover:bg-pink-100 border border-pink-200 text-purple-950 text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs"
-                    title="Reload data"
-                  >
-                    <RefreshCw className={`w-3.5 h-3.5 ${loadingUsers ? 'animate-spin' : ''}`} />
-                    <span>Refresh</span>
-                  </button>
-                </div>
+                <button
+                  onClick={() => setActiveTab('corporate-registration')}
+                  className="px-4 py-2 rounded-xl bg-pink-500 hover:bg-pink-600 text-white font-bold text-xs shadow-md transition-all inline-flex items-center gap-1.5 cursor-pointer self-start sm:self-auto"
+                >
+                  <UserPlus className="w-3.5 h-3.5" />
+                  <span>Register Employee</span>
+                </button>
               </div>
 
-              {/* Table */}
-              <div className="overflow-x-auto rounded-2xl border border-pink-200 bg-white shadow-xs">
+              <div className="overflow-x-auto rounded-2xl border border-pink-300 bg-white shadow-xs">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-pink-100/90 text-purple-950 font-mono uppercase text-[10px] font-bold border-b border-pink-200">
+                  <thead className="bg-pink-100 text-purple-950 font-mono uppercase text-[10px] font-bold border-b border-pink-300">
                     <tr>
-                      <th className="px-4 py-3">Corporate ID</th>
-                      <th className="px-4 py-3">Representative</th>
-                      <th className="px-4 py-3">Designation / Location</th>
-                      <th className="px-4 py-3">Sales Income (₹)</th>
-                      <th className="px-4 py-3">Target Progress</th>
-                      <th className="px-4 py-3 text-right">Actions</th>
+                      <th className="px-3.5 py-3">Corporate ID</th>
+                      <th className="px-3.5 py-3">Name</th>
+                      <th className="px-3.5 py-3">Email</th>
+                      <th className="px-3.5 py-3">Designation</th>
+                      <th className="px-3.5 py-3">Location</th>
+                      <th className="px-3.5 py-3">Sales Income</th>
+                      <th className="px-3.5 py-3">Target Progress</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-pink-100">
                     {loadingUsers ? (
                       <tr>
-                        <td colSpan={6} className="px-4 py-8 text-center text-zinc-500">
-                          <div className="w-6 h-6 border-2 border-pink-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-                          <span>Loading corporate records...</span>
+                        <td colSpan={7} className="px-4 py-8 text-center text-pink-800">
+                          <div className="w-6 h-6 border-2 border-pink-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                          <span>Loading corporate accounts...</span>
                         </td>
                       </tr>
-                    ) : filteredCorporateList.length === 0 ? (
+                    ) : corporateList.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="px-4 py-8 text-center text-zinc-500">
-                          No corporate representatives found.
+                        <td colSpan={7} className="px-4 py-8 text-center text-pink-800">
+                          <Users className="w-8 h-8 text-pink-400 mx-auto mb-2" />
+                          <p className="font-bold">No corporate users registered yet.</p>
+                          <p className="text-[11px] mt-0.5">Use "Corporate Registration" to create staff credentials.</p>
                         </td>
                       </tr>
                     ) : (
-                      filteredCorporateList.map((item) => {
-                        const isEditing = editingUid === item.uid;
-
-                        return (
-                          <tr key={item.uid} className="hover:bg-pink-50/80 transition-colors">
-                            <td className="px-4 py-3 font-mono font-bold text-purple-950 whitespace-nowrap">
-                              {item.corporateUserId || 'WDS-XXXX'}
-                            </td>
-
-                            <td className="px-4 py-3">
-                              <div className="font-bold text-zinc-900">{item.name}</div>
-                              <div className="text-[11px] font-mono text-zinc-500 truncate max-w-[150px]">
-                                {item.email}
-                              </div>
-                            </td>
-
-                            <td className="px-4 py-3">
-                              <div className="text-zinc-800 font-medium">{item.corporateRole || 'Sales Rep'}</div>
-                              <div className="text-[11px] text-zinc-500">{item.location || 'Pan-India'}</div>
-                            </td>
-
-                            <td className="px-4 py-3">
-                              {isEditing ? (
-                                <input
-                                  type="number"
-                                  value={editIncome}
-                                  onChange={(e) => setEditIncome(Number(e.target.value))}
-                                  className="w-28 bg-white border border-pink-400 rounded-lg px-2 py-1 text-xs text-zinc-900 font-mono"
+                      corporateList.slice(0, 5).map((corp) => (
+                        <tr key={corp.uid} className="hover:bg-pink-50/80 transition-colors">
+                          <td className="px-3.5 py-3 font-mono font-bold text-purple-950">
+                            {corp.corporateUserId || 'WDS-ACTIVE'}
+                          </td>
+                          <td className="px-3.5 py-3 font-bold text-zinc-900">
+                            {corp.name}
+                          </td>
+                          <td className="px-3.5 py-3 font-mono text-zinc-700">
+                            {corp.email}
+                          </td>
+                          <td className="px-3.5 py-3 text-zinc-800">
+                            {corp.corporateRole || 'Asst. Sales Manager'}
+                          </td>
+                          <td className="px-3.5 py-3 text-zinc-700">
+                            {corp.location || 'Pan-India Corporate'}
+                          </td>
+                          <td className="px-3.5 py-3 font-mono font-bold text-emerald-700">
+                            ₹{(corp.income || 0).toLocaleString('en-IN')}
+                          </td>
+                          <td className="px-3.5 py-3">
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-xs font-bold text-zinc-900">{corp.progress || 0}%</span>
+                              <div className="w-16 bg-pink-100 rounded-full h-1.5 overflow-hidden">
+                                <div
+                                  className="bg-pink-600 h-full rounded-full"
+                                  style={{ width: `${Math.min(corp.progress || 0, 100)}%` }}
                                 />
-                              ) : (
-                                <span className="font-mono font-bold text-emerald-700">
-                                  ₹{(item.income || 0).toLocaleString('en-IN')}
-                                </span>
-                              )}
-                            </td>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
 
-                            <td className="px-4 py-3">
-                              {isEditing ? (
-                                <div className="flex items-center gap-2">
+          </div>
+        )}
+
+        {/* ======================================================================= */}
+        {/* TAB 2: ADMIN PROFILE & PASSWORD MANAGEMENT */}
+        {/* ======================================================================= */}
+        {activeTab === 'profile' && (
+          <div className="space-y-6 animate-in fade-in max-w-4xl mx-auto">
+            
+            {/* Admin Profile Details Card */}
+            <div className="p-6 sm:p-8 rounded-3xl bg-[#FDF2F8] border-2 border-pink-300 shadow-md space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-pink-200">
+                <div>
+                  <h2 className="font-extrabold text-xl text-purple-950 flex items-center gap-2">
+                    <User className="w-5 h-5 text-pink-600" />
+                    <span>Administrator Profile Settings</span>
+                  </h2>
+                  <p className="text-xs text-pink-900 mt-0.5">
+                    Manage executive identity and super-user contact credentials
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => setIsEditingProfile(!isEditingProfile)}
+                  className="px-4 py-2 rounded-xl bg-pink-500 hover:bg-pink-600 text-white font-bold text-xs shadow-sm transition-all cursor-pointer inline-flex items-center gap-1.5 self-start sm:self-auto"
+                >
+                  <Edit3 className="w-3.5 h-3.5" />
+                  <span>{isEditingProfile ? 'Cancel Edit' : 'Edit Profile'}</span>
+                </button>
+              </div>
+
+              {profileMessage && (
+                <div
+                  className={`p-3 rounded-xl text-xs flex items-center gap-2 ${
+                    profileMessage.type === 'success'
+                      ? 'bg-emerald-100 border border-emerald-400 text-emerald-900 font-medium'
+                      : 'bg-red-100 border border-red-400 text-red-900 font-medium'
+                  }`}
+                >
+                  {profileMessage.type === 'success' ? (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
+                  ) : (
+                    <AlertCircle className="w-4 h-4 text-red-700 shrink-0" />
+                  )}
+                  <span>{profileMessage.text}</span>
+                </div>
+              )}
+
+              {!isEditingProfile ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="p-4 rounded-2xl bg-white border border-pink-300 shadow-xs space-y-1">
+                    <span className="text-[11px] font-bold text-pink-900 uppercase tracking-wider block">Role</span>
+                    <div className="font-mono text-base font-extrabold text-purple-950 flex items-center gap-2">
+                      <span>SUPER ADMINISTRATOR</span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-pink-100 text-pink-800 border border-pink-300">
+                        Root Executive
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-white border border-pink-300 shadow-xs space-y-1">
+                    <span className="text-[11px] font-bold text-pink-900 uppercase tracking-wider block">Name</span>
+                    <div className="text-base font-extrabold text-zinc-900">{profile?.name || 'Priyanshu Kumar'}</div>
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-white border border-pink-300 shadow-xs space-y-1">
+                    <span className="text-[11px] font-bold text-pink-900 uppercase tracking-wider block">Official Email</span>
+                    <div className="font-mono text-xs font-semibold text-zinc-800">{user?.email}</div>
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-white border border-pink-300 shadow-xs space-y-1">
+                    <span className="text-[11px] font-bold text-pink-900 uppercase tracking-wider block">Phone Number</span>
+                    <div className="font-mono text-sm font-semibold text-zinc-800">{profile?.phone || 'Not configured'}</div>
+                  </div>
+                </div>
+              ) : (
+                <form onSubmit={handleSaveAdminProfile} className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-purple-950">Display Name</label>
+                      <input
+                        type="text"
+                        value={adminName}
+                        onChange={(e) => setAdminName(e.target.value)}
+                        placeholder="Administrator Name"
+                        className="w-full bg-white border border-pink-300 focus:border-pink-600 rounded-xl px-3.5 py-2 text-xs text-zinc-900 outline-none"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-purple-950">Phone Number</label>
+                      <input
+                        type="text"
+                        value={adminPhone}
+                        onChange={(e) => setAdminPhone(e.target.value)}
+                        placeholder="+91 9876543210"
+                        className="w-full bg-white border border-pink-300 focus:border-pink-600 rounded-xl px-3.5 py-2 text-xs text-zinc-900 outline-none font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingProfile(false)}
+                      className="px-4 py-2 rounded-xl bg-zinc-200 hover:bg-zinc-300 text-zinc-800 text-xs font-bold cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isUpdatingProfile}
+                      className="px-5 py-2 rounded-xl bg-pink-500 hover:bg-pink-600 text-white text-xs font-extrabold shadow-md cursor-pointer disabled:opacity-50 inline-flex items-center gap-1.5"
+                    >
+                      {isUpdatingProfile ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                      <span>Save Changes</span>
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+
+            {/* Change Password Card with Hide & Show toggles */}
+            <div className="p-6 sm:p-8 rounded-3xl bg-[#FDF2F8] border-2 border-pink-300 shadow-md space-y-4">
+              <div>
+                <h3 className="font-extrabold text-base text-purple-950 flex items-center gap-2">
+                  <KeyRound className="w-4 h-4 text-pink-600" />
+                  <span>Update Admin Password</span>
+                </h3>
+                <p className="text-xs text-pink-900 mt-0.5">
+                  Change your secure administrative access credentials
+                </p>
+              </div>
+
+              {passwordMessage && (
+                <div
+                  className={`p-3 rounded-xl text-xs flex items-center gap-2 ${
+                    passwordMessage.type === 'success'
+                      ? 'bg-emerald-100 border border-emerald-400 text-emerald-900 font-medium'
+                      : 'bg-red-100 border border-red-400 text-red-900 font-medium'
+                  }`}
+                >
+                  {passwordMessage.type === 'success' ? (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
+                  ) : (
+                    <AlertCircle className="w-4 h-4 text-red-700 shrink-0" />
+                  )}
+                  <span>{passwordMessage.text}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleChangeAdminPassword} className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-purple-950">Current Password</label>
+                    <div className="relative">
+                      <input
+                        type={showCurrentPassword ? 'text' : 'password'}
+                        value={currentPassword}
+                        onChange={(e) => setCurrentPassword(e.target.value)}
+                        placeholder="••••••••"
+                        className="w-full bg-white border border-pink-300 focus:border-pink-600 rounded-xl pl-3 pr-9 py-2 text-xs text-zinc-900 outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-800 p-1 cursor-pointer"
+                        title={showCurrentPassword ? 'Hide password' : 'Show password'}
+                      >
+                        {showCurrentPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-purple-950">New Password</label>
+                    <div className="relative">
+                      <input
+                        type={showNewPassword ? 'text' : 'password'}
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        placeholder="Min 6 characters"
+                        className="w-full bg-white border border-pink-300 focus:border-pink-600 rounded-xl pl-3 pr-9 py-2 text-xs text-zinc-900 outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPassword(!showNewPassword)}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-800 p-1 cursor-pointer"
+                        title={showNewPassword ? 'Hide password' : 'Show password'}
+                      >
+                        {showNewPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-purple-950">Confirm New</label>
+                    <div className="relative">
+                      <input
+                        type={showConfirmPassword ? 'text' : 'password'}
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        placeholder="Re-enter password"
+                        className="w-full bg-white border border-pink-300 focus:border-pink-600 rounded-xl pl-3 pr-9 py-2 text-xs text-zinc-900 outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-800 p-1 cursor-pointer"
+                        title={showConfirmPassword ? 'Hide password' : 'Show password'}
+                      >
+                        {showConfirmPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                  </div>
+
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <button
+                    type="submit"
+                    disabled={isChangingPassword}
+                    className="px-5 py-2 rounded-xl bg-pink-500 hover:bg-pink-600 text-white text-xs font-extrabold shadow-md cursor-pointer disabled:opacity-50 inline-flex items-center gap-1.5"
+                  >
+                    {isChangingPassword ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                    <span>Update Password</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+
+          </div>
+        )}
+
+        {/* ======================================================================= */}
+        {/* TAB 3: PORTFOLIO / STAFF PERFORMANCE */}
+        {/* ======================================================================= */}
+        {activeTab === 'portfolio' && (
+          <div className="space-y-6 animate-in fade-in">
+            <div className="p-6 sm:p-8 rounded-3xl bg-[#FDF2F8] border-2 border-pink-300 shadow-md space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h3 className="font-extrabold text-base text-purple-950 flex items-center gap-2">
+                    <Layers className="w-4 h-4 text-pink-600" />
+                    <span>Corporate Staff Portfolio & Performance Indices</span>
+                  </h3>
+                  <p className="text-xs text-pink-900 mt-0.5">
+                    Adjust employee sales income figures and monthly target progress metrics
+                  </p>
+                </div>
+
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search staff name, code, email..."
+                    className="w-full sm:w-64 bg-white border border-pink-300 focus:border-pink-600 rounded-xl pl-8 pr-3 py-1.5 text-xs text-zinc-900 outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="overflow-x-auto rounded-2xl border border-pink-300 bg-white shadow-xs">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-pink-100 text-purple-950 font-mono uppercase text-[10px] font-bold border-b border-pink-300">
+                    <tr>
+                      <th className="px-3.5 py-3">Corporate ID</th>
+                      <th className="px-3.5 py-3">Employee Details</th>
+                      <th className="px-3.5 py-3">Designation</th>
+                      <th className="px-3.5 py-3">Sales Income (₹)</th>
+                      <th className="px-3.5 py-3">Target Progress (%)</th>
+                      <th className="px-3.5 py-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-pink-100">
+                    {loadingUsers ? (
+                      <tr>
+                        <td colSpan={6} className="px-4 py-8 text-center text-pink-800">
+                          <div className="w-6 h-6 border-2 border-pink-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                          <span>Loading performance data...</span>
+                        </td>
+                      </tr>
+                    ) : corporateList.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="px-4 py-8 text-center text-pink-800">
+                          <Users className="w-8 h-8 text-pink-400 mx-auto mb-2" />
+                          <p className="font-bold">No staff records available.</p>
+                        </td>
+                      </tr>
+                    ) : (
+                      corporateList
+                        .filter((c) => {
+                          const q = searchQuery.toLowerCase().trim();
+                          return (
+                            !q ||
+                            c.name.toLowerCase().includes(q) ||
+                            c.email.toLowerCase().includes(q) ||
+                            (c.corporateUserId && c.corporateUserId.toLowerCase().includes(q))
+                          );
+                        })
+                        .map((corp) => {
+                          const isEditing = editingUid === corp.uid;
+                          return (
+                            <tr key={corp.uid} className="hover:bg-pink-50/80 transition-colors">
+                              <td className="px-3.5 py-3 font-mono font-bold text-purple-950">
+                                {corp.corporateUserId || 'WDS-ACTIVE'}
+                              </td>
+                              <td className="px-3.5 py-3">
+                                <div className="font-bold text-zinc-900">{corp.name}</div>
+                                <div className="font-mono text-[11px] text-zinc-600">{corp.email}</div>
+                              </td>
+                              <td className="px-3.5 py-3 text-zinc-800">
+                                {corp.corporateRole || 'Asst. Sales Manager'}
+                              </td>
+                              
+                              {/* Income Edit */}
+                              <td className="px-3.5 py-3">
+                                {isEditing ? (
                                   <input
                                     type="number"
                                     min={0}
-                                    max={100}
-                                    value={editProgress}
-                                    onChange={(e) => setEditProgress(Number(e.target.value))}
-                                    className="w-16 bg-white border border-pink-400 rounded-lg px-2 py-1 text-xs text-zinc-900 font-mono"
+                                    value={editIncome}
+                                    onChange={(e) => setEditIncome(Number(e.target.value))}
+                                    className="w-28 bg-pink-50 border border-pink-300 rounded-lg px-2 py-1 text-xs font-mono font-bold text-purple-950 outline-none"
                                   />
-                                  <span className="text-xs text-zinc-500">%</span>
-                                </div>
-                              ) : (
-                                <div className="space-y-1">
-                                  <span className="font-mono font-bold text-purple-900">
-                                    {item.progress || 0}%
+                                ) : (
+                                  <span className="font-mono font-bold text-emerald-700">
+                                    ₹{(corp.income || 0).toLocaleString('en-IN')}
                                   </span>
-                                  <div className="w-24 bg-pink-100 rounded-full h-1.5 overflow-hidden">
-                                    <div
-                                      className="bg-pink-500 h-full rounded-full"
-                                      style={{ width: `${Math.min(item.progress || 0, 100)}%` }}
-                                    />
-                                  </div>
-                                </div>
-                              )}
-                            </td>
+                                )}
+                              </td>
 
-                            <td className="px-4 py-3 text-right">
-                              {isEditing ? (
-                                <div className="flex items-center justify-end gap-1.5">
+                              {/* Progress Edit */}
+                              <td className="px-3.5 py-3">
+                                {isEditing ? (
+                                  <div className="flex items-center gap-1.5">
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      max={100}
+                                      value={editProgress}
+                                      onChange={(e) => setEditProgress(Number(e.target.value))}
+                                      className="w-20 bg-pink-50 border border-pink-300 rounded-lg px-2 py-1 text-xs font-mono font-bold text-purple-950 outline-none"
+                                    />
+                                    <span className="text-xs font-mono text-zinc-600">%</span>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-mono text-xs font-bold text-zinc-900">{corp.progress || 0}%</span>
+                                    <div className="w-16 bg-pink-100 rounded-full h-1.5 overflow-hidden">
+                                      <div
+                                        className="bg-pink-600 h-full rounded-full"
+                                        style={{ width: `${Math.min(corp.progress || 0, 100)}%` }}
+                                      />
+                                    </div>
+                                  </div>
+                                )}
+                              </td>
+
+                              {/* Actions */}
+                              <td className="px-3.5 py-3 text-right">
+                                {isEditing ? (
+                                  <div className="flex items-center justify-end gap-1.5">
+                                    <button
+                                      onClick={() => handleSaveProgress(corp.uid)}
+                                      className="p-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs transition-colors cursor-pointer"
+                                      title="Save milestones"
+                                    >
+                                      <Save className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button
+                                      onClick={() => setEditingUid(null)}
+                                      className="p-1.5 rounded-lg bg-zinc-200 hover:bg-zinc-300 text-zinc-800 text-xs transition-colors cursor-pointer"
+                                      title="Cancel"
+                                    >
+                                      <XCircle className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                ) : (
                                   <button
-                                    onClick={() => handleSaveProgress(item.uid)}
-                                    className="p-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1 shadow-sm cursor-pointer"
+                                    onClick={() => handleStartEdit(corp)}
+                                    className="p-1.5 rounded-lg bg-pink-200 hover:bg-pink-300 text-purple-950 text-xs transition-colors cursor-pointer"
+                                    title="Edit sales milestones"
                                   >
-                                    <Check className="w-3.5 h-3.5" />
-                                    <span>Save</span>
+                                    <Edit3 className="w-3.5 h-3.5" />
                                   </button>
-                                  <button
-                                    onClick={() => setEditingUid(null)}
-                                    className="p-1.5 rounded-lg bg-zinc-200 hover:bg-zinc-300 text-zinc-700 text-xs font-bold flex items-center gap-1 cursor-pointer"
-                                  >
-                                    <X className="w-3.5 h-3.5" />
-                                    <span>Cancel</span>
-                                  </button>
-                                </div>
-                              ) : (
-                                <button
-                                  onClick={() => handleStartEdit(item)}
-                                  className="p-1.5 px-2.5 rounded-lg bg-pink-100 hover:bg-pink-200 text-purple-950 text-xs font-bold flex items-center gap-1 ml-auto cursor-pointer shadow-xs"
-                                >
-                                  <Edit3 className="w-3.5 h-3.5" />
-                                  <span>Edit</span>
-                                </button>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })
                     )}
                   </tbody>
                 </table>
@@ -1177,193 +1403,167 @@ export const AdminDashboard: React.FC = () => {
         )}
 
         {/* ======================================================================= */}
-        {/* TAB 4: CORPORATE REGISTRATION (ADMIN ONLY) (BABY PINK BG) */}
+        {/* TAB 4: CORPORATE REGISTRATION (PROVISION NEW STAFF) */}
         {/* ======================================================================= */}
         {activeTab === 'corporate-registration' && (
-          <div className="space-y-6 animate-in fade-in">
-            {/* Success modal after user created */}
+          <div className="space-y-6 animate-in fade-in max-w-4xl mx-auto">
+            
+            {/* Created Staff Account Credentials Card (If just created) */}
             {createdUser && (
-              <div className="p-6 rounded-3xl bg-emerald-50 border-2 border-emerald-400 shadow-xl space-y-4">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-emerald-200 border border-emerald-400 flex items-center justify-center text-emerald-800">
-                      <CheckCircle2 className="w-6 h-6" />
-                    </div>
-                    <div>
-                      <h4 className="font-extrabold text-base text-emerald-950">Corporate Account Provisioned Successfully</h4>
-                      <p className="text-xs text-emerald-800">The Admin active session remains uninterrupted.</p>
-                    </div>
+              <div className="p-6 rounded-3xl bg-emerald-50 border-2 border-emerald-400 text-emerald-950 shadow-md space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-700" />
+                    <h3 className="font-extrabold text-sm text-emerald-950">
+                      Corporate Staff Account Created Successfully!
+                    </h3>
                   </div>
-                  <button
-                    onClick={() => setCreatedUser(null)}
-                    className="p-1.5 rounded-lg bg-emerald-200 hover:bg-emerald-300 text-emerald-900 cursor-pointer"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-
-                <div className="p-4 rounded-2xl bg-white border border-emerald-300 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                  <div>
-                    <span className="text-zinc-500 block">Generated Corporate User ID:</span>
-                    <span className="font-mono text-base font-bold text-purple-950">{createdUser.corporateUserId}</span>
-                  </div>
-                  <div>
-                    <span className="text-zinc-500 block">Representative Name:</span>
-                    <span className="font-bold text-zinc-900">{createdUser.name}</span>
-                  </div>
-                  <div>
-                    <span className="text-zinc-500 block">Login Email (Used for Login):</span>
-                    <span className="font-mono text-zinc-800">{createdUser.email}</span>
-                  </div>
-                  <div>
-                    <span className="text-zinc-500 block">Temporary Password:</span>
-                    <span className="font-mono text-purple-900 font-bold">{createdUser.password}</span>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between pt-2">
                   <button
                     onClick={copyCreatedCredentials}
-                    className="px-4 py-2.5 rounded-xl bg-purple-900 hover:bg-purple-950 text-white text-xs font-bold flex items-center gap-2 cursor-pointer shadow-md"
+                    className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs inline-flex items-center gap-1.5 cursor-pointer"
                   >
-                    <Copy className="w-3.5 h-3.5 text-pink-300" />
-                    <span>{copiedNotification ? 'Credentials Copied!' : 'Copy Credentials to Clipboard'}</span>
+                    {copiedNotification ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedNotification ? 'Copied!' : 'Copy Credentials'}</span>
                   </button>
+                </div>
 
-                  <button
-                    onClick={() => setCreatedUser(null)}
-                    className="text-xs text-zinc-600 hover:text-zinc-900 font-medium cursor-pointer"
-                  >
-                    Dismiss
-                  </button>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
+                  <div className="p-3 rounded-xl bg-white border border-emerald-300 shadow-xs">
+                    <span className="text-[10px] font-bold text-emerald-800 uppercase block">Employee Name</span>
+                    <span className="font-extrabold text-xs text-zinc-900">{createdUser.name}</span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-white border border-emerald-300 shadow-xs">
+                    <span className="text-[10px] font-bold text-emerald-800 uppercase block">Corporate User ID</span>
+                    <span className="font-mono font-extrabold text-xs text-purple-950">{createdUser.corporateUserId}</span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-white border border-emerald-300 shadow-xs">
+                    <span className="text-[10px] font-bold text-emerald-800 uppercase block">Login Email</span>
+                    <span className="font-mono text-xs text-zinc-800 truncate block">{createdUser.email}</span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-white border border-emerald-300 shadow-xs">
+                    <span className="text-[10px] font-bold text-emerald-800 uppercase block">Assigned Password</span>
+                    <span className="font-mono font-extrabold text-xs text-red-700">{createdUser.password}</span>
+                  </div>
                 </div>
               </div>
             )}
 
-            {/* Registration Form with Password Hide/Unhide */}
-            <div className="max-w-2xl mx-auto p-6 sm:p-8 rounded-3xl bg-white border-2 border-pink-200 shadow-md space-y-6">
+            {/* Registration Form Card */}
+            <div className="p-6 sm:p-8 rounded-3xl bg-[#FDF2F8] border-2 border-pink-300 shadow-md space-y-4">
               <div>
                 <h3 className="font-extrabold text-base text-purple-950 flex items-center gap-2">
                   <UserPlus className="w-4 h-4 text-pink-600" />
-                  <span>Register New Corporate Sales Representative</span>
+                  <span>Register New Corporate Staff Representative</span>
                 </h3>
-                <p className="text-xs text-zinc-500 mt-0.5">
-                  Provisions a new Firebase Auth account and generates a unique WDS-XXXX Corporate ID
+                <p className="text-xs text-pink-900 mt-0.5">
+                  Generate official WDS employee credentials with automated corporate identifier
                 </p>
               </div>
 
               {regError && (
-                <div className="p-3 rounded-xl bg-red-100 border border-red-400 text-red-900 text-xs flex items-start gap-2">
-                  <AlertTriangle className="w-4 h-4 text-red-700 shrink-0 mt-0.5" />
+                <div className="p-3 rounded-xl bg-red-100 border border-red-400 text-red-900 text-xs font-medium flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-red-700 shrink-0" />
                   <span>{regError}</span>
                 </div>
               )}
 
               <form onSubmit={handleCorporateRegistration} className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-zinc-700">Full Name *</label>
+                    <label className="text-xs font-bold text-purple-950">Full Name *</label>
                     <input
                       type="text"
                       required
                       value={regName}
                       onChange={(e) => setRegName(e.target.value)}
-                      placeholder="e.g. Rahul Sharma"
-                      className="w-full bg-white border border-pink-300 focus:border-purple-600 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 outline-none"
+                      placeholder="e.g. Priyanshu Kumar"
+                      className="w-full bg-white border border-pink-300 focus:border-pink-600 rounded-xl px-3.5 py-2 text-xs text-zinc-900 outline-none"
                     />
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-zinc-700">Contact Phone *</label>
+                    <label className="text-xs font-bold text-purple-950">Contact Phone *</label>
                     <input
                       type="text"
                       required
                       value={regPhone}
                       onChange={(e) => setRegPhone(e.target.value)}
                       placeholder="+91 9876543210"
-                      className="w-full bg-white border border-pink-300 focus:border-purple-600 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 outline-none"
+                      className="w-full bg-white border border-pink-300 focus:border-pink-600 rounded-xl px-3.5 py-2 text-xs text-zinc-900 outline-none font-mono"
                     />
                   </div>
-                </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-zinc-700">Official Email *</label>
+                    <label className="text-xs font-bold text-purple-950">Official Email *</label>
                     <input
                       type="email"
                       required
                       value={regEmail}
                       onChange={(e) => setRegEmail(e.target.value)}
-                      placeholder="rahul.sharma@waltdesigns.com"
-                      className="w-full bg-white border border-pink-300 focus:border-purple-600 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 outline-none"
+                      placeholder="staff@waltdesigns.com"
+                      className="w-full bg-white border border-pink-300 focus:border-pink-600 rounded-xl px-3.5 py-2 text-xs text-zinc-900 outline-none font-mono"
                     />
                   </div>
 
-                  {/* Initial Password with Hide/Unhide */}
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-zinc-700">Initial Password *</label>
+                    <label className="text-xs font-bold text-purple-950">Password *</label>
                     <div className="relative">
                       <input
                         type={showRegPassword ? 'text' : 'password'}
                         required
                         value={regPassword}
                         onChange={(e) => setRegPassword(e.target.value)}
-                        placeholder="Minimum 6 characters"
-                        className="w-full bg-white border border-pink-300 focus:border-purple-600 rounded-xl pl-3.5 pr-10 py-2.5 text-xs text-zinc-900 outline-none"
+                        placeholder="Min 6 characters"
+                        className="w-full bg-white border border-pink-300 focus:border-pink-600 rounded-xl pl-3.5 pr-9 py-2 text-xs text-zinc-900 outline-none"
                       />
                       <button
                         type="button"
                         onClick={() => setShowRegPassword(!showRegPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-800 cursor-pointer p-1"
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-800 p-1 cursor-pointer"
                         title={showRegPassword ? 'Hide password' : 'Show password'}
                       >
-                        {showRegPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        {showRegPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                       </button>
                     </div>
                   </div>
-                </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-zinc-700">Designation Role</label>
-                    <select
+                    <label className="text-xs font-bold text-purple-950">Designation / Role</label>
+                    <input
+                      type="text"
                       value={regRole}
                       onChange={(e) => setRegRole(e.target.value)}
-                      className="w-full bg-white border border-pink-300 focus:border-purple-600 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 outline-none"
-                    >
-                      <option value="Asst. Sales Manager">Asst. Sales Manager</option>
-                      <option value="Senior Sales Manager">Senior Sales Manager</option>
-                      <option value="Corporate Sales Executive">Corporate Sales Executive</option>
-                      <option value="Enterprise Consultant">Enterprise Consultant</option>
-                    </select>
+                      placeholder="Asst. Sales Manager"
+                      className="w-full bg-white border border-pink-300 focus:border-pink-600 rounded-xl px-3.5 py-2 text-xs text-zinc-900 outline-none"
+                    />
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-zinc-700">Territory / Location</label>
+                    <label className="text-xs font-bold text-purple-950">Territory / Location</label>
                     <input
                       type="text"
                       value={regLocation}
                       onChange={(e) => setRegLocation(e.target.value)}
-                      placeholder="e.g. Delhi NCR Region"
-                      className="w-full bg-white border border-pink-300 focus:border-purple-600 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 outline-none"
+                      placeholder="e.g. Mumbai Corporate HQ"
+                      className="w-full bg-white border border-pink-300 focus:border-pink-600 rounded-xl px-3.5 py-2 text-xs text-zinc-900 outline-none"
                     />
                   </div>
-                </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-zinc-700">Initial Sales Income (₹)</label>
+                    <label className="text-xs font-bold text-purple-950">Initial Sales Income (₹)</label>
                     <input
                       type="number"
+                      min={0}
                       value={regIncome}
                       onChange={(e) => setRegIncome(Number(e.target.value))}
                       placeholder="0"
-                      className="w-full bg-white border border-pink-300 focus:border-purple-600 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 outline-none"
+                      className="w-full bg-white border border-pink-300 focus:border-pink-600 rounded-xl px-3.5 py-2 text-xs text-zinc-900 outline-none font-mono"
                     />
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-zinc-700">Initial Target Progress (%)</label>
+                    <label className="text-xs font-bold text-purple-950">Initial Target Progress (%)</label>
                     <input
                       type="number"
                       min={0}
@@ -1371,84 +1571,70 @@ export const AdminDashboard: React.FC = () => {
                       value={regProgress}
                       onChange={(e) => setRegProgress(Number(e.target.value))}
                       placeholder="0"
-                      className="w-full bg-white border border-pink-300 focus:border-purple-600 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 outline-none"
+                      className="w-full bg-white border border-pink-300 focus:border-pink-600 rounded-xl px-3.5 py-2 text-xs text-zinc-900 outline-none font-mono"
                     />
                   </div>
+
                 </div>
 
-                <button
-                  type="submit"
-                  disabled={isRegistering}
-                  className="w-full py-3 rounded-xl bg-purple-900 hover:bg-purple-950 text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-                >
-                  {isRegistering ? (
-                    <RefreshCw className="w-4 h-4 animate-spin text-pink-300" />
-                  ) : (
-                    <UserPlus className="w-4 h-4 text-pink-300" />
-                  )}
-                  <span>{isRegistering ? 'Provisioning Account...' : 'Provision Corporate Account'}</span>
-                </button>
+                <div className="flex justify-end pt-2">
+                  <button
+                    type="submit"
+                    disabled={isRegistering}
+                    className="px-6 py-2.5 rounded-xl bg-pink-500 hover:bg-pink-600 text-white font-extrabold text-xs shadow-md transition-all inline-flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                  >
+                    {isRegistering ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>Provisioning Corporate Account...</span>
+                      </>
+                    ) : (
+                      <>
+                        <UserPlus className="w-3.5 h-3.5" />
+                        <span>Create Corporate Staff Credentials</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </form>
             </div>
+
           </div>
         )}
 
         {/* ======================================================================= */}
-        {/* TAB 5: ATTENDANCE (BABY PINK BG) */}
+        {/* TAB 5: ATTENDANCE MANAGEMENT (ADMIN REVIEW & ACTIONS) */}
         {/* ======================================================================= */}
         {activeTab === 'attendance' && (
           <div className="space-y-6 animate-in fade-in">
-            <div className="p-6 sm:p-8 rounded-3xl bg-white border-2 border-pink-200 shadow-md space-y-5">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="p-6 sm:p-8 rounded-3xl bg-[#FDF2F8] border-2 border-pink-300 shadow-md space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-pink-200">
                 <div>
                   <h3 className="font-extrabold text-base text-purple-950 flex items-center gap-2">
                     <Calendar className="w-4 h-4 text-pink-600" />
-                    <span>Corporate Attendance Logs</span>
+                    <span>Employee Daily Attendance Records</span>
                   </h3>
-                  <p className="text-xs text-zinc-500 mt-0.5">
-                    Review and finalize attendance records. Decisions once submitted are permanent.
+                  <p className="text-xs text-pink-900 mt-0.5">
+                    Review, approve, and track staff working hours and client outreach
                   </p>
                 </div>
 
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-1 bg-pink-50 p-1 rounded-xl border border-pink-200 text-xs">
-                    <button
-                      onClick={() => setAttendanceFilter('all')}
-                      className={`px-3 py-1 rounded-lg font-bold transition-all cursor-pointer ${
-                        attendanceFilter === 'all' ? 'bg-purple-900 text-white shadow-xs' : 'text-zinc-600 hover:text-zinc-900'
-                      }`}
-                    >
-                      All ({attendanceList.length})
-                    </button>
-                    <button
-                      onClick={() => setAttendanceFilter('pending')}
-                      className={`px-3 py-1 rounded-lg font-bold transition-all cursor-pointer ${
-                        attendanceFilter === 'pending' ? 'bg-amber-500 text-black shadow-xs' : 'text-zinc-600 hover:text-zinc-900'
-                      }`}
-                    >
-                      Pending ({pendingAttendanceCount})
-                    </button>
-                    <button
-                      onClick={() => setAttendanceFilter('approved')}
-                      className={`px-3 py-1 rounded-lg font-bold transition-all cursor-pointer ${
-                        attendanceFilter === 'approved' ? 'bg-emerald-600 text-white shadow-xs' : 'text-zinc-600 hover:text-zinc-900'
-                      }`}
-                    >
-                      Approved
-                    </button>
-                    <button
-                      onClick={() => setAttendanceFilter('rejected')}
-                      className={`px-3 py-1 rounded-lg font-bold transition-all cursor-pointer ${
-                        attendanceFilter === 'rejected' ? 'bg-red-600 text-white shadow-xs' : 'text-zinc-600 hover:text-zinc-900'
-                      }`}
-                    >
-                      Rejected
-                    </button>
-                  </div>
+                <div className="flex items-center gap-2">
+                  {/* Status Filter */}
+                  <select
+                    value={attendanceFilter}
+                    onChange={(e) => setAttendanceFilter(e.target.value as any)}
+                    className="bg-white border border-pink-300 rounded-xl px-3 py-1.5 text-xs text-purple-950 font-bold outline-none cursor-pointer"
+                  >
+                    <option value="all">All Statuses ({attendanceList.length})</option>
+                    <option value="pending">Pending ({pendingAttendanceCount})</option>
+                    <option value="approved">Approved ({approvedAttendanceCount})</option>
+                    <option value="rejected">Rejected</option>
+                  </select>
 
                   <button
                     onClick={loadAttendanceData}
-                    className="p-2 px-3 rounded-xl bg-pink-50 hover:bg-pink-100 border border-pink-200 text-purple-950 text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs"
+                    className="p-2 rounded-xl bg-pink-200 hover:bg-pink-300 text-purple-950 text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-1.5"
                   >
                     <RefreshCw className={`w-3.5 h-3.5 ${loadingAttendance ? 'animate-spin' : ''}`} />
                     <span>Refresh</span>
@@ -1456,108 +1642,108 @@ export const AdminDashboard: React.FC = () => {
                 </div>
               </div>
 
-              {/* Attendance Table */}
-              <div className="overflow-x-auto rounded-2xl border border-pink-200 bg-white shadow-xs">
+              <div className="overflow-x-auto rounded-2xl border border-pink-300 bg-white shadow-xs">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-pink-100/90 text-purple-950 font-mono uppercase text-[10px] font-bold border-b border-pink-200">
+                  <thead className="bg-pink-100 text-purple-950 font-mono uppercase text-[10px] font-bold border-b border-pink-300">
                     <tr>
-                      <th className="px-4 py-3">Employee Code / Name</th>
-                      <th className="px-4 py-3">Date</th>
-                      <th className="px-4 py-3">Work Hours</th>
-                      <th className="px-4 py-3">Expected Clients</th>
-                      <th className="px-4 py-3">Status</th>
-                      <th className="px-4 py-3 text-right">Approval Action</th>
+                      <th className="px-3.5 py-3">Date</th>
+                      <th className="px-3.5 py-3">Corporate ID</th>
+                      <th className="px-3.5 py-3">Staff Name</th>
+                      <th className="px-3.5 py-3">Work Hours</th>
+                      <th className="px-3.5 py-3">Expected Clients</th>
+                      <th className="px-3.5 py-3">Current Status</th>
+                      <th className="px-3.5 py-3 text-right">Approval Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-pink-100">
                     {loadingAttendance ? (
                       <tr>
-                        <td colSpan={6} className="px-4 py-8 text-center text-zinc-500">
-                          <div className="w-6 h-6 border-2 border-pink-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                        <td colSpan={7} className="px-4 py-8 text-center text-pink-800">
+                          <div className="w-6 h-6 border-2 border-pink-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
                           <span>Loading attendance logs...</span>
                         </td>
                       </tr>
-                    ) : filteredAttendanceList.length === 0 ? (
+                    ) : attendanceList.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="px-4 py-8 text-center text-zinc-500">
-                          No attendance records found matching this filter.
+                        <td colSpan={7} className="px-4 py-8 text-center text-pink-800">
+                          <Calendar className="w-8 h-8 text-pink-400 mx-auto mb-2" />
+                          <p className="font-bold">No attendance records submitted yet.</p>
                         </td>
                       </tr>
                     ) : (
-                      filteredAttendanceList.map((item) => {
-                        const isActioning = attendanceActionId === item.id;
-                        const isFinalized = item.status === 'approved' || item.status === 'rejected';
-
-                        return (
-                          <tr key={item.id} className="hover:bg-pink-50/80 transition-colors">
-                            <td className="px-4 py-3">
-                              <div className="font-mono font-bold text-purple-950">{item.employeeCode}</div>
-                              <div className="text-[11px] text-zinc-600 font-medium">{item.employeeName || 'Corporate Rep'}</div>
-                            </td>
-
-                            <td className="px-4 py-3 font-mono text-zinc-900 font-semibold whitespace-nowrap">
-                              {item.date}
-                            </td>
-
-                            <td className="px-4 py-3 font-mono text-zinc-800">
-                              {item.todayWorkHours} Hours
-                            </td>
-
-                            <td className="px-4 py-3 font-mono text-zinc-800">
-                              {item.expectedClients} Clients
-                            </td>
-
-                            <td className="px-4 py-3 whitespace-nowrap">
-                              {item.status === 'pending' && (
-                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 border border-amber-300 text-amber-900">
-                                  <Clock className="w-3 h-3 text-amber-700 animate-pulse" />
-                                  <span>Pending Review</span>
-                                </span>
-                              )}
-                              {item.status === 'approved' && (
-                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 border border-emerald-300 text-emerald-900">
-                                  <CheckCircle2 className="w-3 h-3 text-emerald-700" />
-                                  <span>Approved</span>
-                                </span>
-                              )}
-                              {item.status === 'rejected' && (
-                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-red-100 border border-red-300 text-red-900">
-                                  <XCircle className="w-3 h-3 text-red-700" />
-                                  <span>Rejected</span>
-                                </span>
-                              )}
-                            </td>
-
-                            <td className="px-4 py-3 text-right">
-                              {isFinalized ? (
-                                <span className="text-[11px] font-mono font-bold text-zinc-400 italic">
-                                  Decision Finalized
-                                </span>
-                              ) : (
-                                <div className="flex items-center justify-end gap-2">
+                      attendanceList
+                        .filter((item) => attendanceFilter === 'all' || item.status === attendanceFilter)
+                        .map((rec) => {
+                          const isProcessing = attendanceActionId === rec.id;
+                          return (
+                            <tr key={rec.id} className="hover:bg-pink-50/80 transition-colors">
+                              <td className="px-3.5 py-3 font-mono font-bold text-purple-950 whitespace-nowrap">
+                                {rec.date}
+                              </td>
+                              <td className="px-3.5 py-3 font-mono text-zinc-700">
+                                {rec.employeeCode}
+                              </td>
+                              <td className="px-3.5 py-3 font-bold text-zinc-900">
+                                {rec.userName}
+                              </td>
+                              <td className="px-3.5 py-3 font-mono font-bold text-zinc-900">
+                                {rec.todayWorkHours} hrs
+                              </td>
+                              <td className="px-3.5 py-3 font-mono text-zinc-800">
+                                {rec.expectedClients} clients
+                              </td>
+                              <td className="px-3.5 py-3 whitespace-nowrap">
+                                {rec.status === 'pending' && (
+                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 border border-amber-400 text-amber-900">
+                                    <Clock className="w-3 h-3 text-amber-700 animate-pulse" />
+                                    <span>Pending</span>
+                                  </span>
+                                )}
+                                {rec.status === 'approved' && (
+                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 border border-emerald-400 text-emerald-900">
+                                    <CheckCircle2 className="w-3 h-3 text-emerald-700" />
+                                    <span>Approved</span>
+                                  </span>
+                                )}
+                                {rec.status === 'rejected' && (
+                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-red-100 border border-red-400 text-red-900">
+                                    <XCircle className="w-3 h-3 text-red-700" />
+                                    <span>Rejected</span>
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-3.5 py-3 text-right whitespace-nowrap">
+                                <div className="inline-flex items-center gap-1.5">
                                   <button
-                                    onClick={() => handleUpdateAttendanceStatus(item.id, 'approved')}
-                                    disabled={isActioning}
-                                    className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1 shadow-sm cursor-pointer disabled:opacity-50"
+                                    onClick={() => handleUpdateAttendanceStatus(rec.id, 'approved')}
+                                    disabled={isProcessing || rec.status === 'approved'}
+                                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                                      rec.status === 'approved'
+                                        ? 'bg-emerald-100 text-emerald-800 opacity-60 cursor-not-allowed'
+                                        : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs'
+                                    }`}
                                   >
-                                    <Check className="w-3 h-3" />
+                                    <CheckCircle2 className="w-3 h-3" />
                                     <span>Approve</span>
                                   </button>
 
                                   <button
-                                    onClick={() => handleUpdateAttendanceStatus(item.id, 'rejected')}
-                                    disabled={isActioning}
-                                    className="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold text-xs flex items-center gap-1 shadow-sm cursor-pointer disabled:opacity-50"
+                                    onClick={() => handleUpdateAttendanceStatus(rec.id, 'rejected')}
+                                    disabled={isProcessing || rec.status === 'rejected'}
+                                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                                      rec.status === 'rejected'
+                                        ? 'bg-red-100 text-red-800 opacity-60 cursor-not-allowed'
+                                        : 'bg-red-600 hover:bg-red-700 text-white shadow-xs'
+                                    }`}
                                   >
-                                    <X className="w-3 h-3" />
+                                    <XCircle className="w-3 h-3" />
                                     <span>Reject</span>
                                   </button>
                                 </div>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })
+                              </td>
+                            </tr>
+                          );
+                        })
                     )}
                   </tbody>
                 </table>
@@ -1567,199 +1753,596 @@ export const AdminDashboard: React.FC = () => {
         )}
 
         {/* ======================================================================= */}
-        {/* TAB 6: DAILY DATA REPORT (BABY PINK BG) */}
+        {/* TAB 6: EXPECTED DATA MANAGEMENT (CREATE, ASSIGN, FILTER, STATUS SYNC) */}
         {/* ======================================================================= */}
-        {activeTab === 'daily-report' && (
+        {activeTab === 'expected-data' && (
           <div className="space-y-6 animate-in fade-in">
             
-            {/* Create Daily Report Form Card */}
-            <div className="p-6 sm:p-8 rounded-3xl bg-white border-2 border-pink-200 shadow-md space-y-6">
+            {/* Create Expected Data Entry Form Card */}
+            <div className="p-6 sm:p-8 rounded-3xl bg-[#FDF2F8] border-2 border-pink-300 shadow-md space-y-4">
               <div>
                 <h3 className="font-extrabold text-base text-purple-950 flex items-center gap-2">
-                  <Plus className="w-4 h-4 text-pink-600" />
-                  <span>Create Daily Data Report (Assign to Corporate Rep)</span>
+                  <Target className="w-4 h-4 text-pink-600" />
+                  <span>Create & Assign Expected Data Entry</span>
                 </h3>
-                <p className="text-xs text-zinc-500 mt-0.5">
-                  Input incoming client data and assign the task to an employee. Employee selection is mandatory.
+                <p className="text-xs text-pink-900 mt-0.5">
+                  Assign business prospects directly to corporate staff. Once submitted, the lead immediately appears in the selected employee's portal for review.
                 </p>
               </div>
 
-              {reportFormError && (
-                <div className="p-3.5 rounded-2xl bg-red-100 border border-red-400 text-red-900 text-xs flex items-start gap-2 font-medium">
-                  <AlertTriangle className="w-4 h-4 text-red-700 shrink-0 mt-0.5" />
-                  <span>{reportFormError}</span>
+              {expectedFormError && (
+                <div className="p-3 rounded-xl bg-red-100 border border-red-400 text-red-900 text-xs font-medium flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-red-700 shrink-0" />
+                  <span>{expectedFormError}</span>
                 </div>
               )}
 
-              <form onSubmit={handleCreateDailyReportSubmit} className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <form onSubmit={handleCreateExpectedDataSubmit} className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  
+                  {/* Business Name */}
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-zinc-700">Assign To Employee *</label>
+                    <label className="text-xs font-bold text-purple-950 block">Business Name *</label>
+                    <input
+                      type="text"
+                      required
+                      value={expectedBusinessName}
+                      onChange={(e) => setExpectedBusinessName(e.target.value)}
+                      placeholder="e.g. Apex Global Logistics"
+                      className="w-full bg-white border border-pink-300 focus:border-pink-600 rounded-xl px-3.5 py-2 text-xs text-zinc-900 outline-none shadow-xs"
+                    />
+                  </div>
+
+                  {/* Location */}
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-purple-950 block">Location *</label>
+                    <input
+                      type="text"
+                      required
+                      value={expectedLocation}
+                      onChange={(e) => setExpectedLocation(e.target.value)}
+                      placeholder="e.g. Bangalore Tech Park"
+                      className="w-full bg-white border border-pink-300 focus:border-pink-600 rounded-xl px-3.5 py-2 text-xs text-zinc-900 outline-none shadow-xs"
+                    />
+                  </div>
+
+                  {/* Contact Number */}
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-purple-950 block">Contact Number *</label>
+                    <input
+                      type="text"
+                      required
+                      value={expectedNumber}
+                      onChange={(e) => setExpectedNumber(e.target.value)}
+                      placeholder="e.g. +91 9876543210"
+                      className="w-full bg-white border border-pink-300 focus:border-pink-600 rounded-xl px-3.5 py-2 text-xs text-zinc-900 outline-none font-mono shadow-xs"
+                    />
+                  </div>
+
+                  {/* Date (Auto-filled with today's date) */}
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-purple-950 block">Date (Auto-filled) *</label>
+                    <input
+                      type="date"
+                      required
+                      value={expectedDate}
+                      onChange={(e) => setExpectedDate(e.target.value)}
+                      className="w-full bg-white border border-pink-300 focus:border-pink-600 rounded-xl px-3.5 py-2 text-xs text-zinc-900 outline-none shadow-xs"
+                    />
+                  </div>
+
+                  {/* Select Employee (Mandatory) */}
+                  <div className="space-y-1 sm:col-span-2 lg:col-span-2">
+                    <label className="text-xs font-bold text-purple-950 block">
+                      Select Corporate Employee (Mandatory) *
+                    </label>
                     <select
                       required
-                      value={selectedEmployeeUid}
-                      onChange={(e) => setSelectedEmployeeUid(e.target.value)}
-                      className="w-full bg-white border border-pink-300 focus:border-purple-600 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 outline-none"
+                      value={expectedSelectedEmployeeUid}
+                      onChange={(e) => setExpectedSelectedEmployeeUid(e.target.value)}
+                      className="w-full bg-white border border-pink-300 focus:border-pink-600 rounded-xl px-3.5 py-2 text-xs text-zinc-900 outline-none font-medium cursor-pointer shadow-xs"
                     >
-                      <option value="">-- Select Corporate Employee --</option>
-                      {corporateList.map((emp) => (
-                        <option key={emp.uid} value={emp.uid}>
-                          {emp.name} ({emp.corporateUserId || 'WDS-CORP'})
+                      <option value="">-- Choose Corporate Employee --</option>
+                      {corporateList.map((corp) => (
+                        <option key={corp.uid} value={corp.uid}>
+                          {corp.name} ({corp.corporateUserId || 'WDS-ACTIVE'}) — {corp.corporateRole || 'Sales Rep'}
                         </option>
                       ))}
                     </select>
                   </div>
 
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <button
+                    type="submit"
+                    disabled={isCreatingExpected}
+                    className="px-6 py-2.5 rounded-xl bg-pink-500 hover:bg-pink-600 text-white font-extrabold text-xs shadow-md transition-all inline-flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                  >
+                    {isCreatingExpected ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>Submitting Expected Data...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-3.5 h-3.5" />
+                        <span>Assign Expected Data to Employee</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            {/* Expected Data Table & Filters Card */}
+            <div className="p-6 sm:p-8 rounded-3xl bg-[#FDF2F8] border-2 border-pink-300 shadow-md space-y-4">
+              
+              {/* Header & Counters */}
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-3 border-b border-pink-200">
+                <div>
+                  <h3 className="font-extrabold text-base text-purple-950 flex items-center gap-2">
+                    <Building className="w-4 h-4 text-pink-600" />
+                    <span>Expected Data Directory & Status Overview</span>
+                  </h3>
+                  <p className="text-xs text-pink-900 mt-0.5">
+                    Live tracking of employee responses (Interested vs Not Interested)
+                  </p>
+                </div>
+
+                <button
+                  onClick={loadExpectedData}
+                  className="p-2 rounded-xl bg-pink-200 hover:bg-pink-300 text-purple-950 text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-1.5 self-start md:self-auto"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${loadingExpectedData ? 'animate-spin' : ''}`} />
+                  <span>Refresh Expected Data</span>
+                </button>
+              </div>
+
+              {/* KPI Badges */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="p-3.5 rounded-2xl bg-white border border-pink-300 shadow-xs">
+                  <span className="text-[10px] font-bold text-pink-800 uppercase tracking-wider block">
+                    Total Assigned
+                  </span>
+                  <div className="text-xl font-extrabold text-purple-950 font-mono mt-0.5">
+                    {totalExpectedCount}
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-white border border-emerald-300 shadow-xs">
+                  <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider block">
+                    Interested
+                  </span>
+                  <div className="text-xl font-extrabold text-emerald-700 font-mono mt-0.5">
+                    {expectedInterestedCount}
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-white border border-red-300 shadow-xs">
+                  <span className="text-[10px] font-bold text-red-800 uppercase tracking-wider block">
+                    Not Interested
+                  </span>
+                  <div className="text-xl font-extrabold text-red-700 font-mono mt-0.5">
+                    {expectedNotInterestedCount}
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-white border border-amber-300 shadow-xs">
+                  <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wider block">
+                    Pending Action
+                  </span>
+                  <div className="text-xl font-extrabold text-amber-800 font-mono mt-0.5">
+                    {expectedPendingCount}
+                  </div>
+                </div>
+              </div>
+
+              {/* Comprehensive Filter Row */}
+              <div className="p-4 rounded-2xl bg-white border border-pink-300 space-y-3 shadow-xs">
+                <div className="flex items-center gap-2 text-xs font-bold text-purple-950">
+                  <Filter className="w-4 h-4 text-pink-600" />
+                  <span>Filters</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                  {/* Search Query */}
+                  <div className="relative lg:col-span-2">
+                    <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      value={expectedSearchQuery}
+                      onChange={(e) => setExpectedSearchQuery(e.target.value)}
+                      placeholder="Search business, location, number, staff..."
+                      className="w-full bg-pink-50/50 border border-pink-200 focus:border-pink-500 rounded-xl pl-8 pr-3 py-2 text-xs text-zinc-900 outline-none"
+                    />
+                  </div>
+
+                  {/* Filter by Employee */}
+                  <div>
+                    <select
+                      value={expectedFilterEmployee}
+                      onChange={(e) => setExpectedFilterEmployee(e.target.value)}
+                      className="w-full bg-pink-50/50 border border-pink-200 focus:border-pink-500 rounded-xl px-3 py-2 text-xs text-zinc-900 outline-none cursor-pointer"
+                    >
+                      <option value="all">All Employees ({corporateList.length})</option>
+                      {corporateList.map((c) => (
+                        <option key={c.uid} value={c.uid}>
+                          {c.name} ({c.corporateUserId || 'WDS'})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Filter by Status */}
+                  <div>
+                    <select
+                      value={expectedFilterStatus}
+                      onChange={(e) => setExpectedFilterStatus(e.target.value)}
+                      className="w-full bg-pink-50/50 border border-pink-200 focus:border-pink-500 rounded-xl px-3 py-2 text-xs text-zinc-900 outline-none cursor-pointer"
+                    >
+                      <option value="all">All Statuses ({expectedDataList.length})</option>
+                      <option value="Interested">Interested ({expectedInterestedCount})</option>
+                      <option value="Not Interested">Not Interested ({expectedNotInterestedCount})</option>
+                      <option value="Pending">Pending ({expectedPendingCount})</option>
+                    </select>
+                  </div>
+
+                  {/* Filter by Location */}
+                  <div>
+                    <select
+                      value={expectedFilterLocation}
+                      onChange={(e) => setExpectedFilterLocation(e.target.value)}
+                      className="w-full bg-pink-50/50 border border-pink-200 focus:border-pink-500 rounded-xl px-3 py-2 text-xs text-zinc-900 outline-none cursor-pointer"
+                    >
+                      <option value="all">All Locations</option>
+                      {expectedUniqueLocations.map((loc) => (
+                        <option key={loc} value={loc}>
+                          {loc}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Filter Clear Action */}
+                {(expectedSearchQuery || expectedFilterEmployee !== 'all' || expectedFilterStatus !== 'all' || expectedFilterDate !== 'all' || expectedFilterLocation !== 'all') && (
+                  <div className="flex justify-end pt-1">
+                    <button
+                      onClick={() => {
+                        setExpectedSearchQuery('');
+                        setExpectedFilterEmployee('all');
+                        setExpectedFilterStatus('all');
+                        setExpectedFilterDate('all');
+                        setExpectedFilterLocation('all');
+                      }}
+                      className="text-xs text-pink-700 hover:text-purple-900 font-bold underline cursor-pointer"
+                    >
+                      Clear all filters
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Data Table */}
+              <div className="overflow-x-auto rounded-2xl border border-pink-300 bg-white shadow-xs">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-pink-100 text-purple-950 font-mono uppercase text-[10px] font-bold border-b border-pink-300">
+                    <tr>
+                      <th className="px-3.5 py-3">Business Name</th>
+                      <th className="px-3.5 py-3">Location</th>
+                      <th className="px-3.5 py-3">Contact Number</th>
+                      <th className="px-3.5 py-3">Date</th>
+                      <th className="px-3.5 py-3">Assigned Employee</th>
+                      <th className="px-3.5 py-3">Status</th>
+                      <th className="px-3.5 py-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-pink-100">
+                    {loadingExpectedData ? (
+                      <tr>
+                        <td colSpan={7} className="px-4 py-8 text-center text-pink-800">
+                          <div className="w-6 h-6 border-2 border-pink-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                          <span>Loading Expected Data Entries...</span>
+                        </td>
+                      </tr>
+                    ) : filteredExpectedList.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="px-4 py-8 text-center text-pink-800">
+                          <Target className="w-8 h-8 text-pink-400 mx-auto mb-2" />
+                          <p className="font-bold">No Expected Data records found.</p>
+                          <p className="text-[11px] mt-0.5">Use the form above to assign prospective client data to employees.</p>
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredExpectedList.map((item) => {
+                        const isActionActive = expectedActionId === item.id;
+                        return (
+                          <tr key={item.id} className="hover:bg-pink-50/80 transition-colors">
+                            
+                            {/* Business Name */}
+                            <td className="px-3.5 py-3 font-bold text-zinc-900 whitespace-nowrap">
+                              <div className="flex items-center gap-1.5">
+                                <Briefcase className="w-3.5 h-3.5 text-pink-600 shrink-0" />
+                                <span>{item.businessName}</span>
+                              </div>
+                            </td>
+
+                            {/* Location */}
+                            <td className="px-3.5 py-3 text-zinc-700">
+                              <div className="flex items-center gap-1">
+                                <MapPin className="w-3.5 h-3.5 text-pink-500 shrink-0" />
+                                <span>{item.location}</span>
+                              </div>
+                            </td>
+
+                            {/* Number */}
+                            <td className="px-3.5 py-3 font-mono text-zinc-800 whitespace-nowrap">
+                              <a
+                                href={`tel:${item.number}`}
+                                className="inline-flex items-center gap-1.5 text-purple-900 font-bold hover:underline"
+                                title="Click to call"
+                              >
+                                <PhoneCall className="w-3.5 h-3.5 text-purple-700" />
+                                <span>{item.number}</span>
+                              </a>
+                            </td>
+
+                            {/* Date */}
+                            <td className="px-3.5 py-3 font-mono text-zinc-700 whitespace-nowrap">
+                              {item.date}
+                            </td>
+
+                            {/* Assigned Employee */}
+                            <td className="px-3.5 py-3">
+                              <div className="font-bold text-zinc-900">{item.assignedEmployeeName}</div>
+                              <div className="font-mono text-[10px] text-pink-700">{item.assignedEmployeeCode}</div>
+                            </td>
+
+                            {/* Status */}
+                            <td className="px-3.5 py-3 whitespace-nowrap">
+                              <select
+                                value={item.status}
+                                disabled={isActionActive}
+                                onChange={(e) => handleAdminUpdateExpectedStatus(item.id, e.target.value as any)}
+                                className={`rounded-lg px-2.5 py-1 text-[11px] font-bold outline-none border cursor-pointer ${
+                                  item.status === 'Interested'
+                                    ? 'bg-emerald-50 border-emerald-400 text-emerald-900'
+                                    : item.status === 'Not Interested'
+                                    ? 'bg-red-50 border-red-400 text-red-900'
+                                    : 'bg-amber-50 border-amber-400 text-amber-900'
+                                }`}
+                              >
+                                <option value="Pending">Pending</option>
+                                <option value="Interested">Interested</option>
+                                <option value="Not Interested">Not Interested</option>
+                              </select>
+                            </td>
+
+                            {/* Delete */}
+                            <td className="px-3.5 py-3 text-right">
+                              <button
+                                onClick={() => handleDeleteExpectedData(item.id)}
+                                disabled={isActionActive}
+                                className="p-1.5 rounded-lg bg-red-100 hover:bg-red-200 text-red-700 text-xs transition-colors cursor-pointer"
+                                title="Delete Expected Data"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </td>
+
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          </div>
+        )}
+
+        {/* ======================================================================= */}
+        {/* TAB 7: DAILY DATA REPORTS (CREATE & DIRECTORY) */}
+        {/* ======================================================================= */}
+        {activeTab === 'daily-report' && (
+          <div className="space-y-6 animate-in fade-in">
+            
+            {/* Create Daily Report Form Card */}
+            <div className="p-6 sm:p-8 rounded-3xl bg-[#FDF2F8] border-2 border-pink-300 shadow-md space-y-4">
+              <div>
+                <h3 className="font-extrabold text-base text-purple-950 flex items-center gap-2">
+                  <FileSpreadsheet className="w-4 h-4 text-pink-600" />
+                  <span>Create & Assign Daily Data Report</span>
+                </h3>
+                <p className="text-xs text-pink-900 mt-0.5">
+                  Directly dispatch prospective client requirement details to designated sales staff
+                </p>
+              </div>
+
+              {reportFormError && (
+                <div className="p-3 rounded-xl bg-red-100 border border-red-400 text-red-900 text-xs font-medium flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-red-700 shrink-0" />
+                  <span>{reportFormError}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleCreateDailyReportSubmit} className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-zinc-700">S.No (Optional)</label>
+                    <label className="text-xs font-bold text-purple-950">S.No (Optional)</label>
                     <input
                       type="text"
                       value={reportSNo}
                       onChange={(e) => setReportSNo(e.target.value)}
-                      placeholder={`Auto: #${dailyReportList.length + 1}`}
-                      className="w-full bg-white border border-pink-300 focus:border-purple-600 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 outline-none"
+                      placeholder={`e.g. ${dailyReportList.length + 1}`}
+                      className="w-full bg-white border border-pink-300 focus:border-pink-600 rounded-xl px-3.5 py-2 text-xs text-zinc-900 outline-none font-mono"
                     />
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-zinc-700">Client Name *</label>
+                    <label className="text-xs font-bold text-purple-950">Client / Contact Name *</label>
                     <input
                       type="text"
                       required
                       value={reportName}
                       onChange={(e) => setReportName(e.target.value)}
-                      placeholder="e.g. Amit Kumar"
-                      className="w-full bg-white border border-pink-300 focus:border-purple-600 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 outline-none"
+                      placeholder="e.g. Rajesh Sharma"
+                      className="w-full bg-white border border-pink-300 focus:border-pink-600 rounded-xl px-3.5 py-2 text-xs text-zinc-900 outline-none"
                     />
                   </div>
-                </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-zinc-700">Client Email *</label>
+                    <label className="text-xs font-bold text-purple-950">Client Email *</label>
                     <input
                       type="email"
                       required
                       value={reportEmail}
                       onChange={(e) => setReportEmail(e.target.value)}
-                      placeholder="client@company.in"
-                      className="w-full bg-white border border-pink-300 focus:border-purple-600 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 outline-none"
+                      placeholder="rajesh@enterprisecorp.in"
+                      className="w-full bg-white border border-pink-300 focus:border-pink-600 rounded-xl px-3.5 py-2 text-xs text-zinc-900 outline-none font-mono"
                     />
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-zinc-700">Contact Number *</label>
+                    <label className="text-xs font-bold text-purple-950">Phone Number *</label>
                     <input
                       type="text"
                       required
                       value={reportNumber}
                       onChange={(e) => setReportNumber(e.target.value)}
                       placeholder="+91 9876543210"
-                      className="w-full bg-white border border-pink-300 focus:border-purple-600 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 outline-none"
+                      className="w-full bg-white border border-pink-300 focus:border-pink-600 rounded-xl px-3.5 py-2 text-xs text-zinc-900 outline-none font-mono"
                     />
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-zinc-700">Client Location *</label>
+                    <label className="text-xs font-bold text-purple-950">Location / City *</label>
                     <input
                       type="text"
                       required
                       value={reportLocation}
                       onChange={(e) => setReportLocation(e.target.value)}
-                      placeholder="e.g. Noida / New Delhi"
-                      className="w-full bg-white border border-pink-300 focus:border-purple-600 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 outline-none"
+                      placeholder="e.g. Bangalore, Karnataka"
+                      className="w-full bg-white border border-pink-300 focus:border-pink-600 rounded-xl px-3.5 py-2 text-xs text-zinc-900 outline-none"
                     />
                   </div>
-                </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="sm:col-span-2 space-y-1">
-                    <label className="text-xs font-bold text-zinc-700">Client Requirement / Brief *</label>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-purple-950">Report Status</label>
+                    <select
+                      value={reportStatus}
+                      onChange={(e) => setReportStatus(e.target.value)}
+                      className="w-full bg-white border border-pink-300 focus:border-pink-600 rounded-xl px-3.5 py-2 text-xs text-zinc-900 outline-none font-bold"
+                    >
+                      <option value="Assigned">Assigned</option>
+                      <option value="Contacted">Contacted</option>
+                      <option value="Discussion in Progress">In Progress</option>
+                      <option value="Proposal Sent">Proposal Sent</option>
+                      <option value="Converted">Converted</option>
+                      <option value="Closed / Not Interested">Closed</option>
+                    </select>
+                  </div>
+
+                  {/* Assign to Corporate Employee */}
+                  <div className="space-y-1 sm:col-span-2 lg:col-span-2">
+                    <label className="text-xs font-bold text-purple-950">Assign to Corporate Employee *</label>
+                    <select
+                      required
+                      value={selectedEmployeeUid}
+                      onChange={(e) => setSelectedEmployeeUid(e.target.value)}
+                      className="w-full bg-white border border-pink-300 focus:border-pink-600 rounded-xl px-3.5 py-2 text-xs text-zinc-900 outline-none font-medium cursor-pointer"
+                    >
+                      <option value="">-- Select Corporate Staff Member --</option>
+                      {corporateList.map((corp) => (
+                        <option key={corp.uid} value={corp.uid}>
+                          {corp.name} ({corp.corporateUserId || 'WDS-ACTIVE'}) — {corp.corporateRole || 'Sales Rep'}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-1 sm:col-span-2 lg:col-span-4">
+                    <label className="text-xs font-bold text-purple-950">Client Requirement / Project Description *</label>
                     <textarea
                       required
                       rows={2}
                       value={reportRequirement}
                       onChange={(e) => setReportRequirement(e.target.value)}
-                      placeholder="e.g. Looking for e-commerce website redesign with custom payment gateway integration and fast delivery."
-                      className="w-full bg-white border border-pink-300 focus:border-purple-600 rounded-xl px-3.5 py-2 text-xs text-zinc-900 outline-none resize-none"
+                      placeholder="e.g. Startup looking for high-performance zero-lag web architecture and brand identity package"
+                      className="w-full bg-white border border-pink-300 focus:border-pink-600 rounded-xl px-3.5 py-2 text-xs text-zinc-900 outline-none resize-none"
                     />
                   </div>
 
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-zinc-700">Report Status</label>
-                    <select
-                      value={reportStatus}
-                      onChange={(e) => setReportStatus(e.target.value)}
-                      className="w-full bg-white border border-pink-300 focus:border-purple-600 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 outline-none"
-                    >
-                      <option value="Assigned">Assigned</option>
-                      <option value="Contacted">Contacted</option>
-                      <option value="Discussion in Progress">Discussion in Progress</option>
-                      <option value="Proposal Sent">Proposal Sent</option>
-                      <option value="Converted">Converted</option>
-                      <option value="Closed / Not Interested">Closed / Not Interested</option>
-                    </select>
-                  </div>
                 </div>
 
-                <div className="pt-2 flex justify-end">
+                <div className="flex justify-end pt-2">
                   <button
                     type="submit"
                     disabled={isCreatingReport}
-                    className="px-6 py-2.5 rounded-xl bg-purple-900 hover:bg-purple-950 text-white font-bold text-xs shadow-md transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                    className="px-6 py-2.5 rounded-xl bg-pink-500 hover:bg-pink-600 text-white font-extrabold text-xs shadow-md transition-all inline-flex items-center gap-2 cursor-pointer disabled:opacity-50"
                   >
                     {isCreatingReport ? (
-                      <RefreshCw className="w-3.5 h-3.5 animate-spin text-pink-300" />
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>Creating Daily Report...</span>
+                      </>
                     ) : (
-                      <Send className="w-3.5 h-3.5 text-pink-300" />
+                      <>
+                        <Send className="w-3.5 h-3.5" />
+                        <span>Dispatch Report to Employee</span>
+                      </>
                     )}
-                    <span>{isCreatingReport ? 'Creating & Assigning...' : 'Create & Assign Daily Report'}</span>
                   </button>
                 </div>
               </form>
             </div>
 
-            {/* List & Search Assigned Daily Data Reports */}
-            <div className="p-6 sm:p-8 rounded-3xl bg-white border-2 border-pink-200 shadow-md space-y-5">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            {/* Daily Reports Table & Filter Card */}
+            <div className="p-6 sm:p-8 rounded-3xl bg-[#FDF2F8] border-2 border-pink-300 shadow-md space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-pink-200">
                 <div>
                   <h3 className="font-extrabold text-base text-purple-950 flex items-center gap-2">
-                    <FileSpreadsheet className="w-4 h-4 text-pink-600" />
-                    <span>All Daily Data Reports & Assigned Leads</span>
+                    <Building className="w-4 h-4 text-pink-600" />
+                    <span>Dispatched Daily Data Reports Directory</span>
                   </h3>
-                  <p className="text-xs text-zinc-500 mt-0.5">
-                    Track client requirement fulfillment and update status directly
+                  <p className="text-xs text-pink-900 mt-0.5">
+                    All client requirement leads assigned across corporate team
                   </p>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3">
+                  {/* Filter by Employee */}
+                  <select
+                    value={reportFilterEmployee}
+                    onChange={(e) => setReportFilterEmployee(e.target.value)}
+                    className="bg-white border border-pink-300 rounded-xl px-3 py-1.5 text-xs text-purple-950 font-bold outline-none cursor-pointer"
+                  >
+                    <option value="all">All Employees ({corporateList.length})</option>
+                    {corporateList.map((c) => (
+                      <option key={c.uid} value={c.uid}>
+                        {c.name} ({c.corporateUserId || 'WDS'})
+                      </option>
+                    ))}
+                  </select>
+
+                  {/* Search Query */}
                   <div className="relative">
                     <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
                     <input
                       type="text"
                       value={reportSearchQuery}
                       onChange={(e) => setReportSearchQuery(e.target.value)}
-                      placeholder="Search client, location..."
-                      className="pl-8 pr-3 py-1.5 rounded-xl bg-white border border-pink-300 text-xs text-zinc-900 focus:border-purple-600 outline-none w-44 shadow-xs"
+                      placeholder="Search leads, name, email..."
+                      className="w-48 bg-white border border-pink-300 focus:border-pink-600 rounded-xl pl-8 pr-3 py-1.5 text-xs text-zinc-900 outline-none"
                     />
                   </div>
 
-                  <select
-                    value={reportFilterEmployee}
-                    onChange={(e) => setReportFilterEmployee(e.target.value)}
-                    className="py-1.5 px-3 rounded-xl bg-white border border-pink-300 text-xs text-zinc-900 outline-none shadow-xs"
-                  >
-                    <option value="all">All Corporate Reps</option>
-                    {corporateList.map((emp) => (
-                      <option key={emp.uid} value={emp.uid}>
-                        {emp.name}
-                      </option>
-                    ))}
-                  </select>
-
                   <button
                     onClick={loadDailyReports}
-                    className="p-2 px-3 rounded-xl bg-pink-50 hover:bg-pink-100 border border-pink-200 text-purple-950 text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs"
+                    className="p-2 rounded-xl bg-pink-200 hover:bg-pink-300 text-purple-950 text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-1.5"
                   >
                     <RefreshCw className={`w-3.5 h-3.5 ${loadingDailyReports ? 'animate-spin' : ''}`} />
                     <span>Refresh</span>
@@ -1767,13 +2350,12 @@ export const AdminDashboard: React.FC = () => {
                 </div>
               </div>
 
-              {/* Data Table */}
-              <div className="overflow-x-auto rounded-2xl border border-pink-200 bg-white shadow-xs">
+              <div className="overflow-x-auto rounded-2xl border border-pink-300 bg-white shadow-xs">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-pink-100/90 text-purple-950 font-mono uppercase text-[10px] font-bold border-b border-pink-200">
+                  <thead className="bg-pink-100 text-purple-950 font-mono uppercase text-[10px] font-bold border-b border-pink-300">
                     <tr>
                       <th className="px-3.5 py-3">S.No</th>
-                      <th className="px-3.5 py-3">Assigned Rep</th>
+                      <th className="px-3.5 py-3">Assigned Staff</th>
                       <th className="px-3.5 py-3">Client Name</th>
                       <th className="px-3.5 py-3">Email</th>
                       <th className="px-3.5 py-3">Number</th>
@@ -1786,15 +2368,17 @@ export const AdminDashboard: React.FC = () => {
                   <tbody className="divide-y divide-pink-100">
                     {loadingDailyReports ? (
                       <tr>
-                        <td colSpan={9} className="px-4 py-8 text-center text-zinc-500">
-                          <div className="w-6 h-6 border-2 border-pink-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                        <td colSpan={9} className="px-4 py-8 text-center text-pink-800">
+                          <div className="w-6 h-6 border-2 border-pink-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
                           <span>Loading daily reports...</span>
                         </td>
                       </tr>
                     ) : dailyReportList.length === 0 ? (
                       <tr>
-                        <td colSpan={9} className="px-4 py-8 text-center text-zinc-500">
-                          No Daily Data Reports created yet. Use the form above to add a client record.
+                        <td colSpan={9} className="px-4 py-8 text-center text-pink-800">
+                          <FileSpreadsheet className="w-8 h-8 text-pink-400 mx-auto mb-2" />
+                          <p className="font-bold">No Daily Data Reports created yet.</p>
+                          <p className="text-[11px] mt-0.5">Use the form above to dispatch client requirement reports.</p>
                         </td>
                       </tr>
                     ) : (
@@ -1849,7 +2433,7 @@ export const AdminDashboard: React.FC = () => {
                               <select
                                 value={report.status}
                                 onChange={(e) => handleUpdateReportStatus(report.id, e.target.value)}
-                                className="bg-pink-50 border border-pink-300 rounded-lg px-2 py-1 text-[11px] font-bold text-purple-950 outline-none"
+                                className="bg-pink-50 border border-pink-300 rounded-lg px-2 py-1 text-[11px] font-bold text-purple-950 outline-none cursor-pointer"
                               >
                                 <option value="Assigned">Assigned</option>
                                 <option value="Contacted">Contacted</option>
