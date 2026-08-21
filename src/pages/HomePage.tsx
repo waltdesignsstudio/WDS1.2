@@ -21,6 +21,7 @@ import { CodingWatermark } from '../components/CodingWatermark';
 import { ShowcaseGallery } from '../components/ShowcaseGallery';
 import { FAQSection } from '../components/FAQSection';
 import { EnquiryForm } from '../components/EnquiryForm';
+import { AnimatedCounter } from '../components/AnimatedCounter';
 import { AGENCY_INFO, CORE_PILLARS, DIVISIONS } from '../data/agencyData';
 
 export const HomePage: React.FC = () => {
@@ -94,7 +95,7 @@ export const HomePage: React.FC = () => {
             <div className="bg-[#12141e] border border-white/10 rounded-xl p-4 shadow-md hover:border-amber-500/40 transition-all group">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-2xl sm:text-3xl font-bold text-white group-hover:text-amber-400 transition-colors">
-                  {AGENCY_INFO.stats.customers}
+                  <AnimatedCounter end={120} suffix="+" duration={1200} />
                 </span>
                 <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
                   <Users className="w-4 h-4" />
@@ -110,7 +111,7 @@ export const HomePage: React.FC = () => {
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-baseline gap-1">
                   <span className="text-2xl sm:text-3xl font-bold text-white group-hover:text-amber-400 transition-colors">
-                    {AGENCY_INFO.stats.rating}
+                    <AnimatedCounter end={4.3} decimals={1} duration={1200} />
                   </span>
                   <span className="text-xs text-amber-400 font-mono">/ 5.0</span>
                 </div>
@@ -127,7 +128,7 @@ export const HomePage: React.FC = () => {
             <div className="bg-[#12141e] border border-white/10 rounded-xl p-4 shadow-md hover:border-amber-500/40 transition-all group">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-2xl sm:text-3xl font-bold text-white group-hover:text-amber-400 transition-colors">
-                  {AGENCY_INFO.stats.support}
+                  <AnimatedCounter end={24} suffix="/7" duration={1200} />
                 </span>
                 <div className="w-8 h-8 rounded-lg bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400">
                   <Headphones className="w-4 h-4" />
@@ -142,7 +143,7 @@ export const HomePage: React.FC = () => {
             <div className="bg-[#12141e] border border-white/10 rounded-xl p-4 shadow-md hover:border-amber-500/40 transition-all group">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-2xl sm:text-3xl font-bold text-emerald-400">
-                  {AGENCY_INFO.stats.successRate}
+                  <AnimatedCounter end={98} suffix="%" duration={1200} />
                 </span>
                 <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
                   <Activity className="w-4 h-4" />

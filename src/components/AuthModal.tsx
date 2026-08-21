@@ -161,11 +161,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       className={
         inline
           ? 'w-full max-w-md mx-auto my-6'
-          : 'fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200'
+          : 'fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-300'
       }
     >
-      {/* MODAL CARD: RED TOP HEADER + WHITE BOTTOM BODY */}
-      <div className="relative w-full max-w-md bg-white border-2 border-red-700 rounded-3xl shadow-2xl overflow-hidden font-sans text-zinc-900">
+      {/* MODAL CARD: RED TOP HEADER + WHITE BOTTOM BODY WITH SMOOTH ZOOM & SLIDE ANIMATION */}
+      <div className="relative w-full max-w-md bg-white border-2 border-red-700 rounded-3xl shadow-2xl overflow-hidden font-sans text-zinc-900 animate-in fade-in zoom-in-95 slide-in-from-bottom-6 duration-300 ease-out transform">
         
         {/* Close Button on Red Header */}
         {!inline && (

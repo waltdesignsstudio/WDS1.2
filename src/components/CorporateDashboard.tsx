@@ -42,12 +42,17 @@ import {
   Bell,
   Megaphone,
   Trophy,
+  Crown,
+  ChevronRight,
 } from 'lucide-react';
 import {
   useAuth,
   AttendanceRecord,
   DailyReportItem,
   ExpectedDataItem,
+  NotificationItem,
+  NoticeItem,
+  LeaderboardItem,
 } from '../context/AuthContext';
 import { AGENCY_INFO, DIVISIONS } from '../data/agencyData';
 import { CorporateNotificationsSection } from './corporate/CorporateNotificationsSection';
@@ -60,10 +65,7 @@ type CorporateTab =
   | 'portfolio'
   | 'attendance'
   | 'data-report'
-  | 'expected-data'
-  | 'notifications'
-  | 'notices'
-  | 'leaderboard';
+  | 'expected-data';
 
 export const CorporateDashboard: React.FC = () => {
   const {
@@ -78,6 +80,9 @@ export const CorporateDashboard: React.FC = () => {
     fetchEmployeeDailyReports,
     fetchEmployeeExpectedData,
     updateExpectedDataStatus,
+    fetchEmployeeNotifications,
+    fetchNotices,
+    fetchLeaderboard,
   } = useAuth();
 
   const [activeTab, setActiveTab] = useState<CorporateTab>('dashboard');
@@ -182,6 +187,14 @@ export const CorporateDashboard: React.FC = () => {
   const [expectedFeedbackMsg, setExpectedFeedbackMsg] = useState<{ id: string; text: string } | null>(null);
   const [selectedExpectedStatuses, setSelectedExpectedStatuses] = useState<Record<string, 'Interested' | 'Not Interested'>>({});
 
+  // Dashboard Extras (Notifications, Notices, Leaderboard)
+  const [unreadNotificationsCount, setUnreadNotificationsCount] = useState<number>(0);
+  const [recentNoticesList, setRecentNoticesList] = useState<NoticeItem[]>([]);
+  const [topLeaderboardList, setTopLeaderboardList] = useState<LeaderboardItem[]>([]);
+  const [isNotificationsModalOpen, setIsNotificationsModalOpen] = useState(false);
+  const [isNoticesModalOpen, setIsNoticesModalOpen] = useState(false);
+  const [isLeaderboardModalOpen, setIsLeaderboardModalOpen] = useState(false);
+
   const corporateId = profile?.corporateUserId || 'WDS-ACTIVE';
   const basicSalary = profile?.basicSalary ?? 25000;
   const income = profile?.income || 0;
@@ -221,12 +234,28 @@ export const CorporateDashboard: React.FC = () => {
     }
   }, [localTodayStr]);
 
-  // Load attendance, daily data reports, and expected data
+  // Load attendance, daily data reports, expected data, and dashboard extras
   useEffect(() => {
     loadAttendance();
     loadReports();
     loadExpectedData();
+    loadDashboardExtras();
   }, [user]);
+
+  const loadDashboardExtras = async () => {
+    try {
+      const [notifs, notices, leaders] = await Promise.all([
+        fetchEmployeeNotifications().catch(() => []),
+        fetchNotices().catch(() => []),
+        fetchLeaderboard().catch(() => []),
+      ]);
+      setUnreadNotificationsCount(notifs.filter((n: NotificationItem) => !n.isRead).length);
+      setRecentNoticesList(notices);
+      setTopLeaderboardList(leaders);
+    } catch (e) {
+      console.error('Failed to load dashboard widgets data:', e);
+    }
+  };
 
   const loadAttendance = async () => {
     setLoadingAttendance(true);
@@ -270,6 +299,7 @@ export const CorporateDashboard: React.FC = () => {
     await loadAttendance();
     await loadReports();
     await loadExpectedData();
+    await loadDashboardExtras();
     setTimeout(() => setIsRefreshing(false), 600);
   };
 

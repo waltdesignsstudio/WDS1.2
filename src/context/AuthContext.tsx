@@ -1220,7 +1220,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const docRef = doc(db, 'expected_data', id);
       await updateDoc(docRef, {
         status,
-        updatedAt: new Date().toISOString(),
       });
       return { success: true };
     } catch (err: any) {
