@@ -37,6 +37,11 @@ import {
   ThumbsDown,
   Filter,
   PhoneCall,
+  Sun,
+  Sunrise,
+  Sunset,
+  Moon,
+  Sparkles,
 } from 'lucide-react';
 import {
   useAuth,
@@ -76,6 +81,66 @@ export const AdminDashboard: React.FC = () => {
   const [corporateList, setCorporateList] = useState<UserProfile[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Live Timing Clock & Time-based Wishes for Admin
+  const [currentTime, setCurrentTime] = useState<Date>(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const getGreetingData = (date: Date) => {
+    const hours = date.getHours();
+    if (hours >= 5 && hours < 12) {
+      return {
+        greeting: 'Good Morning',
+        icon: Sunrise,
+        color: 'text-amber-600',
+        bg: 'bg-amber-100',
+      };
+    } else if (hours >= 12 && hours < 17) {
+      return {
+        greeting: 'Good Afternoon',
+        icon: Sun,
+        color: 'text-orange-600',
+        bg: 'bg-orange-100',
+      };
+    } else if (hours >= 17 && hours < 21) {
+      return {
+        greeting: 'Good Evening',
+        icon: Sunset,
+        color: 'text-purple-600',
+        bg: 'bg-purple-100',
+      };
+    } else {
+      return {
+        greeting: 'Good Night',
+        icon: Moon,
+        color: 'text-indigo-600',
+        bg: 'bg-indigo-100',
+      };
+    }
+  };
+
+  const greetingInfo = getGreetingData(currentTime);
+  const GreetingIcon = greetingInfo.icon;
+
+  const formattedTime = currentTime.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true,
+  });
+
+  const formattedDate = currentTime.toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
 
   // Attendance management state
   const [attendanceList, setAttendanceList] = useState<AttendanceRecord[]>([]);
@@ -126,7 +191,6 @@ export const AdminDashboard: React.FC = () => {
   const [expectedNumber, setExpectedNumber] = useState<string>('');
   const [expectedDate, setExpectedDate] = useState<string>(getTodayLocalStr());
   const [expectedSelectedEmployeeUid, setExpectedSelectedEmployeeUid] = useState<string>('');
-  const [expectedStatus, setExpectedStatus] = useState<'Pending' | 'Interested' | 'Not Interested'>('Pending');
   const [expectedFormError, setExpectedFormError] = useState<string | null>(null);
   const [isCreatingExpected, setIsCreatingExpected] = useState<boolean>(false);
 
@@ -149,7 +213,9 @@ export const AdminDashboard: React.FC = () => {
 
   // Editing state for Portfolio
   const [editingUid, setEditingUid] = useState<string | null>(null);
+  const [editBasicSalary, setEditBasicSalary] = useState<number>(0);
   const [editIncome, setEditIncome] = useState<number>(0);
+  const [editTarget, setEditTarget] = useState<number>(100000);
   const [editProgress, setEditProgress] = useState<number>(0);
   const [updateSuccess, setUpdateSuccess] = useState<string | null>(null);
 
@@ -161,10 +227,32 @@ export const AdminDashboard: React.FC = () => {
   const [regRole, setRegRole] = useState('Asst. Sales Manager');
   const [regPassword, setRegPassword] = useState('');
   const [showRegPassword, setShowRegPassword] = useState(false);
+  const [regBasicSalary, setRegBasicSalary] = useState<number>(25000);
   const [regIncome, setRegIncome] = useState<number>(0);
-  const [regProgress, setRegProgress] = useState<number>(0);
+  const [regTarget, setRegTarget] = useState<number>(100000);
+  const [regProgress, setRegProgress] = useState<number>(25);
   const [regError, setRegError] = useState<string | null>(null);
   const [isRegistering, setIsRegistering] = useState(false);
+
+  // Recalculate registration progress automatically
+  const handleRegSalaryChange = (basic: number, income: number, target: number) => {
+    setRegBasicSalary(basic);
+    setRegIncome(income);
+    setRegTarget(target);
+    const tgt = target > 0 ? target : 100000;
+    const calc = Math.min(100, Math.max(0, Math.round(((basic + income) / tgt) * 100)));
+    setRegProgress(calc);
+  };
+
+  // Recalculate portfolio edit progress automatically
+  const handleEditSalaryChange = (basic: number, income: number, target: number) => {
+    setEditBasicSalary(basic);
+    setEditIncome(income);
+    setEditTarget(target);
+    const tgt = target > 0 ? target : 100000;
+    const calc = Math.min(100, Math.max(0, Math.round(((basic + income) / tgt) * 100)));
+    setEditProgress(calc);
+  };
 
   // Created Corporate User notification state
   const [createdUser, setCreatedUser] = useState<{
@@ -314,7 +402,8 @@ export const AdminDashboard: React.FC = () => {
         setUpdateSuccess(`Attendance status finalized as ${newStatus.toUpperCase()}. Status is permanent.`);
         setTimeout(() => setUpdateSuccess(null), 3000);
       } else {
-        setProfileMessage({ type: 'error', text: res.error || 'Failed to update attendance status.' });
+        setUpdateSuccess(`Error: ${res.error || 'Failed to update attendance status.'}`);
+        setTimeout(() => setUpdateSuccess(null), 4000);
       }
     } catch (err) {
       console.error('Failed to update attendance status:', err);
@@ -451,7 +540,7 @@ export const AdminDashboard: React.FC = () => {
         location: expectedLocation.trim(),
         number: expectedNumber.trim(),
         date: expectedDate.trim() || getTodayLocalStr(),
-        status: expectedStatus || 'Pending',
+        status: 'Pending',
         assignedEmployeeUid: assignedEmp.uid,
         assignedEmployeeCode: assignedEmp.corporateUserId || 'WDS-CORP',
         assignedEmployeeName: assignedEmp.name || 'Corporate Employee',
@@ -465,7 +554,6 @@ export const AdminDashboard: React.FC = () => {
         setExpectedNumber('');
         setExpectedDate(getTodayLocalStr());
         setExpectedSelectedEmployeeUid('');
-        setExpectedStatus('Pending');
         await loadExpectedData();
         setTimeout(() => setUpdateSuccess(null), 4000);
       } else {
@@ -475,28 +563,6 @@ export const AdminDashboard: React.FC = () => {
       setExpectedFormError(err?.message || 'An error occurred while creating expected data entry.');
     } finally {
       setIsCreatingExpected(false);
-    }
-  };
-
-  // Admin: Update Expected Data Status (Interested / Not Interested / Pending)
-  const handleAdminUpdateExpectedStatus = async (
-    id: string,
-    newStatus: 'Pending' | 'Interested' | 'Not Interested'
-  ) => {
-    setExpectedActionId(id);
-    try {
-      const res = await updateExpectedDataStatus(id, newStatus);
-      if (res.success) {
-        setExpectedDataList((prev) =>
-          prev.map((item) => (item.id === id ? { ...item, status: newStatus } : item))
-        );
-        setUpdateSuccess(`Expected data status updated to '${newStatus}'.`);
-        setTimeout(() => setUpdateSuccess(null), 3000);
-      }
-    } catch (err) {
-      console.error('Failed to update expected data status:', err);
-    } finally {
-      setExpectedActionId(null);
     }
   };
 
@@ -521,17 +587,25 @@ export const AdminDashboard: React.FC = () => {
   // Portfolio Milestone Editing
   const handleStartEdit = (item: UserProfile) => {
     setEditingUid(item.uid);
-    setEditIncome(item.income || 0);
-    setEditProgress(item.progress || 0);
+    const basic = item.basicSalary ?? 25000;
+    const income = item.income ?? 0;
+    const tgt = item.target ?? 100000;
+    const prog = item.progress ?? Math.min(100, Math.round(((basic + income) / (tgt || 100000)) * 100));
+    setEditBasicSalary(basic);
+    setEditIncome(income);
+    setEditTarget(tgt);
+    setEditProgress(prog);
   };
 
   const handleSaveProgress = async (targetUid: string) => {
     try {
       await updateUserProgressByAdmin(targetUid, {
+        basicSalary: Number(editBasicSalary),
         income: Number(editIncome),
+        target: Number(editTarget),
         progress: Number(editProgress),
       });
-      setUpdateSuccess('Corporate milestones updated successfully.');
+      setUpdateSuccess('Corporate salary & milestones updated successfully.');
       setEditingUid(null);
       await loadCorporateData();
       setTimeout(() => setUpdateSuccess(null), 4000);
@@ -564,7 +638,9 @@ export const AdminDashboard: React.FC = () => {
         location: regLocation.trim() || 'Pan-India Corporate',
         corporateRole: regRole,
         password: regPassword,
+        basicSalary: Number(regBasicSalary) || 25000,
         income: Number(regIncome) || 0,
+        target: Number(regTarget) || 100000,
         progress: Number(regProgress) || 0,
       });
 
@@ -583,8 +659,10 @@ export const AdminDashboard: React.FC = () => {
         setRegEmail('');
         setRegLocation('');
         setRegPassword('');
+        setRegBasicSalary(25000);
         setRegIncome(0);
-        setRegProgress(0);
+        setRegTarget(100000);
+        setRegProgress(25);
 
         await loadCorporateData();
       } else {
@@ -680,6 +758,14 @@ export const AdminDashboard: React.FC = () => {
 
             {/* Top Right Actions */}
             <div className="flex items-center gap-3">
+              
+              {/* Live Timing Clock in Admin Header */}
+              <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-purple-950/80 border border-purple-800 text-xs">
+                <Clock className="w-3.5 h-3.5 text-pink-400 animate-pulse" />
+                <span className="font-mono font-extrabold text-white">{formattedTime}</span>
+                <span className="text-[10px] text-purple-300 border-l border-purple-700 pl-2">{formattedDate}</span>
+              </div>
+
               <button
                 onClick={() => {
                   loadCorporateData();
@@ -840,6 +926,42 @@ export const AdminDashboard: React.FC = () => {
         {activeTab === 'dashboard' && (
           <div className="space-y-6 animate-in fade-in">
             
+            {/* LIVE WISHES & REAL-TIME CLOCK EXECUTIVE BANNER */}
+            <div className="p-6 sm:p-8 rounded-3xl bg-white border-2 border-pink-300 shadow-md">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <div className={`p-2 rounded-xl ${greetingInfo.bg}`}>
+                      <GreetingIcon className={`w-5 h-5 ${greetingInfo.color}`} />
+                    </div>
+                    <span className="text-[11px] font-extrabold uppercase tracking-wider text-pink-900">
+                      Super Administrator Executive Control
+                    </span>
+                  </div>
+                  <h2 className="text-2xl sm:text-3xl font-extrabold text-purple-950 tracking-tight">
+                    {greetingInfo.greeting}, <span className="text-pink-600">{profile?.name || 'Administrator'}</span>!
+                  </h2>
+                  <p className="text-xs sm:text-sm text-pink-950/80">
+                    Welcome to the enterprise control center. Monitor employee operations, evaluate sales earnings, and approve attendance in real time.
+                  </p>
+                </div>
+
+                {/* Real-time Clock Card */}
+                <div className="p-4 rounded-2xl bg-pink-50/80 border border-pink-300 shadow-xs flex flex-col items-start md:items-end shrink-0">
+                  <div className="text-[10px] font-bold text-pink-800 uppercase tracking-wider flex items-center gap-1.5">
+                    <Clock className="w-3 h-3 text-pink-600 animate-pulse" />
+                    <span>Live System Clock</span>
+                  </div>
+                  <div className="text-2xl sm:text-3xl font-mono font-extrabold text-purple-950 mt-0.5">
+                    {formattedTime}
+                  </div>
+                  <div className="text-xs font-semibold text-pink-900">
+                    {formattedDate}
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* Top Metrics Cards in Baby Pink Frame */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               
@@ -1249,7 +1371,7 @@ export const AdminDashboard: React.FC = () => {
                     <span>Corporate Staff Portfolio & Performance Indices</span>
                   </h3>
                   <p className="text-xs text-pink-900 mt-0.5">
-                    Adjust employee sales income figures and monthly target progress metrics
+                    Configure staff Basic Salary, Current Earnings, Target, and auto-computed progress percentage
                   </p>
                 </div>
 
@@ -1272,22 +1394,24 @@ export const AdminDashboard: React.FC = () => {
                       <th className="px-3.5 py-3">Corporate ID</th>
                       <th className="px-3.5 py-3">Employee Details</th>
                       <th className="px-3.5 py-3">Designation</th>
-                      <th className="px-3.5 py-3">Sales Income (₹)</th>
-                      <th className="px-3.5 py-3">Target Progress (%)</th>
+                      <th className="px-3.5 py-3">Basic Salary (₹)</th>
+                      <th className="px-3.5 py-3">Current Earnings (₹)</th>
+                      <th className="px-3.5 py-3">Sales Target (₹)</th>
+                      <th className="px-3.5 py-3">Progress (%)</th>
                       <th className="px-3.5 py-3 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-pink-100">
                     {loadingUsers ? (
                       <tr>
-                        <td colSpan={6} className="px-4 py-8 text-center text-pink-800">
+                        <td colSpan={8} className="px-4 py-8 text-center text-pink-800">
                           <div className="w-6 h-6 border-2 border-pink-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
                           <span>Loading performance data...</span>
                         </td>
                       </tr>
                     ) : corporateList.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="px-4 py-8 text-center text-pink-800">
+                        <td colSpan={8} className="px-4 py-8 text-center text-pink-800">
                           <Users className="w-8 h-8 text-pink-400 mx-auto mb-2" />
                           <p className="font-bold">No staff records available.</p>
                         </td>
@@ -1317,16 +1441,37 @@ export const AdminDashboard: React.FC = () => {
                               <td className="px-3.5 py-3 text-zinc-800">
                                 {corp.corporateRole || 'Asst. Sales Manager'}
                               </td>
+
+                              {/* Basic Salary Edit */}
+                              <td className="px-3.5 py-3">
+                                {isEditing ? (
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    value={editBasicSalary}
+                                    onChange={(e) =>
+                                      handleEditSalaryChange(Number(e.target.value), editIncome, editTarget)
+                                    }
+                                    className="w-24 bg-pink-50 border border-pink-300 rounded-lg px-2 py-1 text-xs font-mono font-bold text-purple-950 outline-none"
+                                  />
+                                ) : (
+                                  <span className="font-mono font-bold text-purple-950">
+                                    ₹{(corp.basicSalary ?? 25000).toLocaleString('en-IN')}
+                                  </span>
+                                )}
+                              </td>
                               
-                              {/* Income Edit */}
+                              {/* Current Earnings Edit */}
                               <td className="px-3.5 py-3">
                                 {isEditing ? (
                                   <input
                                     type="number"
                                     min={0}
                                     value={editIncome}
-                                    onChange={(e) => setEditIncome(Number(e.target.value))}
-                                    className="w-28 bg-pink-50 border border-pink-300 rounded-lg px-2 py-1 text-xs font-mono font-bold text-purple-950 outline-none"
+                                    onChange={(e) =>
+                                      handleEditSalaryChange(editBasicSalary, Number(e.target.value), editTarget)
+                                    }
+                                    className="w-24 bg-pink-50 border border-pink-300 rounded-lg px-2 py-1 text-xs font-mono font-bold text-purple-950 outline-none"
                                   />
                                 ) : (
                                   <span className="font-mono font-bold text-emerald-700">
@@ -1335,19 +1480,33 @@ export const AdminDashboard: React.FC = () => {
                                 )}
                               </td>
 
-                              {/* Progress Edit */}
+                              {/* Target Edit */}
+                              <td className="px-3.5 py-3">
+                                {isEditing ? (
+                                  <input
+                                    type="number"
+                                    min={1}
+                                    value={editTarget}
+                                    onChange={(e) =>
+                                      handleEditSalaryChange(editBasicSalary, editIncome, Number(e.target.value))
+                                    }
+                                    className="w-24 bg-pink-50 border border-pink-300 rounded-lg px-2 py-1 text-xs font-mono font-bold text-purple-950 outline-none"
+                                  />
+                                ) : (
+                                  <span className="font-mono font-bold text-zinc-700">
+                                    ₹{(corp.target ?? 100000).toLocaleString('en-IN')}
+                                  </span>
+                                )}
+                              </td>
+
+                              {/* Progress (Calculated Auto) */}
                               <td className="px-3.5 py-3">
                                 {isEditing ? (
                                   <div className="flex items-center gap-1.5">
-                                    <input
-                                      type="number"
-                                      min={0}
-                                      max={100}
-                                      value={editProgress}
-                                      onChange={(e) => setEditProgress(Number(e.target.value))}
-                                      className="w-20 bg-pink-50 border border-pink-300 rounded-lg px-2 py-1 text-xs font-mono font-bold text-purple-950 outline-none"
-                                    />
-                                    <span className="text-xs font-mono text-zinc-600">%</span>
+                                    <span className="font-mono text-xs font-extrabold text-pink-700">
+                                      {editProgress}%
+                                    </span>
+                                    <span className="text-[10px] text-zinc-500 font-sans">(auto)</span>
                                   </div>
                                 ) : (
                                   <div className="flex items-center gap-2">
@@ -1369,7 +1528,7 @@ export const AdminDashboard: React.FC = () => {
                                     <button
                                       onClick={() => handleSaveProgress(corp.uid)}
                                       className="p-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs transition-colors cursor-pointer"
-                                      title="Save milestones"
+                                      title="Save salary and targets"
                                     >
                                       <Save className="w-3.5 h-3.5" />
                                     </button>
@@ -1385,7 +1544,7 @@ export const AdminDashboard: React.FC = () => {
                                   <button
                                     onClick={() => handleStartEdit(corp)}
                                     className="p-1.5 rounded-lg bg-pink-200 hover:bg-pink-300 text-purple-950 text-xs transition-colors cursor-pointer"
-                                    title="Edit sales milestones"
+                                    title="Edit salary and performance targets"
                                   >
                                     <Edit3 className="w-3.5 h-3.5" />
                                   </button>
@@ -1456,7 +1615,7 @@ export const AdminDashboard: React.FC = () => {
                   <span>Register New Corporate Staff Representative</span>
                 </h3>
                 <p className="text-xs text-pink-900 mt-0.5">
-                  Generate official WDS employee credentials with automated corporate identifier
+                  Generate official WDS employee credentials with automated corporate identifier and salary profile
                 </p>
               </div>
 
@@ -1550,29 +1709,62 @@ export const AdminDashboard: React.FC = () => {
                     />
                   </div>
 
+                  {/* Basic Salary Field */}
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-purple-950">Initial Sales Income (₹)</label>
+                    <label className="text-xs font-bold text-purple-950">Basic Salary (₹) *</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={regBasicSalary}
+                      onChange={(e) =>
+                        handleRegSalaryChange(Number(e.target.value), regIncome, regTarget)
+                      }
+                      placeholder="25000"
+                      className="w-full bg-white border border-pink-300 focus:border-pink-600 rounded-xl px-3.5 py-2 text-xs text-zinc-900 outline-none font-mono"
+                    />
+                  </div>
+
+                  {/* Initial Current Earnings */}
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-purple-950">Initial Current Earnings (₹)</label>
                     <input
                       type="number"
                       min={0}
                       value={regIncome}
-                      onChange={(e) => setRegIncome(Number(e.target.value))}
+                      onChange={(e) =>
+                        handleRegSalaryChange(regBasicSalary, Number(e.target.value), regTarget)
+                      }
                       placeholder="0"
                       className="w-full bg-white border border-pink-300 focus:border-pink-600 rounded-xl px-3.5 py-2 text-xs text-zinc-900 outline-none font-mono"
                     />
                   </div>
 
+                  {/* Monthly Sales Target */}
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-purple-950">Initial Target Progress (%)</label>
+                    <label className="text-xs font-bold text-purple-950">Monthly Sales Target (₹)</label>
                     <input
                       type="number"
-                      min={0}
-                      max={100}
-                      value={regProgress}
-                      onChange={(e) => setRegProgress(Number(e.target.value))}
-                      placeholder="0"
+                      min={1}
+                      value={regTarget}
+                      onChange={(e) =>
+                        handleRegSalaryChange(regBasicSalary, regIncome, Number(e.target.value))
+                      }
+                      placeholder="100000"
                       className="w-full bg-white border border-pink-300 focus:border-pink-600 rounded-xl px-3.5 py-2 text-xs text-zinc-900 outline-none font-mono"
                     />
+                  </div>
+
+                  {/* Auto-computed Target Progress */}
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-purple-950">
+                      Target Progress (%) <span className="text-[10px] font-normal text-pink-700">(auto-calculated)</span>
+                    </label>
+                    <div className="w-full bg-pink-50 border border-pink-300 rounded-xl px-3.5 py-2 text-xs font-mono font-extrabold text-purple-950 flex items-center justify-between">
+                      <span>{regProgress}%</span>
+                      <span className="text-[10px] font-sans font-medium text-pink-900">
+                        (₹{regBasicSalary + regIncome} / ₹{regTarget})
+                      </span>
+                    </div>
                   </div>
 
                 </div>
@@ -1684,7 +1876,7 @@ export const AdminDashboard: React.FC = () => {
                                 {rec.employeeCode}
                               </td>
                               <td className="px-3.5 py-3 font-bold text-zinc-900">
-                                {rec.userName}
+                                {rec.userName || rec.employeeName || 'Corporate Staff'}
                               </td>
                               <td className="px-3.5 py-3 font-mono font-bold text-zinc-900">
                                 {rec.todayWorkHours} hrs
@@ -1713,33 +1905,31 @@ export const AdminDashboard: React.FC = () => {
                                 )}
                               </td>
                               <td className="px-3.5 py-3 text-right whitespace-nowrap">
-                                <div className="inline-flex items-center gap-1.5">
-                                  <button
-                                    onClick={() => handleUpdateAttendanceStatus(rec.id, 'approved')}
-                                    disabled={isProcessing || rec.status === 'approved'}
-                                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
-                                      rec.status === 'approved'
-                                        ? 'bg-emerald-100 text-emerald-800 opacity-60 cursor-not-allowed'
-                                        : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs'
-                                    }`}
-                                  >
-                                    <CheckCircle2 className="w-3 h-3" />
-                                    <span>Approve</span>
-                                  </button>
+                                {rec.status === 'pending' ? (
+                                  <div className="inline-flex items-center gap-1.5">
+                                    <button
+                                      onClick={() => handleUpdateAttendanceStatus(rec.id, 'approved')}
+                                      disabled={isProcessing}
+                                      className="px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs disabled:opacity-50"
+                                      title="Approve Attendance"
+                                    >
+                                      <CheckCircle2 className="w-3 h-3" />
+                                      <span>Approve</span>
+                                    </button>
 
-                                  <button
-                                    onClick={() => handleUpdateAttendanceStatus(rec.id, 'rejected')}
-                                    disabled={isProcessing || rec.status === 'rejected'}
-                                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
-                                      rec.status === 'rejected'
-                                        ? 'bg-red-100 text-red-800 opacity-60 cursor-not-allowed'
-                                        : 'bg-red-600 hover:bg-red-700 text-white shadow-xs'
-                                    }`}
-                                  >
-                                    <XCircle className="w-3 h-3" />
-                                    <span>Reject</span>
-                                  </button>
-                                </div>
+                                    <button
+                                      onClick={() => handleUpdateAttendanceStatus(rec.id, 'rejected')}
+                                      disabled={isProcessing}
+                                      className="px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 bg-red-600 hover:bg-red-700 text-white shadow-xs disabled:opacity-50"
+                                      title="Reject Attendance"
+                                    >
+                                      <XCircle className="w-3 h-3" />
+                                      <span>Reject</span>
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <span className="text-zinc-400 text-xs font-bold">—</span>
+                                )}
                               </td>
                             </tr>
                           );
@@ -2099,24 +2289,26 @@ export const AdminDashboard: React.FC = () => {
                               <div className="font-mono text-[10px] text-pink-700">{item.assignedEmployeeCode}</div>
                             </td>
 
-                            {/* Status */}
+                            {/* Status (Read-only for Admin, updated only by Employee) */}
                             <td className="px-3.5 py-3 whitespace-nowrap">
-                              <select
-                                value={item.status}
-                                disabled={isActionActive}
-                                onChange={(e) => handleAdminUpdateExpectedStatus(item.id, e.target.value as any)}
-                                className={`rounded-lg px-2.5 py-1 text-[11px] font-bold outline-none border cursor-pointer ${
-                                  item.status === 'Interested'
-                                    ? 'bg-emerald-50 border-emerald-400 text-emerald-900'
-                                    : item.status === 'Not Interested'
-                                    ? 'bg-red-50 border-red-400 text-red-900'
-                                    : 'bg-amber-50 border-amber-400 text-amber-900'
-                                }`}
-                              >
-                                <option value="Pending">Pending</option>
-                                <option value="Interested">Interested</option>
-                                <option value="Not Interested">Not Interested</option>
-                              </select>
+                              {item.status === 'Interested' && (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-100 border border-emerald-400 text-emerald-900">
+                                  <CheckCircle2 className="w-3 h-3 text-emerald-700" />
+                                  <span>Interested</span>
+                                </span>
+                              )}
+                              {item.status === 'Not Interested' && (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-red-100 border border-red-400 text-red-900">
+                                  <XCircle className="w-3 h-3 text-red-700" />
+                                  <span>Not Interested</span>
+                                </span>
+                              )}
+                              {(!item.status || item.status === 'Pending') && (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-100 border border-amber-400 text-amber-900">
+                                  <Clock className="w-3 h-3 text-amber-700 animate-pulse" />
+                                  <span>Pending Staff Response</span>
+                                </span>
+                              )}
                             </td>
 
                             {/* Delete */}

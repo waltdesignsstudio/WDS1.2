@@ -167,8 +167,12 @@ export const CorporateDashboard: React.FC = () => {
   const [expectedFeedbackMsg, setExpectedFeedbackMsg] = useState<{ id: string; text: string } | null>(null);
 
   const corporateId = profile?.corporateUserId || 'WDS-ACTIVE';
+  const basicSalary = profile?.basicSalary ?? 25000;
   const income = profile?.income || 0;
-  const progress = profile?.progress || 0;
+  const target = profile?.target ?? 100000;
+  const calculatedProgress =
+    profile?.progress ??
+    (target > 0 ? Math.min(100, Math.max(0, Math.round(((basicSalary + income) / target) * 100))) : 0);
 
   // Check if attendance has already been submitted for today (using localTodayStr)
   const todayAttendanceRecord = attendanceHistory.find((record) => record.date === localTodayStr);
@@ -721,42 +725,70 @@ export const CorporateDashboard: React.FC = () => {
             </div>
 
             {/* Milestone Summary Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-              <div className="p-6 rounded-2xl bg-[#FFFBEB] border border-amber-300 shadow-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+              
+              {/* Basic Salary */}
+              <div className="p-5 rounded-2xl bg-[#FFFBEB] border border-amber-300 shadow-sm">
                 <div className="flex items-center justify-between text-amber-800 text-xs font-bold mb-2">
-                  <span>My Accrued Sales Income</span>
-                  <DollarSign className="w-5 h-5 text-emerald-600" />
+                  <span>Basic Salary</span>
+                  <DollarSign className="w-5 h-5 text-amber-600" />
+                </div>
+                <div className="text-2xl font-extrabold text-amber-950 font-mono">
+                  ₹{basicSalary.toLocaleString('en-IN')}
+                </div>
+                <span className="text-[11px] text-amber-700 font-medium mt-1.5 block">Fixed baseline pay</span>
+              </div>
+
+              {/* My Current Earnings */}
+              <div className="p-5 rounded-2xl bg-[#FFFBEB] border border-amber-300 shadow-sm">
+                <div className="flex items-center justify-between text-amber-800 text-xs font-bold mb-2">
+                  <span>My Current Earnings</span>
+                  <TrendingUp className="w-5 h-5 text-emerald-600" />
                 </div>
                 <div className="text-2xl font-extrabold text-emerald-800 font-mono">
                   ₹{income.toLocaleString('en-IN')}
                 </div>
-                <span className="text-[11px] text-amber-700 font-medium mt-1.5 block">Verified earned commissions</span>
+                <span className="text-[11px] text-emerald-700 font-medium mt-1.5 block">Accrued sales income</span>
               </div>
 
-              <div className="p-6 rounded-2xl bg-[#FFFBEB] border border-amber-300 shadow-sm">
+              {/* Sales Target */}
+              <div className="p-5 rounded-2xl bg-[#FFFBEB] border border-amber-300 shadow-sm">
                 <div className="flex items-center justify-between text-amber-800 text-xs font-bold mb-2">
-                  <span>Target Achievement</span>
-                  <TrendingUp className="w-5 h-5 text-amber-700" />
+                  <span>Monthly Sales Target</span>
+                  <Target className="w-5 h-5 text-purple-700" />
+                </div>
+                <div className="text-2xl font-extrabold text-purple-950 font-mono">
+                  ₹{target.toLocaleString('en-IN')}
+                </div>
+                <span className="text-[11px] text-amber-700 font-medium mt-1.5 block">Assigned milestone quota</span>
+              </div>
+
+              {/* Target Achievement */}
+              <div className="p-5 rounded-2xl bg-[#FFFBEB] border border-amber-300 shadow-sm">
+                <div className="flex items-center justify-between text-amber-800 text-xs font-bold mb-2">
+                  <span>Target Progress</span>
+                  <span className="text-[10px] text-amber-700 font-sans font-bold">Auto</span>
                 </div>
                 <div className="text-2xl font-extrabold text-amber-900 font-mono">
-                  {progress}%
+                  {calculatedProgress}%
                 </div>
                 <div className="w-full bg-amber-200 rounded-full h-2 mt-2.5 overflow-hidden">
                   <div
                     className="bg-amber-600 h-full rounded-full transition-all duration-500"
-                    style={{ width: `${Math.min(progress, 100)}%` }}
+                    style={{ width: `${Math.min(calculatedProgress, 100)}%` }}
                   />
                 </div>
               </div>
 
-              <div className="p-6 rounded-2xl bg-[#FFFBEB] border border-amber-300 shadow-sm">
+              {/* Expected Data Leads */}
+              <div className="p-5 rounded-2xl bg-[#FFFBEB] border border-amber-300 shadow-sm">
                 <div className="flex items-center justify-between text-amber-800 text-xs font-bold mb-2">
                   <span>Expected Data Leads</span>
                   <Target className="w-5 h-5 text-purple-700" />
                 </div>
-                <div className="text-2xl font-extrabold text-purple-950 font-mono flex items-center gap-2">
+                <div className="text-2xl font-extrabold text-purple-950 font-mono flex items-center gap-1.5">
                   <span>{expectedDataList.length}</span>
-                  <span className="text-xs font-normal text-emerald-700">({totalInterested} interested)</span>
+                  <span className="text-xs font-normal text-emerald-700 font-sans">({totalInterested} yes)</span>
                 </div>
                 <button
                   onClick={() => setActiveTab('expected-data')}
@@ -766,16 +798,6 @@ export const CorporateDashboard: React.FC = () => {
                 </button>
               </div>
 
-              <div className="p-6 rounded-2xl bg-[#FFFBEB] border border-amber-300 shadow-sm">
-                <div className="flex items-center justify-between text-amber-800 text-xs font-bold mb-2">
-                  <span>Corporate User ID</span>
-                  <Shield className="w-5 h-5 text-purple-700" />
-                </div>
-                <div className="text-xl font-extrabold text-amber-950 font-mono">
-                  {corporateId}
-                </div>
-                <span className="text-[11px] text-amber-700 font-medium mt-1.5 block">Permanent Enterprise ID</span>
-              </div>
             </div>
 
             {/* Quick Status / Recent Attendance Card */}
@@ -1280,19 +1302,26 @@ export const CorporateDashboard: React.FC = () => {
                     </span>
                   </div>
 
-                  {/* Date Picker (Strictly local date) */}
+                  {/* Attendance Date (Locked & Auto-filled to Today's date) */}
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-amber-950 block">
-                      Date
-                    </label>
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-amber-950 block">
+                        Attendance Date
+                      </label>
+                      <span className="text-[10px] text-amber-800 font-mono font-bold">
+                        Auto-locked to Today
+                      </span>
+                    </div>
                     <input
-                      type="date"
-                      required
-                      disabled={hasMarkedTodayAttendance}
-                      value={attendanceDate}
-                      onChange={(e) => setAttendanceDate(e.target.value)}
-                      className="w-full bg-white disabled:bg-zinc-100 disabled:cursor-not-allowed border border-amber-300 focus:border-amber-600 rounded-xl px-3.5 py-2 text-xs text-zinc-900 outline-none"
+                      type="text"
+                      readOnly
+                      disabled
+                      value={localTodayStr}
+                      className="w-full bg-amber-100/70 border border-amber-300 rounded-xl px-3.5 py-2 text-xs font-mono font-bold text-amber-950 cursor-not-allowed outline-none"
                     />
+                    <span className="text-[10px] text-amber-800 block pl-1">
+                      Attendance date is automatically set by the system clock and locked.
+                    </span>
                   </div>
 
                   {/* Today's Work Hours (Clear initially) */}

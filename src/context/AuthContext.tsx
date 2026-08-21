@@ -40,8 +40,10 @@ export interface UserProfile {
   corporateRole?: string; // e.g. "Asst. Sales Manager", "Senior Sales Manager", "Corporate Sales Executive"
   corporateUserId?: string; // e.g. "WDS-4827"
   adminUserId?: string; // e.g. "ADM-1042"
-  income?: number;
-  progress?: number;
+  basicSalary?: number; // Basic Salary (₹)
+  income?: number; // My Current Earnings (₹)
+  target?: number; // Sales Target (₹)
+  progress?: number; // Target Progress %
   createdAt?: string;
   updatedAt?: string;
 }
@@ -120,7 +122,9 @@ export interface AdminCreateCorporatePayload {
   password: string;
   location?: string;
   corporateRole?: string;
-  income?: number;
+  basicSalary?: number;
+  income?: number; // My Current Earnings
+  target?: number;
   progress?: number;
 }
 
@@ -144,7 +148,7 @@ interface AuthContextType {
   fetchAllAttendance: () => Promise<AttendanceRecord[]>;
   updateAttendanceStatus: (attendanceId: string, status: 'pending' | 'approved' | 'rejected') => Promise<{ success: boolean; error?: string }>;
   fetchAllCorporateUsers: () => Promise<UserProfile[]>;
-  updateUserProgressByAdmin: (targetUid: string, data: { income?: number; progress?: number }) => Promise<void>;
+  updateUserProgressByAdmin: (targetUid: string, data: { basicSalary?: number; income?: number; target?: number; progress?: number }) => Promise<void>;
   createDailyReport: (data: CreateDailyReportPayload) => Promise<{ success: boolean; error?: string }>;
   fetchAdminDailyReports: () => Promise<DailyReportItem[]>;
   fetchEmployeeDailyReports: () => Promise<DailyReportItem[]>;
@@ -1071,7 +1075,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         location: data.location?.trim() || 'Pan-India Corporate',
         role: 'corporate',
         corporateRole: data.corporateRole || 'Asst. Sales Manager',
+        basicSalary: Number(data.basicSalary) || 0,
         income: Number(data.income) || 0,
+        target: Number(data.target) || 100000,
         progress: Number(data.progress) || 0,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -1130,8 +1136,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Admin function: update corporate progress or income
-  const updateUserProgressByAdmin = async (targetUid: string, data: { income?: number; progress?: number }) => {
+  // Admin function: update corporate salary, progress, target, or income
+  const updateUserProgressByAdmin = async (
+    targetUid: string,
+    data: { basicSalary?: number; income?: number; target?: number; progress?: number }
+  ) => {
     try {
       const targetRef = doc(db, 'users', targetUid);
       await updateDoc(targetRef, {
