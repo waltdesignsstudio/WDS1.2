@@ -47,7 +47,9 @@ service cloud.firestore {
         (!('adminUserId' in data) || (data.adminUserId is string && data.adminUserId.size() <= 40)) &&
         (!('location' in data) || (data.location is string && data.location.size() <= 120)) &&
         (!('corporateRole' in data) || (data.corporateRole is string && data.corporateRole.size() <= 100)) &&
+        (!('basicSalary' in data) || (data.basicSalary is number)) &&
         (!('income' in data) || (data.income is number)) &&
+        (!('target' in data) || (data.target is number)) &&
         (!('progress' in data) || (data.progress is number)) &&
         (!('createdAt' in data) || (data.createdAt is string || data.createdAt is timestamp)) &&
         (!('updatedAt' in data) || (data.updatedAt is string || data.updatedAt is timestamp));
@@ -244,5 +246,65 @@ service cloud.firestore {
       );
       allow delete: if isSignedIn() && isValidId(corporateUserId) && isAdmin();
     }
+
+    // Audit Logs Collection: /audit_logs/{logId}
+    match /audit_logs/{logId} {
+      // Read & Write: Admin ONLY
+      allow get, list: if isSignedIn() && isAdmin();
+      allow create: if isSignedIn() && isValidId(logId) && isAdmin();
+      allow update, delete: if isSignedIn() && isValidId(logId) && isAdmin();
+    }
+
+    // Notifications Collection: /notifications/{notificationId}
+    match /notifications/{notificationId} {
+      // Read: Admin can read all; Corporate users can read notifications sent to their UID or 'all'
+      allow get: if isSignedIn() && isValidId(notificationId) && (
+        isAdmin() ||
+        resource.data.recipientUid == request.auth.uid ||
+        resource.data.recipientUid == 'all'
+      );
+
+      allow list: if isSignedIn() && (
+        isAdmin() ||
+        resource.data.recipientUid == request.auth.uid ||
+        resource.data.recipientUid == 'all'
+      );
+
+      // Create: Admin ONLY
+      allow create: if isSignedIn() && isValidId(notificationId) && isAdmin();
+
+      // Update: Admin can update all; Recipient can update isRead status
+      allow update: if isSignedIn() && isValidId(notificationId) && (
+        isAdmin() ||
+        (
+          (resource.data.recipientUid == request.auth.uid || resource.data.recipientUid == 'all') &&
+          incoming().recipientUid == existing().recipientUid &&
+          incoming().title == existing().title &&
+          incoming().message == existing().message
+        )
+      );
+
+      // Deletion: Admin ONLY
+      allow delete: if isSignedIn() && isValidId(notificationId) && isAdmin();
+    }
+
+    // Notices Collection: /notices/{noticeId}
+    match /notices/{noticeId} {
+      // Read: Any authenticated user (Corporate or Admin)
+      allow get, list: if isSignedIn();
+
+      // Create, Update, Delete: Admin ONLY
+      allow create, update, delete: if isSignedIn() && isValidId(noticeId) && isAdmin();
+    }
+
+    // Leaderboard Collection: /leaderboard/{entryId}
+    match /leaderboard/{entryId} {
+      // Read: Any authenticated user (Corporate or Admin)
+      allow get, list: if isSignedIn();
+
+      // Create, Update, Delete: Admin ONLY
+      allow create, update, delete: if isSignedIn() && isValidId(entryId) && isAdmin();
+    }
   }
 }
+

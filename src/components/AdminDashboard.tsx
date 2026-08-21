@@ -42,6 +42,9 @@ import {
   Sunset,
   Moon,
   Sparkles,
+  Bell,
+  Megaphone,
+  Trophy,
 } from 'lucide-react';
 import {
   useAuth,
@@ -51,8 +54,23 @@ import {
   ExpectedDataItem,
 } from '../context/AuthContext';
 import { AGENCY_INFO } from '../data/agencyData';
+import { AdminAuditLogsSection } from './admin/AdminAuditLogsSection';
+import { AdminNotificationsSection } from './admin/AdminNotificationsSection';
+import { AdminNoticesSection } from './admin/AdminNoticesSection';
+import { AdminLeaderboardSection } from './admin/AdminLeaderboardSection';
 
-type AdminTab = 'dashboard' | 'profile' | 'portfolio' | 'corporate-registration' | 'attendance' | 'daily-report' | 'expected-data';
+type AdminTab =
+  | 'dashboard'
+  | 'profile'
+  | 'portfolio'
+  | 'corporate-registration'
+  | 'attendance'
+  | 'daily-report'
+  | 'expected-data'
+  | 'notifications'
+  | 'notices'
+  | 'leaderboard'
+  | 'audit-logs';
 
 export const AdminDashboard: React.FC = () => {
   const {
@@ -902,6 +920,58 @@ export const AdminDashboard: React.FC = () => {
                   {dailyReportList.length}
                 </span>
               )}
+            </button>
+
+            {/* NOTIFICATIONS TAB */}
+            <button
+              onClick={() => setActiveTab('notifications')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+                activeTab === 'notifications'
+                  ? 'bg-pink-500 text-white shadow-md font-extrabold'
+                  : 'text-purple-200 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              <Bell className="w-4 h-4" />
+              <span>Notifications</span>
+            </button>
+
+            {/* NOTICES TAB */}
+            <button
+              onClick={() => setActiveTab('notices')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+                activeTab === 'notices'
+                  ? 'bg-pink-500 text-white shadow-md font-extrabold'
+                  : 'text-purple-200 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              <Megaphone className="w-4 h-4" />
+              <span>Notices</span>
+            </button>
+
+            {/* LEADERBOARD TAB */}
+            <button
+              onClick={() => setActiveTab('leaderboard')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+                activeTab === 'leaderboard'
+                  ? 'bg-pink-500 text-white shadow-md font-extrabold'
+                  : 'text-purple-200 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              <Trophy className="w-4 h-4" />
+              <span>Leaderboard</span>
+            </button>
+
+            {/* AUDIT LOGS TAB */}
+            <button
+              onClick={() => setActiveTab('audit-logs')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+                activeTab === 'audit-logs'
+                  ? 'bg-pink-500 text-white shadow-md font-extrabold'
+                  : 'text-purple-200 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              <Shield className="w-4 h-4" />
+              <span>Audit Logs</span>
             </button>
           </nav>
         </div>
@@ -2652,6 +2722,34 @@ export const AdminDashboard: React.FC = () => {
                 </table>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* TAB 8: NOTIFICATIONS */}
+        {activeTab === 'notifications' && (
+          <div className="animate-in fade-in">
+            <AdminNotificationsSection />
+          </div>
+        )}
+
+        {/* TAB 9: NOTICES */}
+        {activeTab === 'notices' && (
+          <div className="animate-in fade-in">
+            <AdminNoticesSection />
+          </div>
+        )}
+
+        {/* TAB 10: LEADERBOARD */}
+        {activeTab === 'leaderboard' && (
+          <div className="animate-in fade-in">
+            <AdminLeaderboardSection />
+          </div>
+        )}
+
+        {/* TAB 11: AUDIT LOGS */}
+        {activeTab === 'audit-logs' && (
+          <div className="animate-in fade-in">
+            <AdminAuditLogsSection />
           </div>
         )}
 

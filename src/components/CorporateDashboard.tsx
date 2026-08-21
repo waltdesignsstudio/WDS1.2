@@ -39,6 +39,9 @@ import {
   Check,
   PhoneCall,
   MessageSquare,
+  Bell,
+  Megaphone,
+  Trophy,
 } from 'lucide-react';
 import {
   useAuth,
@@ -47,8 +50,20 @@ import {
   ExpectedDataItem,
 } from '../context/AuthContext';
 import { AGENCY_INFO, DIVISIONS } from '../data/agencyData';
+import { CorporateNotificationsSection } from './corporate/CorporateNotificationsSection';
+import { CorporateNoticesSection } from './corporate/CorporateNoticesSection';
+import { CorporateLeaderboardSection } from './corporate/CorporateLeaderboardSection';
 
-type CorporateTab = 'dashboard' | 'profile' | 'portfolio' | 'attendance' | 'data-report' | 'expected-data';
+type CorporateTab =
+  | 'dashboard'
+  | 'profile'
+  | 'portfolio'
+  | 'attendance'
+  | 'data-report'
+  | 'expected-data'
+  | 'notifications'
+  | 'notices'
+  | 'leaderboard';
 
 export const CorporateDashboard: React.FC = () => {
   const {
@@ -165,6 +180,7 @@ export const CorporateDashboard: React.FC = () => {
   const [expectedLocationFilter, setExpectedLocationFilter] = useState<string>('all');
   const [updatingExpectedId, setUpdatingExpectedId] = useState<string | null>(null);
   const [expectedFeedbackMsg, setExpectedFeedbackMsg] = useState<{ id: string; text: string } | null>(null);
+  const [selectedExpectedStatuses, setSelectedExpectedStatuses] = useState<Record<string, 'Interested' | 'Not Interested'>>({});
 
   const corporateId = profile?.corporateUserId || 'WDS-ACTIVE';
   const basicSalary = profile?.basicSalary ?? 25000;
@@ -392,31 +408,39 @@ export const CorporateDashboard: React.FC = () => {
     }
   };
 
-  // Employee: Handle Expected Data Status Change (Interested / Not Interested)
-  const handleEmployeeExpectedStatusChange = async (
+  // Employee: Handle Expected Data Status Change and Submit (Interested / Not Interested)
+  const handleEmployeeExpectedStatusSubmit = async (
     item: ExpectedDataItem,
-    newStatus: 'Interested' | 'Not Interested'
+    targetStatus?: 'Interested' | 'Not Interested'
   ) => {
-    if (item.status === newStatus) return;
+    const statusToSubmit =
+      targetStatus ||
+      selectedExpectedStatuses[item.id] ||
+      (item.status === 'Interested' || item.status === 'Not Interested'
+        ? item.status
+        : 'Interested');
+
     setUpdatingExpectedId(item.id);
     setExpectedFeedbackMsg(null);
 
     try {
-      const res = await updateExpectedDataStatus(item.id, newStatus);
+      const res = await updateExpectedDataStatus(item.id, statusToSubmit);
       if (res.success) {
-        setExpectedDataList((prev) =>
-          prev.map((it) => (it.id === item.id ? { ...it, status: newStatus } : it))
-        );
+        // Update local selected state
+        setSelectedExpectedStatuses((prev) => ({ ...prev, [item.id]: statusToSubmit }));
+        // Fresh re-fetch from Firestore to guarantee UI displays the latest document state
+        await loadExpectedData();
         setExpectedFeedbackMsg({
           id: item.id,
-          text: `Status updated to '${newStatus}'! Updated in Admin Dashboard in real-time.`,
+          text: `Status for "${item.businessName}" updated to '${statusToSubmit}' & synced with Admin Expected Data!`,
         });
-        setTimeout(() => setExpectedFeedbackMsg(null), 4000);
+        setTimeout(() => setExpectedFeedbackMsg(null), 5000);
       } else {
-        alert(res.error || 'Failed to update status.');
+        alert(res.error || 'Failed to update status in Firestore.');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error updating expected data status:', err);
+      alert(err?.message || 'Failed to update status.');
     } finally {
       setUpdatingExpectedId(null);
     }
@@ -636,6 +660,45 @@ export const CorporateDashboard: React.FC = () => {
                   {dailyReports.length}
                 </span>
               )}
+            </button>
+
+            {/* NOTIFICATIONS TAB */}
+            <button
+              onClick={() => setActiveTab('notifications')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+                activeTab === 'notifications'
+                  ? 'bg-amber-400 text-purple-950 shadow-md font-extrabold'
+                  : 'text-purple-200 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              <Bell className="w-4 h-4" />
+              <span>Notifications</span>
+            </button>
+
+            {/* NOTICES TAB */}
+            <button
+              onClick={() => setActiveTab('notices')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+                activeTab === 'notices'
+                  ? 'bg-amber-400 text-purple-950 shadow-md font-extrabold'
+                  : 'text-purple-200 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              <Megaphone className="w-4 h-4" />
+              <span>Notices</span>
+            </button>
+
+            {/* LEADERBOARD TAB */}
+            <button
+              onClick={() => setActiveTab('leaderboard')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+                activeTab === 'leaderboard'
+                  ? 'bg-amber-400 text-purple-950 shadow-md font-extrabold'
+                  : 'text-purple-200 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              <Trophy className="w-4 h-4" />
+              <span>Leaderboard</span>
             </button>
           </nav>
         </div>
@@ -1657,7 +1720,7 @@ export const CorporateDashboard: React.FC = () => {
                       <th className="px-3.5 py-3">Contact Number</th>
                       <th className="px-3.5 py-3">Assigned Date</th>
                       <th className="px-3.5 py-3">Current Status</th>
-                      <th className="px-3.5 py-3 text-center">Select Status / Action</th>
+                      <th className="px-3.5 py-3 text-center">Select Status & Submit</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-amber-100">
@@ -1683,6 +1746,9 @@ export const CorporateDashboard: React.FC = () => {
                     ) : (
                       filteredExpectedData.map((item) => {
                         const isUpdating = updatingExpectedId === item.id;
+                        const currentSelectVal =
+                          selectedExpectedStatuses[item.id] ||
+                          (item.status === 'Not Interested' ? 'Not Interested' : 'Interested');
                         return (
                           <tr key={item.id} className="hover:bg-amber-50/80 transition-colors">
                             
@@ -1725,67 +1791,62 @@ export const CorporateDashboard: React.FC = () => {
                             {/* Current Status Badge */}
                             <td className="px-3.5 py-3 whitespace-nowrap">
                               {item.status === 'Interested' && (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 border border-emerald-400 text-emerald-900">
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-emerald-100 border border-emerald-400 text-emerald-900 shadow-2xs">
                                   <ThumbsUp className="w-3 h-3 text-emerald-700" />
                                   <span>Interested</span>
                                 </span>
                               )}
                               {item.status === 'Not Interested' && (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-red-100 border border-red-400 text-red-900">
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-red-100 border border-red-400 text-red-900 shadow-2xs">
                                   <ThumbsDown className="w-3 h-3 text-red-700" />
                                   <span>Not Interested</span>
                                 </span>
                               )}
                               {(!item.status || item.status === 'Pending') && (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 border border-amber-400 text-amber-900">
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-amber-100 border border-amber-400 text-amber-900 shadow-2xs">
                                   <Clock className="w-3 h-3 text-amber-700 animate-pulse" />
                                   <span>Pending Response</span>
                                 </span>
                               )}
                             </td>
 
-                            {/* Select Status: Interested or Not Interested */}
+                            {/* Select Status & Submit Action */}
                             <td className="px-3.5 py-3 text-center whitespace-nowrap">
-                              <div className="inline-flex items-center gap-1.5 p-1 bg-amber-100/70 border border-amber-300 rounded-xl">
+                              <div className="inline-flex items-center gap-2 p-1.5 bg-amber-100/90 border border-amber-300 rounded-2xl shadow-2xs">
                                 
-                                {/* Interested Button */}
-                                <button
-                                  type="button"
+                                {/* Status Selector Dropdown */}
+                                <select
                                   disabled={isUpdating}
-                                  onClick={() => handleEmployeeExpectedStatusChange(item, 'Interested')}
-                                  className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-                                    item.status === 'Interested'
-                                      ? 'bg-emerald-600 text-white shadow-xs'
-                                      : 'bg-white hover:bg-emerald-50 text-emerald-800 border border-emerald-300'
-                                  }`}
-                                  title="Mark as Interested"
+                                  value={currentSelectVal}
+                                  onChange={(e) => {
+                                    const val = e.target.value as 'Interested' | 'Not Interested';
+                                    setSelectedExpectedStatuses((prev) => ({ ...prev, [item.id]: val }));
+                                  }}
+                                  className="bg-white border border-amber-300 text-amber-950 font-bold text-xs rounded-xl px-2.5 py-1.5 outline-none focus:border-purple-600 cursor-pointer shadow-2xs"
                                 >
-                                  {isUpdating && item.status !== 'Interested' ? (
-                                    <RefreshCw className="w-3 h-3 animate-spin" />
-                                  ) : (
-                                    <ThumbsUp className="w-3 h-3" />
-                                  )}
-                                  <span>Interested</span>
-                                </button>
+                                  <option value="Interested">👍 Interested</option>
+                                  <option value="Not Interested">👎 Not Interested</option>
+                                </select>
 
-                                {/* Not Interested Button */}
+                                {/* Submit Button */}
                                 <button
                                   type="button"
                                   disabled={isUpdating}
-                                  onClick={() => handleEmployeeExpectedStatusChange(item, 'Not Interested')}
-                                  className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-                                    item.status === 'Not Interested'
-                                      ? 'bg-red-600 text-white shadow-xs'
-                                      : 'bg-white hover:bg-red-50 text-red-800 border border-red-300'
-                                  }`}
-                                  title="Mark as Not Interested"
+                                  onClick={() => handleEmployeeExpectedStatusSubmit(item, currentSelectVal)}
+                                  className="px-3.5 py-1.5 rounded-xl text-xs font-extrabold bg-[#3B0764] hover:bg-purple-900 text-white shadow-xs flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+                                  title="Submit Status to Firestore"
                                 >
-                                  {isUpdating && item.status !== 'Not Interested' ? (
-                                    <RefreshCw className="w-3 h-3 animate-spin" />
+                                  {isUpdating ? (
+                                    <>
+                                      <RefreshCw className="w-3.5 h-3.5 animate-spin text-amber-300" />
+                                      <span>Saving...</span>
+                                    </>
                                   ) : (
-                                    <ThumbsDown className="w-3 h-3" />
+                                    <>
+                                      <Check className="w-3.5 h-3.5 text-amber-300" />
+                                      <span>Submit</span>
+                                    </>
                                   )}
-                                  <span>Not Interested</span>
                                 </button>
 
                               </div>
@@ -1922,6 +1983,27 @@ export const CorporateDashboard: React.FC = () => {
                 </table>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* TAB 7: NOTIFICATIONS */}
+        {activeTab === 'notifications' && (
+          <div className="animate-in fade-in">
+            <CorporateNotificationsSection />
+          </div>
+        )}
+
+        {/* TAB 8: NOTICES */}
+        {activeTab === 'notices' && (
+          <div className="animate-in fade-in">
+            <CorporateNoticesSection />
+          </div>
+        )}
+
+        {/* TAB 9: LEADERBOARD */}
+        {activeTab === 'leaderboard' && (
+          <div className="animate-in fade-in">
+            <CorporateLeaderboardSection />
           </div>
         )}
 

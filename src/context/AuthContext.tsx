@@ -128,6 +128,134 @@ export interface AdminCreateCorporatePayload {
   progress?: number;
 }
 
+// -------------------------------------------------------------
+// 1. AUDIT LOG SYSTEM
+// -------------------------------------------------------------
+export interface AuditLogItem {
+  id: string;
+  timestamp: string;
+  adminUid: string;
+  adminName: string;
+  adminEmail: string;
+  actionType:
+    | 'salary_update'
+    | 'attendance_status'
+    | 'expected_data_create'
+    | 'expected_data_delete'
+    | 'user_register'
+    | 'daily_report_create'
+    | 'daily_report_delete'
+    | 'daily_report_status'
+    | 'notice_publish'
+    | 'notice_edit'
+    | 'notice_delete'
+    | 'notification_send'
+    | 'notification_delete'
+    | 'leaderboard_create'
+    | 'leaderboard_update'
+    | 'leaderboard_delete'
+    | 'leaderboard_sync'
+    | 'profile_update';
+  entityType: 'User' | 'Attendance' | 'ExpectedData' | 'DailyReport' | 'Notice' | 'Notification' | 'Leaderboard';
+  targetId?: string;
+  targetName?: string;
+  details: string;
+  metadata?: Record<string, any>;
+  createdAt?: string;
+}
+
+// -------------------------------------------------------------
+// 2. NOTIFICATIONS SYSTEM
+// -------------------------------------------------------------
+export interface NotificationItem {
+  id: string;
+  title: string;
+  message: string;
+  priority: 'normal' | 'important' | 'urgent';
+  type: 'general' | 'task' | 'milestone' | 'warning' | 'appreciation';
+  senderUid: string;
+  senderName: string;
+  recipientUid: string; // 'all' or specific corporate UID
+  recipientName: string;
+  recipientCode?: string; // WDS-XXXX
+  isRead: boolean;
+  readAt?: string;
+  createdAt: string;
+}
+
+export interface SendNotificationPayload {
+  recipientUid: string;
+  recipientName: string;
+  recipientCode?: string;
+  title: string;
+  message: string;
+  priority?: 'normal' | 'important' | 'urgent';
+  type?: 'general' | 'task' | 'milestone' | 'warning' | 'appreciation';
+}
+
+// -------------------------------------------------------------
+// 3. NOTICES (NOTICE BOARD) SYSTEM
+// -------------------------------------------------------------
+export interface NoticeItem {
+  id: string;
+  title: string;
+  content: string;
+  category: 'General' | 'Policy' | 'Urgent' | 'Holiday' | 'Event' | 'Sales Update';
+  priority: 'Normal' | 'High' | 'Critical';
+  isPinned?: boolean;
+  authorUid: string;
+  authorName: string;
+  authorRole?: string;
+  validUntil?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface CreateNoticePayload {
+  title: string;
+  content: string;
+  category: 'General' | 'Policy' | 'Urgent' | 'Holiday' | 'Event' | 'Sales Update';
+  priority: 'Normal' | 'High' | 'Critical';
+  isPinned?: boolean;
+  validUntil?: string;
+}
+
+// -------------------------------------------------------------
+// 4. LEADERBOARD SYSTEM
+// -------------------------------------------------------------
+export interface LeaderboardItem {
+  id: string;
+  rank: number;
+  name: string;
+  employeeCode?: string;
+  employeeUid?: string;
+  location: string;
+  role: string;
+  earnings: number;
+  dealsClosed?: number;
+  targetAchievement?: number;
+  badge?: 'Diamond' | 'Gold' | 'Silver' | 'Bronze' | 'Rising Star';
+  tierBadge?: 'Diamond' | 'Gold' | 'Silver' | 'Bronze' | 'Rising Star';
+  period?: string;
+  updatedAt: string;
+  createdAt: string;
+}
+
+export interface CreateLeaderboardPayload {
+  rank: number;
+  name: string;
+  employeeCode?: string;
+  employeeUid?: string;
+  location: string;
+  role: string;
+  earnings: number;
+  dealsClosed?: number;
+  targetAchievement?: number;
+  badge?: 'Diamond' | 'Gold' | 'Silver' | 'Bronze' | 'Rising Star';
+  tierBadge?: 'Diamond' | 'Gold' | 'Silver' | 'Bronze' | 'Rising Star';
+  period?: string;
+}
+
 interface AuthContextType {
   user: User | null;
   profile: UserProfile | null;
@@ -159,6 +287,41 @@ interface AuthContextType {
   fetchEmployeeExpectedData: () => Promise<ExpectedDataItem[]>;
   updateExpectedDataStatus: (id: string, status: 'Pending' | 'Interested' | 'Not Interested') => Promise<{ success: boolean; error?: string }>;
   deleteExpectedData: (id: string) => Promise<{ success: boolean; error?: string }>;
+
+  // Audit Logs
+  logAdminAction: (data: {
+    actionType: AuditLogItem['actionType'];
+    entityType: AuditLogItem['entityType'];
+    targetId?: string;
+    targetName?: string;
+    details: string;
+    metadata?: Record<string, any>;
+  }) => Promise<void>;
+  fetchAuditLogs: () => Promise<AuditLogItem[]>;
+
+  // Notifications
+  sendNotification: (data: SendNotificationPayload) => Promise<{ success: boolean; error?: string }>;
+  fetchAdminNotifications: () => Promise<NotificationItem[]>;
+  fetchEmployeeNotifications: () => Promise<NotificationItem[]>;
+  markNotificationAsRead: (notificationId: string) => Promise<{ success: boolean; error?: string }>;
+  markAllNotificationsAsRead: () => Promise<{ success: boolean; error?: string }>;
+  deleteNotification: (notificationId: string) => Promise<{ success: boolean; error?: string }>;
+
+  // Notices
+  fetchAllNotices: () => Promise<NoticeItem[]>;
+  fetchNotices: () => Promise<NoticeItem[]>;
+  createNotice: (data: CreateNoticePayload) => Promise<{ success: boolean; error?: string; notice?: NoticeItem }>;
+  updateNotice: (noticeId: string, data: Partial<NoticeItem>) => Promise<{ success: boolean; error?: string }>;
+  deleteNotice: (noticeId: string) => Promise<{ success: boolean; error?: string }>;
+
+  // Leaderboard
+  fetchAllLeaderboard: () => Promise<LeaderboardItem[]>;
+  fetchLeaderboard: () => Promise<LeaderboardItem[]>;
+  createLeaderboardEntry: (data: CreateLeaderboardPayload) => Promise<{ success: boolean; error?: string }>;
+  updateLeaderboardEntry: (id: string, data: Partial<LeaderboardItem>) => Promise<{ success: boolean; error?: string }>;
+  deleteLeaderboardEntry: (id: string) => Promise<{ success: boolean; error?: string }>;
+  syncLeaderboardFromCorporateEmployees: () => Promise<{ success: boolean; count?: number; error?: string }>;
+
   logout: () => Promise<void>;
 }
 
@@ -708,6 +871,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         status,
         updatedAt: serverTimestamp(),
       });
+
+      // Audit Log
+      await logAdminAction({
+        actionType: 'attendance_status',
+        entityType: 'Attendance',
+        targetId: attendanceId,
+        targetName: existingData.employeeName,
+        details: `Finalized attendance status as '${status.toUpperCase()}' for ${existingData.employeeName} (${existingData.employeeCode}) on ${existingData.date}`,
+        metadata: { attendanceId, status, date: existingData.date, employeeUid: existingData.employeeUid },
+      });
+
       return { success: true };
     } catch (err: any) {
       handleFirestoreError(err, OperationType.UPDATE, `attendance/${attendanceId}`);
@@ -752,7 +926,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         updatedAt: serverTimestamp(),
       };
 
-      await addDoc(reportRef, payload);
+      const newDocRef = await addDoc(reportRef, payload);
+
+      await logAdminAction({
+        actionType: 'daily_report_create',
+        entityType: 'DailyReport',
+        targetId: newDocRef.id,
+        targetName: data.name.trim(),
+        details: `Created daily report lead '${data.name.trim()}' (${data.location.trim()}) and assigned to ${data.assignedEmployeeName} (${data.assignedEmployeeCode})`,
+        metadata: { reportId: newDocRef.id, ...data },
+      });
+
       return { success: true };
     } catch (err: any) {
       handleFirestoreError(err, OperationType.CREATE, 'daily_reports');
@@ -874,6 +1058,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const docRef = doc(db, 'daily_reports', reportId);
       await deleteDoc(docRef);
+
+      await logAdminAction({
+        actionType: 'daily_report_delete',
+        entityType: 'DailyReport',
+        targetId: reportId,
+        details: `Deleted daily report entry ID ${reportId}`,
+      });
+
       return { success: true };
     } catch (err: any) {
       handleFirestoreError(err, OperationType.DELETE, `daily_reports/${reportId}`);
@@ -916,7 +1108,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         updatedAt: serverTimestamp(),
       };
 
-      await addDoc(expectedRef, payload);
+      const newExpDoc = await addDoc(expectedRef, payload);
+
+      await logAdminAction({
+        actionType: 'expected_data_create',
+        entityType: 'ExpectedData',
+        targetId: newExpDoc.id,
+        targetName: data.businessName.trim(),
+        details: `Created expected lead '${data.businessName.trim()}' (${data.location.trim()}) and assigned to ${data.assignedEmployeeName} (${data.assignedEmployeeCode})`,
+        metadata: { expectedId: newExpDoc.id, ...data },
+      });
+
       return { success: true };
     } catch (err: any) {
       handleFirestoreError(err, OperationType.CREATE, 'expected_data');
@@ -1018,11 +1220,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const docRef = doc(db, 'expected_data', id);
       await updateDoc(docRef, {
         status,
-        updatedAt: serverTimestamp(),
+        updatedAt: new Date().toISOString(),
       });
       return { success: true };
     } catch (err: any) {
-      handleFirestoreError(err, OperationType.UPDATE, `expected_data/${id}`);
+      console.error('Update expected data status error:', err);
       return { success: false, error: err?.message || 'Failed to update expected data status.' };
     }
   };
@@ -1034,6 +1236,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const docRef = doc(db, 'expected_data', id);
       await deleteDoc(docRef);
+
+      await logAdminAction({
+        actionType: 'expected_data_delete',
+        entityType: 'ExpectedData',
+        targetId: id,
+        details: `Deleted expected data lead ID ${id}`,
+      });
+
       return { success: true };
     } catch (err: any) {
       handleFirestoreError(err, OperationType.DELETE, `expected_data/${id}`);
@@ -1100,6 +1310,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.warn('WDS lookup registration notice:', wdsErr);
       }
 
+      // Log Admin Action
+      await logAdminAction({
+        actionType: 'user_register',
+        entityType: 'User',
+        targetId: newUid,
+        targetName: data.name.trim(),
+        details: `Registered new corporate employee: ${data.name.trim()} (${wdsId}), Role: ${data.corporateRole || 'Asst. Sales Manager'}, Basic Salary: ₹${data.basicSalary || 0}`,
+        metadata: { newUid, corporateUserId: wdsId, email: data.email, role: data.corporateRole },
+      });
+
       return { success: true, user: newProfile, corporateUserId: wdsId };
     } catch (err: any) {
       if (secondaryApp) {
@@ -1147,8 +1367,556 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         ...data,
         updatedAt: new Date().toISOString(),
       });
+
+      // Log to Audit Log
+      await logAdminAction({
+        actionType: 'salary_update',
+        entityType: 'User',
+        targetId: targetUid,
+        details: `Updated financial and sales milestones: Basic Salary: ₹${data.basicSalary ?? 'N/A'}, Earnings: ₹${data.income ?? 'N/A'}, Target: ₹${data.target ?? 'N/A'}, Progress: ${data.progress ?? 'N/A'}%`,
+        metadata: data,
+      });
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, `users/${targetUid}`);
+    }
+  };
+
+  // =========================================================================
+  // 1. AUDIT LOGGING SYSTEM
+  // =========================================================================
+  const logAdminAction = async (data: {
+    actionType: AuditLogItem['actionType'];
+    entityType: AuditLogItem['entityType'];
+    targetId?: string;
+    targetName?: string;
+    details: string;
+    metadata?: Record<string, any>;
+  }): Promise<void> => {
+    try {
+      const adminUser = auth.currentUser;
+      const adminName = profile?.name || adminUser?.displayName || adminUser?.email?.split('@')[0] || 'Administrator';
+      const adminEmail = adminUser?.email || profile?.email || 'admin@waltdesignstudio.com';
+      const logsRef = collection(db, 'audit_logs');
+      await addDoc(logsRef, {
+        ...data,
+        adminUid: adminUser?.uid || 'admin',
+        adminName,
+        adminEmail,
+        timestamp: new Date().toISOString(),
+        createdAt: serverTimestamp(),
+      });
+    } catch (err) {
+      console.warn('Audit logging notice (fail-soft):', err);
+    }
+  };
+
+  const fetchAuditLogs = async (): Promise<AuditLogItem[]> => {
+    try {
+      const logsRef = collection(db, 'audit_logs');
+      const snap = await getDocs(logsRef);
+      const list: AuditLogItem[] = [];
+      snap.forEach((d) => {
+        const raw = d.data();
+        const createdAtStr = raw.createdAt?.toDate
+          ? raw.createdAt.toDate().toISOString()
+          : typeof raw.createdAt === 'string'
+          ? raw.createdAt
+          : raw.timestamp || new Date().toISOString();
+        list.push({
+          id: d.id,
+          timestamp: raw.timestamp || createdAtStr,
+          adminUid: raw.adminUid || '',
+          adminName: raw.adminName || 'Admin',
+          adminEmail: raw.adminEmail || '',
+          actionType: raw.actionType || 'salary_update',
+          entityType: raw.entityType || 'User',
+          targetId: raw.targetId,
+          targetName: raw.targetName,
+          details: raw.details || '',
+          metadata: raw.metadata,
+          createdAt: createdAtStr,
+        });
+      });
+      return list.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    } catch (err) {
+      console.warn('Fetch audit logs notice:', err);
+      return [];
+    }
+  };
+
+  // =========================================================================
+  // 2. NOTIFICATIONS SYSTEM
+  // =========================================================================
+  const sendNotification = async (
+    data: SendNotificationPayload
+  ): Promise<{ success: boolean; error?: string }> => {
+    if (!auth.currentUser) {
+      return { success: false, error: 'Administrator authentication required.' };
+    }
+
+    if (!data.recipientUid || !data.title.trim() || !data.message.trim()) {
+      return { success: false, error: 'Recipient, Title, and Message are mandatory.' };
+    }
+
+    try {
+      const notifRef = collection(db, 'notifications');
+      const senderName = profile?.name || auth.currentUser.displayName || 'Enterprise Admin';
+      const newPayload = {
+        title: data.title.trim(),
+        message: data.message.trim(),
+        priority: data.priority || 'normal',
+        type: data.type || 'general',
+        senderUid: auth.currentUser.uid,
+        senderName,
+        recipientUid: data.recipientUid,
+        recipientName: data.recipientName || 'Corporate Staff',
+        recipientCode: data.recipientCode || '',
+        isRead: false,
+        createdAt: new Date().toISOString(),
+      };
+
+      const docRef = await addDoc(notifRef, newPayload);
+
+      // Audit Log
+      await logAdminAction({
+        actionType: 'notification_send',
+        entityType: 'Notification',
+        targetId: docRef.id,
+        targetName: data.recipientName,
+        details: `Sent notification to ${data.recipientName} (${data.recipientCode || data.recipientUid}): "${data.title.trim()}" [Priority: ${data.priority || 'normal'}]`,
+        metadata: { ...data, notifId: docRef.id },
+      });
+
+      return { success: true };
+    } catch (err: any) {
+      handleFirestoreError(err, OperationType.CREATE, 'notifications');
+      return { success: false, error: err?.message || 'Failed to send notification.' };
+    }
+  };
+
+  const fetchAdminNotifications = async (): Promise<NotificationItem[]> => {
+    try {
+      const notifRef = collection(db, 'notifications');
+      const snap = await getDocs(notifRef);
+      const list: NotificationItem[] = [];
+      snap.forEach((d) => {
+        const raw = d.data();
+        list.push({
+          id: d.id,
+          title: raw.title || '',
+          message: raw.message || '',
+          priority: raw.priority || 'normal',
+          type: raw.type || 'general',
+          senderUid: raw.senderUid || '',
+          senderName: raw.senderName || 'Admin',
+          recipientUid: raw.recipientUid || '',
+          recipientName: raw.recipientName || '',
+          recipientCode: raw.recipientCode || '',
+          isRead: !!raw.isRead,
+          readAt: raw.readAt,
+          createdAt: raw.createdAt || new Date().toISOString(),
+        });
+      });
+      return list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    } catch (err) {
+      handleFirestoreError(err, OperationType.LIST, 'notifications');
+      return [];
+    }
+  };
+
+  const fetchEmployeeNotifications = async (): Promise<NotificationItem[]> => {
+    if (!auth.currentUser) return [];
+    try {
+      const notifRef = collection(db, 'notifications');
+      // Fetch both specific and broadcast notifications
+      const q = query(notifRef, where('recipientUid', 'in', [auth.currentUser.uid, 'all']));
+      const snap = await getDocs(q);
+      const list: NotificationItem[] = [];
+      snap.forEach((d) => {
+        const raw = d.data();
+        list.push({
+          id: d.id,
+          title: raw.title || '',
+          message: raw.message || '',
+          priority: raw.priority || 'normal',
+          type: raw.type || 'general',
+          senderUid: raw.senderUid || '',
+          senderName: raw.senderName || 'Admin',
+          recipientUid: raw.recipientUid || '',
+          recipientName: raw.recipientName || '',
+          recipientCode: raw.recipientCode || '',
+          isRead: !!raw.isRead,
+          readAt: raw.readAt,
+          createdAt: raw.createdAt || new Date().toISOString(),
+        });
+      });
+      return list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    } catch (err) {
+      console.warn('Fetch employee notifications notice:', err);
+      return [];
+    }
+  };
+
+  const markNotificationAsRead = async (notificationId: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const docRef = doc(db, 'notifications', notificationId);
+      await updateDoc(docRef, {
+        isRead: true,
+        readAt: new Date().toISOString(),
+      });
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'Failed to mark notification as read.' };
+    }
+  };
+
+  const markAllNotificationsAsRead = async (): Promise<{ success: boolean; error?: string }> => {
+    if (!auth.currentUser) return { success: false, error: 'Not authenticated' };
+    try {
+      const notifRef = collection(db, 'notifications');
+      const q = query(notifRef, where('recipientUid', 'in', [auth.currentUser.uid, 'all']), where('isRead', '==', false));
+      const snap = await getDocs(q);
+      const promises = snap.docs.map((d) =>
+        updateDoc(doc(db, 'notifications', d.id), {
+          isRead: true,
+          readAt: new Date().toISOString(),
+        })
+      );
+      await Promise.all(promises);
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'Failed to mark all as read.' };
+    }
+  };
+
+  const deleteNotification = async (notificationId: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const docRef = doc(db, 'notifications', notificationId);
+      await deleteDoc(docRef);
+      await logAdminAction({
+        actionType: 'notification_delete',
+        entityType: 'Notification',
+        targetId: notificationId,
+        details: `Deleted notification ID ${notificationId}`,
+      });
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'Failed to delete notification.' };
+    }
+  };
+
+  // =========================================================================
+  // 3. NOTICES (NOTICE BOARD) SYSTEM
+  // =========================================================================
+  const fetchAllNotices = async (): Promise<NoticeItem[]> => {
+    try {
+      const noticesRef = collection(db, 'notices');
+      const snap = await getDocs(noticesRef);
+      const list: NoticeItem[] = [];
+      snap.forEach((d) => {
+        const raw = d.data();
+        list.push({
+          id: d.id,
+          title: raw.title || '',
+          content: raw.content || '',
+          category: raw.category || 'General',
+          priority: raw.priority || 'Normal',
+          isPinned: !!raw.isPinned,
+          authorUid: raw.authorUid || '',
+          authorName: raw.authorName || 'Corporate Admin',
+          authorRole: raw.authorRole || 'Enterprise Administrator',
+          validUntil: raw.validUntil,
+          createdAt: raw.createdAt || new Date().toISOString(),
+          updatedAt: raw.updatedAt,
+        });
+      });
+      // Pinned notices first, then newest first
+      return list.sort((a, b) => {
+        if (a.isPinned && !b.isPinned) return -1;
+        if (!a.isPinned && b.isPinned) return 1;
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+    } catch (err) {
+      console.warn('Fetch notices notice:', err);
+      return [];
+    }
+  };
+
+  const createNotice = async (
+    data: CreateNoticePayload
+  ): Promise<{ success: boolean; error?: string; notice?: NoticeItem }> => {
+    if (!auth.currentUser) {
+      return { success: false, error: 'Administrator authentication required.' };
+    }
+    if (!data.title.trim() || !data.content.trim()) {
+      return { success: false, error: 'Notice title and content are required.' };
+    }
+
+    try {
+      const noticesRef = collection(db, 'notices');
+      const authorName = profile?.name || auth.currentUser.displayName || 'Enterprise Admin';
+      const newNotice: Omit<NoticeItem, 'id'> = {
+        title: data.title.trim(),
+        content: data.content.trim(),
+        category: data.category || 'General',
+        priority: data.priority || 'Normal',
+        isPinned: !!data.isPinned,
+        authorUid: auth.currentUser.uid,
+        authorName,
+        authorRole: 'Super Administrator',
+        validUntil: data.validUntil || '',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      const docRef = await addDoc(noticesRef, newNotice);
+
+      await logAdminAction({
+        actionType: 'notice_publish',
+        entityType: 'Notice',
+        targetId: docRef.id,
+        targetName: data.title.trim(),
+        details: `Published corporate notice: "${data.title.trim()}" [Category: ${data.category || 'General'}]`,
+        metadata: { noticeId: docRef.id, ...data },
+      });
+
+      return { success: true, notice: { id: docRef.id, ...newNotice } };
+    } catch (err: any) {
+      handleFirestoreError(err, OperationType.CREATE, 'notices');
+      return { success: false, error: err?.message || 'Failed to publish notice.' };
+    }
+  };
+
+  const updateNotice = async (
+    noticeId: string,
+    data: Partial<NoticeItem>
+  ): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const docRef = doc(db, 'notices', noticeId);
+      await updateDoc(docRef, {
+        ...data,
+        updatedAt: new Date().toISOString(),
+      });
+
+      await logAdminAction({
+        actionType: 'notice_edit',
+        entityType: 'Notice',
+        targetId: noticeId,
+        targetName: data.title,
+        details: `Updated corporate notice ID ${noticeId}: "${data.title || 'Notice'}"`,
+        metadata: data,
+      });
+
+      return { success: true };
+    } catch (err: any) {
+      handleFirestoreError(err, OperationType.UPDATE, `notices/${noticeId}`);
+      return { success: false, error: err?.message || 'Failed to update notice.' };
+    }
+  };
+
+  const deleteNotice = async (noticeId: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const docRef = doc(db, 'notices', noticeId);
+      await deleteDoc(docRef);
+
+      await logAdminAction({
+        actionType: 'notice_delete',
+        entityType: 'Notice',
+        targetId: noticeId,
+        details: `Deleted notice ID ${noticeId}`,
+      });
+
+      return { success: true };
+    } catch (err: any) {
+      handleFirestoreError(err, OperationType.DELETE, `notices/${noticeId}`);
+      return { success: false, error: err?.message || 'Failed to delete notice.' };
+    }
+  };
+
+  // =========================================================================
+  // 4. LEADERBOARD SYSTEM
+  // =========================================================================
+  const fetchAllLeaderboard = async (): Promise<LeaderboardItem[]> => {
+    try {
+      const boardRef = collection(db, 'leaderboard');
+      const snap = await getDocs(boardRef);
+      const list: LeaderboardItem[] = [];
+      snap.forEach((d) => {
+        const raw = d.data();
+        list.push({
+          id: d.id,
+          rank: Number(raw.rank) || 99,
+          name: raw.name || 'Sales Representative',
+          employeeCode: raw.employeeCode,
+          employeeUid: raw.employeeUid,
+          location: raw.location || 'India',
+          role: raw.role || 'Sales Manager',
+          earnings: Number(raw.earnings) || 0,
+          dealsClosed: Number(raw.dealsClosed) || 0,
+          targetAchievement: Number(raw.targetAchievement) || 0,
+          badge: raw.badge || 'Rising Star',
+          period: raw.period || 'Current Quarter',
+          updatedAt: raw.updatedAt || new Date().toISOString(),
+          createdAt: raw.createdAt || new Date().toISOString(),
+        });
+      });
+      // Sort by rank ascending (Rank 1, 2, 3...)
+      return list.sort((a, b) => a.rank - b.rank);
+    } catch (err) {
+      console.warn('Fetch leaderboard notice:', err);
+      return [];
+    }
+  };
+
+  const createLeaderboardEntry = async (
+    data: CreateLeaderboardPayload
+  ): Promise<{ success: boolean; error?: string }> => {
+    if (!auth.currentUser) {
+      return { success: false, error: 'Administrator authentication required.' };
+    }
+    if (!data.name.trim()) {
+      return { success: false, error: 'Employee name is required for leaderboard.' };
+    }
+
+    try {
+      const boardRef = collection(db, 'leaderboard');
+      const newEntry = {
+        rank: Number(data.rank) || 1,
+        name: data.name.trim(),
+        employeeCode: data.employeeCode?.trim() || '',
+        employeeUid: data.employeeUid || '',
+        location: data.location.trim() || 'Pan-India',
+        role: data.role.trim() || 'Sales Representative',
+        earnings: Number(data.earnings) || 0,
+        dealsClosed: Number(data.dealsClosed) || 0,
+        targetAchievement: Number(data.targetAchievement) || 0,
+        badge: data.badge || (Number(data.rank) === 1 ? 'Diamond' : Number(data.rank) === 2 ? 'Gold' : Number(data.rank) === 3 ? 'Silver' : 'Bronze'),
+        period: data.period || 'Current Month',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      const docRef = await addDoc(boardRef, newEntry);
+
+      await logAdminAction({
+        actionType: 'leaderboard_create',
+        entityType: 'Leaderboard',
+        targetId: docRef.id,
+        targetName: data.name,
+        details: `Created leaderboard rank #${data.rank} for ${data.name} (Earnings: ₹${data.earnings})`,
+        metadata: data,
+      });
+
+      return { success: true };
+    } catch (err: any) {
+      handleFirestoreError(err, OperationType.CREATE, 'leaderboard');
+      return { success: false, error: err?.message || 'Failed to create leaderboard entry.' };
+    }
+  };
+
+  const updateLeaderboardEntry = async (
+    id: string,
+    data: Partial<LeaderboardItem>
+  ): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const docRef = doc(db, 'leaderboard', id);
+      await updateDoc(docRef, {
+        ...data,
+        updatedAt: new Date().toISOString(),
+      });
+
+      await logAdminAction({
+        actionType: 'leaderboard_update',
+        entityType: 'Leaderboard',
+        targetId: id,
+        targetName: data.name,
+        details: `Updated leaderboard entry #${data.rank ?? ''} for ${data.name ?? id} (Earnings: ₹${data.earnings ?? 'N/A'})`,
+        metadata: data,
+      });
+
+      return { success: true };
+    } catch (err: any) {
+      handleFirestoreError(err, OperationType.UPDATE, `leaderboard/${id}`);
+      return { success: false, error: err?.message || 'Failed to update leaderboard entry.' };
+    }
+  };
+
+  const deleteLeaderboardEntry = async (id: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const docRef = doc(db, 'leaderboard', id);
+      await deleteDoc(docRef);
+
+      await logAdminAction({
+        actionType: 'leaderboard_delete',
+        entityType: 'Leaderboard',
+        targetId: id,
+        details: `Deleted leaderboard entry ID ${id}`,
+      });
+
+      return { success: true };
+    } catch (err: any) {
+      handleFirestoreError(err, OperationType.DELETE, `leaderboard/${id}`);
+      return { success: false, error: err?.message || 'Failed to delete leaderboard entry.' };
+    }
+  };
+
+  // Sync / Auto-generate Leaderboard entries from corporate users based on their Current Earnings
+  const syncLeaderboardFromCorporateEmployees = async (): Promise<{ success: boolean; count?: number; error?: string }> => {
+    try {
+      const staffList = await fetchAllCorporateUsers();
+      if (staffList.length === 0) {
+        return { success: false, error: 'No corporate staff records found to sync.' };
+      }
+
+      // Sort staff by income descending
+      const sorted = [...staffList].sort((a, b) => (b.income || 0) - (a.income || 0));
+
+      // Clear existing entries or update
+      const existingEntries = await fetchAllLeaderboard();
+      for (const entry of existingEntries) {
+        await deleteDoc(doc(db, 'leaderboard', entry.id));
+      }
+
+      // Re-insert ranked records
+      for (let i = 0; i < sorted.length; i++) {
+        const staff = sorted[i];
+        const rank = i + 1;
+        let badge: LeaderboardItem['badge'] = 'Rising Star';
+        if (rank === 1) badge = 'Diamond';
+        else if (rank === 2) badge = 'Gold';
+        else if (rank === 3) badge = 'Silver';
+        else if (rank <= 5) badge = 'Bronze';
+
+        const totalEarn = (staff.income || 0);
+        const achievement = staff.target && staff.target > 0 ? Math.round(((staff.basicSalary || 0) + (staff.income || 0)) / staff.target * 100) : staff.progress || 0;
+
+        await addDoc(collection(db, 'leaderboard'), {
+          rank,
+          name: staff.name,
+          employeeCode: staff.corporateUserId || '',
+          employeeUid: staff.uid,
+          location: staff.location || 'India',
+          role: staff.corporateRole || 'Sales Executive',
+          earnings: totalEarn,
+          dealsClosed: Math.max(1, Math.floor(totalEarn / 15000)),
+          targetAchievement: achievement,
+          badge,
+          period: 'Current Season',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        });
+      }
+
+      await logAdminAction({
+        actionType: 'leaderboard_sync',
+        entityType: 'Leaderboard',
+        details: `Synchronized and ranked ${sorted.length} corporate employees on the public leaderboard.`,
+        metadata: { count: sorted.length },
+      });
+
+      return { success: true, count: sorted.length };
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'Failed to synchronize leaderboard.' };
     }
   };
 
@@ -1200,6 +1968,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         fetchEmployeeExpectedData,
         updateExpectedDataStatus,
         deleteExpectedData,
+
+        // Audit Logs
+        logAdminAction,
+        fetchAuditLogs,
+
+        // Notifications
+        sendNotification,
+        fetchAdminNotifications,
+        fetchEmployeeNotifications,
+        markNotificationAsRead,
+        markAllNotificationsAsRead,
+        deleteNotification,
+
+        // Notices
+        fetchAllNotices,
+        fetchNotices: fetchAllNotices,
+        createNotice,
+        updateNotice,
+        deleteNotice,
+
+        // Leaderboard
+        fetchAllLeaderboard,
+        fetchLeaderboard: fetchAllLeaderboard,
+        createLeaderboardEntry,
+        updateLeaderboardEntry,
+        deleteLeaderboardEntry,
+        syncLeaderboardFromCorporateEmployees,
+
         logout,
       }}
     >
