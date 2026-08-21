@@ -19,13 +19,19 @@ import {
   RefreshCw,
   Edit3,
   Save,
-  FileText,
   Briefcase,
   XCircle,
   FileSpreadsheet,
   Search,
   Eye,
   EyeOff,
+  Lock,
+  Sun,
+  Sunrise,
+  Sunset,
+  Moon,
+  Sparkles,
+  X,
 } from 'lucide-react';
 import { useAuth, AttendanceRecord, DailyReportItem } from '../context/AuthContext';
 import { AGENCY_INFO, DIVISIONS } from '../data/agencyData';
@@ -48,28 +54,75 @@ export const CorporateDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<CorporateTab>('dashboard');
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Profile Edit State
+  // Live Timing Clock
+  const [currentTime, setCurrentTime] = useState<Date>(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Compute Time Greeting & Icon
+  const getGreetingData = (date: Date) => {
+    const hours = date.getHours();
+    if (hours >= 5 && hours < 12) {
+      return {
+        greeting: 'Good Morning',
+        icon: Sunrise,
+        color: 'text-amber-600',
+        bg: 'bg-amber-100',
+      };
+    } else if (hours >= 12 && hours < 17) {
+      return {
+        greeting: 'Good Afternoon',
+        icon: Sun,
+        color: 'text-orange-600',
+        bg: 'bg-orange-100',
+      };
+    } else if (hours >= 17 && hours < 21) {
+      return {
+        greeting: 'Good Evening',
+        icon: Sunset,
+        color: 'text-purple-600',
+        bg: 'bg-purple-100',
+      };
+    } else {
+      return {
+        greeting: 'Good Night',
+        icon: Moon,
+        color: 'text-indigo-600',
+        bg: 'bg-indigo-100',
+      };
+    }
+  };
+
+  const greetingInfo = getGreetingData(currentTime);
+  const GreetingIcon = greetingInfo.icon;
+
+  // Unified Profile Edit State
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [editName, setEditName] = useState('');
   const [editPhone, setEditPhone] = useState('');
   const [editLocation, setEditLocation] = useState('');
-  const [profileMessage, setProfileMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
-
-  // Change Password State & Password Visibility
+  
+  // Password Fields inside Unified Profile
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [passwordMessage, setPasswordMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  
+  const [profileMessage, setProfileMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
 
-  // Attendance Form State
-  const [attendanceDate, setAttendanceDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
-  const [workHours, setWorkHours] = useState<number | string>(8);
-  const [expectedClients, setExpectedClients] = useState<number | string>(5);
+  // Attendance Form State (Clear initially)
+  const todayDateStr = new Date().toISOString().split('T')[0];
+  const [attendanceDate, setAttendanceDate] = useState<string>(todayDateStr);
+  const [workHours, setWorkHours] = useState<string>('');
+  const [expectedClients, setExpectedClients] = useState<string>('');
   const [isSubmittingAttendance, setIsSubmittingAttendance] = useState(false);
   const [attendanceMessage, setAttendanceMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [attendanceHistory, setAttendanceHistory] = useState<AttendanceRecord[]>([]);
@@ -83,6 +136,10 @@ export const CorporateDashboard: React.FC = () => {
   const corporateId = profile?.corporateUserId || 'WDS-ACTIVE';
   const income = profile?.income || 0;
   const progress = profile?.progress || 0;
+
+  // Check if attendance has already been submitted for today
+  const todayAttendanceRecord = attendanceHistory.find((record) => record.date === todayDateStr);
+  const hasMarkedTodayAttendance = Boolean(todayAttendanceRecord);
 
   // Initialize edit fields when profile changes
   useEffect(() => {
@@ -131,77 +188,93 @@ export const CorporateDashboard: React.FC = () => {
     setTimeout(() => setIsRefreshing(false), 600);
   };
 
-  // 1. Handle Profile Update
-  const handleSaveProfile = async (e: React.FormEvent) => {
+  // Unified Profile & Password Save Handler
+  const handleSaveUnifiedProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setProfileMessage(null);
 
     if (!editName.trim()) {
-      setProfileMessage({ type: 'error', text: 'Name cannot be empty.' });
+      setProfileMessage({ type: 'error', text: 'Display Name cannot be empty.' });
       return;
+    }
+
+    // If user wants to change password
+    const hasPasswordInput = currentPassword || newPassword || confirmPassword;
+    if (hasPasswordInput) {
+      if (!currentPassword) {
+        setProfileMessage({ type: 'error', text: 'Please enter your current password to authorize password update.' });
+        return;
+      }
+      if (!newPassword || newPassword.length < 6) {
+        setProfileMessage({ type: 'error', text: 'New password must be at least 6 characters long.' });
+        return;
+      }
+      if (newPassword !== confirmPassword) {
+        setProfileMessage({ type: 'error', text: 'New passwords do not match.' });
+        return;
+      }
     }
 
     setIsUpdatingProfile(true);
     try {
+      // 1. Update basic profile info
       const res = await updateProfile({
         name: editName.trim(),
         phone: editPhone.trim(),
         location: editLocation.trim(),
       });
-      if (res.success) {
-        setProfileMessage({ type: 'success', text: 'Profile updated successfully.' });
-        setIsEditingProfile(false);
-        await refreshProfile();
-      } else {
-        setProfileMessage({ type: 'error', text: res.error || 'Failed to update profile.' });
+
+      if (!res.success) {
+        setProfileMessage({ type: 'error', text: res.error || 'Failed to update profile details.' });
+        setIsUpdatingProfile(false);
+        return;
       }
+
+      // 2. Change password if requested
+      if (hasPasswordInput) {
+        const passRes = await changeUserPassword(currentPassword, newPassword);
+        if (!passRes.success) {
+          setProfileMessage({
+            type: 'error',
+            text: `Profile updated, but password change failed: ${passRes.error || 'Incorrect current password.'}`,
+          });
+          setIsUpdatingProfile(false);
+          return;
+        }
+        // Clear password fields
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+      }
+
+      setProfileMessage({
+        type: 'success',
+        text: hasPasswordInput
+          ? 'Profile details and password updated successfully!'
+          : 'Corporate profile details updated successfully!',
+      });
+      setIsEditingProfile(false);
+      await refreshProfile();
     } catch {
-      setProfileMessage({ type: 'error', text: 'Failed to update profile.' });
+      setProfileMessage({ type: 'error', text: 'An unexpected error occurred while saving profile settings.' });
     } finally {
       setIsUpdatingProfile(false);
     }
   };
 
-  // 2. Handle Password Change
-  const handleChangePasswordSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setPasswordMessage(null);
-
-    if (!currentPassword) {
-      setPasswordMessage({ type: 'error', text: 'Please enter your current password.' });
-      return;
-    }
-    if (!newPassword || newPassword.length < 6) {
-      setPasswordMessage({ type: 'error', text: 'New password must be at least 6 characters long.' });
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      setPasswordMessage({ type: 'error', text: 'New passwords do not match.' });
-      return;
-    }
-
-    setIsChangingPassword(true);
-    try {
-      const res = await changeUserPassword(currentPassword, newPassword);
-      if (res.success) {
-        setPasswordMessage({ type: 'success', text: 'Password changed successfully.' });
-        setCurrentPassword('');
-        setNewPassword('');
-        setConfirmPassword('');
-      } else {
-        setPasswordMessage({ type: 'error', text: res.error || 'Failed to change password.' });
-      }
-    } catch {
-      setPasswordMessage({ type: 'error', text: 'An error occurred while changing password.' });
-    } finally {
-      setIsChangingPassword(false);
-    }
-  };
-
-  // 3. Handle Attendance Submission
+  // Handle Attendance Submission (1 attendance per day limit with form clear)
   const handleAttendanceSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setAttendanceMessage(null);
+
+    // Double check daily limit
+    if (hasMarkedTodayAttendance && attendanceDate === todayDateStr) {
+      setAttendanceMessage({
+        type: 'error',
+        text: `You have already marked attendance for today (${todayDateStr}). Only 1 submission allowed per day.`,
+      });
+      return;
+    }
 
     if (!attendanceDate) {
       setAttendanceMessage({ type: 'error', text: 'Please select a valid date.' });
@@ -209,13 +282,13 @@ export const CorporateDashboard: React.FC = () => {
     }
 
     const hours = Number(workHours);
-    if (isNaN(hours) || hours <= 0 || hours > 24) {
+    if (!workHours || isNaN(hours) || hours <= 0 || hours > 24) {
       setAttendanceMessage({ type: 'error', text: 'Please enter valid work hours between 1 and 24.' });
       return;
     }
 
     const clients = Number(expectedClients);
-    if (isNaN(clients) || clients < 0) {
+    if (expectedClients === '' || isNaN(clients) || clients < 0) {
       setAttendanceMessage({ type: 'error', text: 'Please enter a valid number of expected clients (0 or more).' });
       return;
     }
@@ -229,7 +302,14 @@ export const CorporateDashboard: React.FC = () => {
       });
 
       if (res.success) {
-        setAttendanceMessage({ type: 'success', text: 'Attendance submitted successfully! Status: Pending review.' });
+        setAttendanceMessage({
+          type: 'success',
+          text: `Attendance for ${attendanceDate} submitted successfully! Your submission is logged and will unlock next day.`,
+        });
+        // Clear form fields as requested
+        setWorkHours('');
+        setExpectedClients('');
+        setAttendanceDate(new Date().toISOString().split('T')[0]);
         await loadAttendance();
       } else {
         setAttendanceMessage({ type: 'error', text: res.error || 'Failed to submit attendance.' });
@@ -243,11 +323,26 @@ export const CorporateDashboard: React.FC = () => {
     }
   };
 
+  // Formatted Live Time and Date strings
+  const formattedTime = currentTime.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true,
+  });
+
+  const formattedDate = currentTime.toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+
   return (
     <div className="min-h-screen bg-[#FEF3C7] text-amber-950 flex flex-col font-sans selection:bg-amber-500 selection:text-black">
       
       {/* ========================================================================= */}
-      {/* PURPLE HEADER */}
+      {/* PURPLE HEADER WITH LIVE CLOCK */}
       {/* ========================================================================= */}
       <header className="bg-[#3B0764] text-white border-b border-purple-900 sticky top-0 z-40 shadow-xl">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5">
@@ -269,14 +364,28 @@ export const CorporateDashboard: React.FC = () => {
                     Corporate Portal
                   </span>
                 </div>
-                <p className="text-xs text-purple-200 font-mono">
+                <p className="text-xs text-purple-200 font-mono flex items-center gap-1.5">
                   Corporate ID: <span className="text-amber-300 font-bold">{corporateId}</span>
                 </p>
               </div>
             </div>
 
-            {/* Top Right Controls */}
+            {/* Top Right: Live Timing Clock & User Controls */}
             <div className="flex items-center gap-3">
+              
+              {/* Live Timing Clock on Purple Header */}
+              <div className="hidden md:flex items-center gap-2.5 px-3.5 py-1.5 rounded-2xl bg-purple-950/80 border border-purple-700/70 shadow-inner">
+                <Clock className="w-4 h-4 text-amber-400 animate-pulse" />
+                <div className="text-right">
+                  <div className="font-mono text-xs font-bold text-amber-300 tracking-wider">
+                    {formattedTime}
+                  </div>
+                  <div className="text-[10px] text-purple-200 font-medium">
+                    {formattedDate}
+                  </div>
+                </div>
+              </div>
+
               <button
                 onClick={handleRefresh}
                 className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-purple-100 hover:text-white transition-all cursor-pointer hidden sm:flex items-center gap-1.5 text-xs font-semibold"
@@ -346,11 +455,13 @@ export const CorporateDashboard: React.FC = () => {
             >
               <Calendar className="w-4 h-4" />
               <span>Attendance</span>
-              {attendanceHistory.length > 0 && (
-                <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
-                  activeTab === 'attendance' ? 'bg-purple-950 text-amber-300' : 'bg-purple-800 text-white'
-                }`}>
-                  {attendanceHistory.length}
+              {hasMarkedTodayAttendance ? (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-400 text-emerald-950 flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3" /> Marked Today
+                </span>
+              ) : (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-400 text-purple-950 animate-pulse">
+                  Pending Today
                 </span>
               )}
             </button>
@@ -383,37 +494,77 @@ export const CorporateDashboard: React.FC = () => {
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 space-y-6">
 
         {/* ======================================================================= */}
-        {/* TAB 1: DASHBOARD OVERVIEW (GOLDEN BG) */}
+        {/* TAB 1: DASHBOARD OVERVIEW WITH TIME-BASED GREETING & CLOCK */}
         {/* ======================================================================= */}
         {activeTab === 'dashboard' && (
           <div className="space-y-6 animate-in fade-in">
-            {/* Welcome Banner */}
-            <div className="p-6 sm:p-8 rounded-3xl bg-[#FFFBEB] border-2 border-amber-300 shadow-md flex flex-col md:flex-row md:items-center justify-between gap-6">
-              <div className="space-y-1.5">
-                <div className="flex items-center gap-2">
+            
+            {/* Top Welcome Banner with Live Timing Greeting */}
+            <div className="p-6 sm:p-8 rounded-3xl bg-[#FFFBEB] border-2 border-amber-300 shadow-md flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden">
+              <div className="space-y-2 z-10">
+                
+                {/* Time-Based Greeting Badge & Corporate Role */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold ${greetingInfo.bg} ${greetingInfo.color} border border-amber-300/80 shadow-xs`}>
+                    <GreetingIcon className="w-3.5 h-3.5" />
+                    <span>{greetingInfo.greeting}</span>
+                  </div>
+
                   <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-amber-400 text-amber-950 uppercase tracking-wider font-mono shadow-sm">
                     {corporateId}
                   </span>
+                  
                   <span className="text-xs font-bold text-amber-800">
                     {profile?.corporateRole || 'Asst. Sales Manager'}
                   </span>
                 </div>
+
+                {/* Personalized Greeting Title */}
                 <h1 className="text-2xl sm:text-3xl font-extrabold text-amber-950 tracking-tight">
-                  Welcome, {profile?.name || 'Sales Representative'}
+                  {greetingInfo.greeting}, {profile?.name || 'Sales Representative'}
                 </h1>
-                <p className="text-xs sm:text-sm text-amber-900/80 max-w-2xl">
-                  Access your assigned enterprise sales metrics, target achievement indices, and daily attendance portal.
+                
+                <p className="text-xs sm:text-sm text-amber-900/80 max-w-2xl leading-relaxed">
+                  Access your assigned enterprise sales metrics, target achievement indices, and daily attendance logs.
                 </p>
+
+                {/* Mobile Live Clock Display */}
+                <div className="flex md:hidden items-center gap-2 pt-1 font-mono text-xs font-bold text-amber-900">
+                  <Clock className="w-3.5 h-3.5 text-amber-600" />
+                  <span>{formattedTime} • {formattedDate}</span>
+                </div>
               </div>
 
-              <div className="flex flex-wrap items-center gap-3">
-                <button
-                  onClick={() => setActiveTab('attendance')}
-                  className="px-5 py-3 rounded-2xl bg-amber-500 hover:bg-amber-600 text-amber-950 text-xs font-extrabold shadow-md transition-all flex items-center gap-2 cursor-pointer"
-                >
-                  <Calendar className="w-4 h-4" />
-                  <span>Submit Today's Attendance</span>
-                </button>
+              {/* HIGHLIGHTED "SUBMIT TODAY'S ATTENDANCE" BUTTON OR TODAY'S STATUS */}
+              <div className="flex flex-wrap items-center gap-3 z-10">
+                {hasMarkedTodayAttendance ? (
+                  <div className="p-3.5 px-5 rounded-2xl bg-emerald-50 border-2 border-emerald-400 text-emerald-950 flex items-center gap-3 shadow-md">
+                    <div className="w-9 h-9 rounded-xl bg-emerald-500 text-white flex items-center justify-center font-bold">
+                      <CheckCircle2 className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="font-extrabold text-xs text-emerald-950 uppercase tracking-wide">
+                        Attendance Marked Today
+                      </div>
+                      <div className="text-[11px] text-emerald-800 font-mono">
+                        Hours: {todayAttendanceRecord?.todayWorkHours}h • Status: {todayAttendanceRecord?.status?.toUpperCase()}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setActiveTab('attendance')}
+                    className="relative group px-6 py-3.5 rounded-2xl bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 bg-[length:200%_auto] hover:bg-right text-amber-950 font-black text-xs sm:text-sm shadow-xl hover:shadow-2xl ring-4 ring-amber-300/80 hover:ring-amber-400 transition-all duration-300 flex items-center gap-2.5 cursor-pointer transform hover:-translate-y-0.5 active:translate-y-0"
+                  >
+                    <span className="relative flex h-3 w-3">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-3 w-3 bg-red-600"></span>
+                    </span>
+                    <Calendar className="w-4 h-4 text-amber-950 font-bold" />
+                    <span className="tracking-wide">Submit Today's Attendance</span>
+                    <Sparkles className="w-4 h-4 text-amber-950 group-hover:rotate-12 transition-transform" />
+                  </button>
+                )}
               </div>
             </div>
 
@@ -520,7 +671,7 @@ export const CorporateDashboard: React.FC = () => {
                   <p className="text-xs text-amber-800">No attendance submitted yet for today.</p>
                   <button
                     onClick={() => setActiveTab('attendance')}
-                    className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-amber-950 text-xs font-bold cursor-pointer shadow-sm"
+                    className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-amber-950 text-xs font-extrabold cursor-pointer shadow-md"
                   >
                     Submit Attendance Now
                   </button>
@@ -531,252 +682,305 @@ export const CorporateDashboard: React.FC = () => {
         )}
 
         {/* ======================================================================= */}
-        {/* TAB 2: MY PROFILE (GOLDEN BG) */}
+        {/* TAB 2: MY PROFILE (UNIFIED & MERGED CARD WITH EDIT TOGGLE) */}
         {/* ======================================================================= */}
         {activeTab === 'profile' && (
-          <div className="space-y-6 animate-in fade-in">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="space-y-6 animate-in fade-in max-w-4xl mx-auto">
+            <div className="p-6 sm:p-8 rounded-3xl bg-[#FFFBEB] border-2 border-amber-300 shadow-md space-y-6">
               
-              {/* Profile Summary & Details */}
-              <div className="p-6 sm:p-7 rounded-3xl bg-[#FFFBEB] border-2 border-amber-300 shadow-md space-y-5">
+              {/* Header with Title & Edit Toggle Icon */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-amber-200">
                 <div>
-                  <h3 className="font-extrabold text-base text-amber-950 flex items-center gap-2">
-                    <User className="w-4 h-4 text-amber-700" />
+                  <h2 className="font-extrabold text-xl text-amber-950 flex items-center gap-2.5">
+                    <User className="w-5 h-5 text-amber-700" />
                     <span>My Corporate Profile</span>
-                  </h3>
-                  <p className="text-xs text-amber-800 mt-0.5">
+                  </h2>
+                  <p className="text-xs text-amber-800 mt-1">
                     Official enterprise credentials and representative identity
                   </p>
                 </div>
 
-                <div className="space-y-3 text-xs divide-y divide-amber-200/80 font-sans">
-                  <div className="pt-2 flex justify-between">
-                    <span className="text-amber-800">Corporate User ID</span>
-                    <span className="font-mono font-bold text-amber-950">{corporateId}</span>
-                  </div>
-                  <div className="pt-2 flex justify-between">
-                    <span className="text-amber-800">Full Name</span>
-                    <span className="font-bold text-zinc-900">{profile?.name || 'Representative'}</span>
-                  </div>
-                  <div className="pt-2 flex justify-between">
-                    <span className="text-amber-800">Designation</span>
-                    <span className="text-zinc-900 font-semibold">{profile?.corporateRole || 'Asst. Sales Manager'}</span>
-                  </div>
-                  <div className="pt-2 flex justify-between">
-                    <span className="text-amber-800">Official Email</span>
-                    <span className="font-mono text-zinc-900 truncate max-w-[150px]">{profile?.email || user?.email}</span>
-                  </div>
-                  <div className="pt-2 flex justify-between">
-                    <span className="text-amber-800">Phone</span>
-                    <span className="font-mono text-zinc-900">{profile?.phone || '—'}</span>
-                  </div>
-                  <div className="pt-2 flex justify-between">
-                    <span className="text-amber-800">Territory Location</span>
-                    <span className="text-zinc-900 font-semibold">{profile?.location || 'Pan-India Corporate'}</span>
-                  </div>
-                  <div className="pt-2 flex justify-between">
-                    <span className="text-amber-800">Security UID</span>
-                    <span className="font-mono text-[10px] text-amber-700 truncate max-w-[130px]">{user?.uid}</span>
-                  </div>
-                </div>
-
-                <div className="p-3.5 rounded-2xl bg-white border border-amber-300 text-[11px] text-amber-900 space-y-1">
-                  <span className="font-bold text-amber-950 block">Note on Corporate ID:</span>
-                  <span>Corporate users can authenticate using either their Email address or Corporate ID ({corporateId}).</span>
-                </div>
+                {/* Edit Profile Button / Icon */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEditingProfile(!isEditingProfile);
+                    setProfileMessage(null);
+                  }}
+                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm ${
+                    isEditingProfile
+                      ? 'bg-zinc-200 hover:bg-zinc-300 text-zinc-800'
+                      : 'bg-amber-500 hover:bg-amber-600 text-amber-950 ring-2 ring-amber-400/50'
+                  }`}
+                >
+                  {isEditingProfile ? (
+                    <>
+                      <X className="w-4 h-4" />
+                      <span>Cancel Editing</span>
+                    </>
+                  ) : (
+                    <>
+                      <Edit3 className="w-4 h-4" />
+                      <span>Edit Profile Settings</span>
+                    </>
+                  )}
+                </button>
               </div>
 
-              {/* Edit Permitted Profile Details */}
-              <div className="p-6 sm:p-7 rounded-3xl bg-[#FFFBEB] border-2 border-amber-300 shadow-md space-y-4">
-                <div>
-                  <h3 className="font-extrabold text-base text-amber-950 flex items-center gap-2">
-                    <Edit3 className="w-4 h-4 text-amber-700" />
-                    <span>Edit Profile Information</span>
-                  </h3>
-                  <p className="text-xs text-amber-800 mt-0.5">
-                    Update your contact and territory details
-                  </p>
+              {/* Status Message */}
+              {profileMessage && (
+                <div
+                  className={`p-3.5 rounded-xl text-xs flex items-center gap-2.5 ${
+                    profileMessage.type === 'success'
+                      ? 'bg-emerald-100 border border-emerald-400 text-emerald-900 font-medium'
+                      : 'bg-red-100 border border-red-400 text-red-900 font-medium'
+                  }`}
+                >
+                  {profileMessage.type === 'success' ? (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
+                  ) : (
+                    <AlertCircle className="w-4 h-4 text-red-700 shrink-0" />
+                  )}
+                  <span>{profileMessage.text}</span>
                 </div>
+              )}
 
-                {profileMessage && (
-                  <div
-                    className={`p-3 rounded-xl text-xs flex items-center gap-2 ${
-                      profileMessage.type === 'success'
-                        ? 'bg-emerald-100 border border-emerald-400 text-emerald-900 font-medium'
-                        : 'bg-red-100 border border-red-400 text-red-900 font-medium'
-                    }`}
-                  >
-                    {profileMessage.type === 'success' ? (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-700" />
-                    ) : (
-                      <AlertCircle className="w-4 h-4 text-red-700" />
-                    )}
-                    <span>{profileMessage.text}</span>
+              {/* MODE A: READ-ONLY OVERVIEW */}
+              {!isEditingProfile ? (
+                <div className="space-y-6 animate-in fade-in">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    
+                    <div className="p-4 rounded-2xl bg-white border border-amber-300 shadow-xs space-y-1">
+                      <span className="text-[11px] font-bold text-amber-800 uppercase tracking-wider block">
+                        Corporate User ID
+                      </span>
+                      <div className="font-mono text-base font-extrabold text-amber-950 flex items-center gap-2">
+                        <span>{corporateId}</span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                          Active
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-white border border-amber-300 shadow-xs space-y-1">
+                      <span className="text-[11px] font-bold text-amber-800 uppercase tracking-wider block">
+                        Full Name
+                      </span>
+                      <div className="text-base font-extrabold text-zinc-900">
+                        {profile?.name || 'Sales Representative'}
+                      </div>
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-white border border-amber-300 shadow-xs space-y-1">
+                      <span className="text-[11px] font-bold text-amber-800 uppercase tracking-wider block">
+                        Designation / Role
+                      </span>
+                      <div className="text-sm font-bold text-zinc-900">
+                        {profile?.corporateRole || 'Asst. Sales Manager'}
+                      </div>
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-white border border-amber-300 shadow-xs space-y-1">
+                      <span className="text-[11px] font-bold text-amber-800 uppercase tracking-wider block">
+                        Official Login Email
+                      </span>
+                      <div className="font-mono text-xs font-semibold text-zinc-800 truncate">
+                        {profile?.email || user?.email}
+                      </div>
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-white border border-amber-300 shadow-xs space-y-1">
+                      <span className="text-[11px] font-bold text-amber-800 uppercase tracking-wider block">
+                        Contact Phone
+                      </span>
+                      <div className="font-mono text-sm font-semibold text-zinc-800">
+                        {profile?.phone || 'Not configured'}
+                      </div>
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-white border border-amber-300 shadow-xs space-y-1">
+                      <span className="text-[11px] font-bold text-amber-800 uppercase tracking-wider block">
+                        Territory / Location
+                      </span>
+                      <div className="text-sm font-semibold text-zinc-800">
+                        {profile?.location || 'Pan-India Corporate'}
+                      </div>
+                    </div>
+
                   </div>
-                )}
 
-                <form onSubmit={handleSaveProfile} className="space-y-3.5">
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-amber-950">Full Name</label>
-                    <input
-                      type="text"
-                      required
-                      value={editName}
-                      onChange={(e) => setEditName(e.target.value)}
-                      className="w-full bg-white border border-amber-300 focus:border-amber-600 rounded-xl px-3.5 py-2 text-xs text-zinc-900 outline-none"
-                    />
+                  <div className="p-4 rounded-2xl bg-amber-100/60 border border-amber-300 text-xs text-amber-950 flex items-start gap-3">
+                    <Shield className="w-4 h-4 text-purple-700 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold block">Enterprise Authentication Note:</span>
+                      <p className="text-amber-900 mt-0.5">
+                        You can sign in using your Corporate ID (<strong className="font-mono">{corporateId}</strong>) or registered email address. Click <strong>"Edit Profile Settings"</strong> above to update your contact information or change your password.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                /* MODE B: UNIFIED INLINE EDIT FORM (INFO + PASSWORD) */
+                <form onSubmit={handleSaveUnifiedProfile} className="space-y-6 animate-in fade-in">
+                  
+                  {/* Part 1: Contact & Location Information */}
+                  <div className="space-y-3">
+                    <h3 className="text-xs font-extrabold text-amber-950 uppercase tracking-wider flex items-center gap-1.5 pb-1 border-b border-amber-200">
+                      <Edit3 className="w-3.5 h-3.5 text-amber-700" />
+                      <span>Contact & Representative Details</span>
+                    </h3>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-amber-950">Display Name</label>
+                        <input
+                          type="text"
+                          required
+                          value={editName}
+                          onChange={(e) => setEditName(e.target.value)}
+                          placeholder="e.g. Priyanshu Kumar"
+                          className="w-full bg-white border border-amber-300 focus:border-amber-600 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 outline-none shadow-xs"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-amber-950">Contact Phone</label>
+                        <input
+                          type="text"
+                          value={editPhone}
+                          onChange={(e) => setEditPhone(e.target.value)}
+                          placeholder="+91 9876543210"
+                          className="w-full bg-white border border-amber-300 focus:border-amber-600 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 outline-none shadow-xs font-mono"
+                        />
+                      </div>
+
+                      <div className="sm:col-span-2 space-y-1">
+                        <label className="text-xs font-bold text-amber-950">Territory / Location</label>
+                        <input
+                          type="text"
+                          value={editLocation}
+                          onChange={(e) => setEditLocation(e.target.value)}
+                          placeholder="e.g. Mumbai Corporate Headquarters"
+                          className="w-full bg-white border border-amber-300 focus:border-amber-600 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 outline-none shadow-xs"
+                        />
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-amber-950">Contact Phone</label>
-                    <input
-                      type="text"
-                      value={editPhone}
-                      onChange={(e) => setEditPhone(e.target.value)}
-                      placeholder="+91 9876543210"
-                      className="w-full bg-white border border-amber-300 focus:border-amber-600 rounded-xl px-3.5 py-2 text-xs text-zinc-900 outline-none"
-                    />
+                  {/* Part 2: Change Password (Optional) */}
+                  <div className="space-y-3 pt-2">
+                    <div className="flex items-center justify-between pb-1 border-b border-amber-200">
+                      <h3 className="text-xs font-extrabold text-amber-950 uppercase tracking-wider flex items-center gap-1.5">
+                        <KeyRound className="w-3.5 h-3.5 text-amber-700" />
+                        <span>Change Password (Optional)</span>
+                      </h3>
+                      <span className="text-[10px] text-amber-700 font-medium">Leave blank if not changing</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      
+                      {/* Current Password */}
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-amber-950">Current Password</label>
+                        <div className="relative">
+                          <input
+                            type={showCurrentPassword ? 'text' : 'password'}
+                            value={currentPassword}
+                            onChange={(e) => setCurrentPassword(e.target.value)}
+                            placeholder="••••••••"
+                            className="w-full bg-white border border-amber-300 focus:border-amber-600 rounded-xl pl-3 pr-9 py-2 text-xs text-zinc-900 outline-none shadow-xs"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-800 p-1 cursor-pointer"
+                            title={showCurrentPassword ? 'Hide password' : 'Show password'}
+                          >
+                            {showCurrentPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* New Password */}
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-amber-950">New Password</label>
+                        <div className="relative">
+                          <input
+                            type={showNewPassword ? 'text' : 'password'}
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                            placeholder="Min 6 characters"
+                            className="w-full bg-white border border-amber-300 focus:border-amber-600 rounded-xl pl-3 pr-9 py-2 text-xs text-zinc-900 outline-none shadow-xs"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowNewPassword(!showNewPassword)}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-800 p-1 cursor-pointer"
+                            title={showNewPassword ? 'Hide password' : 'Show password'}
+                          >
+                            {showNewPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Confirm New Password */}
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-amber-950">Confirm New</label>
+                        <div className="relative">
+                          <input
+                            type={showConfirmPassword ? 'text' : 'password'}
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            placeholder="Re-enter password"
+                            className="w-full bg-white border border-amber-300 focus:border-amber-600 rounded-xl pl-3 pr-9 py-2 text-xs text-zinc-900 outline-none shadow-xs"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-800 p-1 cursor-pointer"
+                            title={showConfirmPassword ? 'Hide password' : 'Show password'}
+                          >
+                            {showConfirmPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                          </button>
+                        </div>
+                      </div>
+
+                    </div>
                   </div>
 
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-amber-950">Territory / Location</label>
-                    <input
-                      type="text"
-                      value={editLocation}
-                      onChange={(e) => setEditLocation(e.target.value)}
-                      placeholder="e.g. Mumbai Corporate Division"
-                      className="w-full bg-white border border-amber-300 focus:border-amber-600 rounded-xl px-3.5 py-2 text-xs text-zinc-900 outline-none"
-                    />
+                  {/* Actions */}
+                  <div className="flex flex-col sm:flex-row items-center justify-end gap-3 pt-4 border-t border-amber-200">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsEditingProfile(false);
+                        setProfileMessage(null);
+                      }}
+                      className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-zinc-200 hover:bg-zinc-300 text-zinc-800 font-bold text-xs cursor-pointer transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isUpdatingProfile}
+                      className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-amber-950 font-extrabold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                    >
+                      {isUpdatingProfile ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                          <span>Saving Changes...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Save className="w-4 h-4" />
+                          <span>Save Changes</span>
+                        </>
+                      )}
+                    </button>
                   </div>
 
-                  <button
-                    type="submit"
-                    disabled={isUpdatingProfile}
-                    className="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-amber-950 font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-                  >
-                    {isUpdatingProfile ? (
-                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <Save className="w-3.5 h-3.5" />
-                    )}
-                    <span>Save Profile Changes</span>
-                  </button>
                 </form>
-              </div>
-
-              {/* Secure Password Change with Hide / Unhide Toggle */}
-              <div className="p-6 sm:p-7 rounded-3xl bg-[#FFFBEB] border-2 border-amber-300 shadow-md space-y-4">
-                <div>
-                  <h3 className="font-extrabold text-base text-amber-950 flex items-center gap-2">
-                    <KeyRound className="w-4 h-4 text-amber-700" />
-                    <span>Change Password</span>
-                  </h3>
-                  <p className="text-xs text-amber-800 mt-0.5">
-                    Update your Firebase Authentication password
-                  </p>
-                </div>
-
-                {passwordMessage && (
-                  <div
-                    className={`p-3 rounded-xl text-xs flex items-center gap-2 ${
-                      passwordMessage.type === 'success'
-                        ? 'bg-emerald-100 border border-emerald-400 text-emerald-900 font-medium'
-                        : 'bg-red-100 border border-red-400 text-red-900 font-medium'
-                    }`}
-                  >
-                    {passwordMessage.type === 'success' ? (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-700" />
-                    ) : (
-                      <AlertCircle className="w-4 h-4 text-red-700" />
-                    )}
-                    <span>{passwordMessage.text}</span>
-                  </div>
-                )}
-
-                <form onSubmit={handleChangePasswordSubmit} className="space-y-3">
-                  {/* Current Password with Hide/Unhide */}
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-amber-950">Current Password</label>
-                    <div className="relative">
-                      <input
-                        type={showCurrentPassword ? 'text' : 'password'}
-                        required
-                        value={currentPassword}
-                        onChange={(e) => setCurrentPassword(e.target.value)}
-                        placeholder="••••••••"
-                        className="w-full bg-white border border-amber-300 focus:border-amber-600 rounded-xl pl-3.5 pr-10 py-2 text-xs text-zinc-900 outline-none"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-800 cursor-pointer p-1"
-                        title={showCurrentPassword ? 'Hide password' : 'Show password'}
-                      >
-                        {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* New Password with Hide/Unhide */}
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-amber-950">New Password</label>
-                    <div className="relative">
-                      <input
-                        type={showNewPassword ? 'text' : 'password'}
-                        required
-                        value={newPassword}
-                        onChange={(e) => setNewPassword(e.target.value)}
-                        placeholder="At least 6 characters"
-                        className="w-full bg-white border border-amber-300 focus:border-amber-600 rounded-xl pl-3.5 pr-10 py-2 text-xs text-zinc-900 outline-none"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowNewPassword(!showNewPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-800 cursor-pointer p-1"
-                        title={showNewPassword ? 'Hide password' : 'Show password'}
-                      >
-                        {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Confirm New Password with Hide/Unhide */}
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-amber-950">Confirm New Password</label>
-                    <div className="relative">
-                      <input
-                        type={showConfirmPassword ? 'text' : 'password'}
-                        required
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        placeholder="Re-enter new password"
-                        className="w-full bg-white border border-amber-300 focus:border-amber-600 rounded-xl pl-3.5 pr-10 py-2 text-xs text-zinc-900 outline-none"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-800 cursor-pointer p-1"
-                        title={showConfirmPassword ? 'Hide password' : 'Show password'}
-                      >
-                        {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
-                    </div>
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={isChangingPassword}
-                    className="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-amber-950 font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-                  >
-                    {isChangingPassword ? (
-                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <KeyRound className="w-3.5 h-3.5" />
-                    )}
-                    <span>Update Password</span>
-                  </button>
-                </form>
-              </div>
+              )}
 
             </div>
           </div>
@@ -831,13 +1035,13 @@ export const CorporateDashboard: React.FC = () => {
         )}
 
         {/* ======================================================================= */}
-        {/* TAB 4: ATTENDANCE (GOLDEN BG) */}
+        {/* TAB 4: ATTENDANCE (1 PER DAY LOCK & CLEAR FORM) */}
         {/* ======================================================================= */}
         {activeTab === 'attendance' && (
           <div className="space-y-6 animate-in fade-in">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               
-              {/* Attendance Submission Form */}
+              {/* Attendance Submission Form Card */}
               <div className="p-6 sm:p-7 rounded-3xl bg-[#FFFBEB] border-2 border-amber-300 shadow-md space-y-4">
                 <div>
                   <h3 className="font-extrabold text-base text-amber-950 flex items-center gap-2">
@@ -845,10 +1049,24 @@ export const CorporateDashboard: React.FC = () => {
                     <span>Submit Attendance</span>
                   </h3>
                   <p className="text-xs text-amber-800 mt-0.5">
-                    Log your daily work hours and client outreach
+                    Log your daily work hours and client outreach (1 submission / day)
                   </p>
                 </div>
 
+                {/* Daily Submission Limit Alert Notice */}
+                {hasMarkedTodayAttendance && (
+                  <div className="p-4 rounded-2xl bg-amber-100 border-2 border-amber-400 text-amber-950 space-y-1.5 shadow-sm">
+                    <div className="flex items-center gap-2 font-extrabold text-xs text-amber-950">
+                      <Lock className="w-4 h-4 text-amber-800" />
+                      <span>Today's Attendance Locked</span>
+                    </div>
+                    <p className="text-[11px] text-amber-900 leading-relaxed">
+                      You have already marked your attendance for today ({todayDateStr}). Status: <strong className="font-mono uppercase">{todayAttendanceRecord?.status}</strong>. The portal will automatically unlock tomorrow for your next entry.
+                    </p>
+                  </div>
+                )}
+
+                {/* Status Message */}
                 {attendanceMessage && (
                   <div
                     className={`p-3 rounded-xl text-xs flex items-center gap-2 ${
@@ -892,13 +1110,14 @@ export const CorporateDashboard: React.FC = () => {
                     <input
                       type="date"
                       required
+                      disabled={hasMarkedTodayAttendance}
                       value={attendanceDate}
                       onChange={(e) => setAttendanceDate(e.target.value)}
-                      className="w-full bg-white border border-amber-300 focus:border-amber-600 rounded-xl px-3.5 py-2 text-xs text-zinc-900 outline-none"
+                      className="w-full bg-white disabled:bg-zinc-100 disabled:cursor-not-allowed border border-amber-300 focus:border-amber-600 rounded-xl px-3.5 py-2 text-xs text-zinc-900 outline-none"
                     />
                   </div>
 
-                  {/* Today's Work Hours */}
+                  {/* Today's Work Hours (Clear initially) */}
                   <div className="space-y-1">
                     <label className="text-xs font-bold text-amber-950 block">
                       Today's Work Hours
@@ -908,14 +1127,15 @@ export const CorporateDashboard: React.FC = () => {
                       required
                       min={1}
                       max={24}
+                      disabled={hasMarkedTodayAttendance}
                       value={workHours}
                       onChange={(e) => setWorkHours(e.target.value)}
-                      placeholder="e.g. 8"
-                      className="w-full bg-white border border-amber-300 focus:border-amber-600 rounded-xl px-3.5 py-2 text-xs text-zinc-900 outline-none"
+                      placeholder="Enter work hours (e.g. 8)"
+                      className="w-full bg-white disabled:bg-zinc-100 disabled:cursor-not-allowed border border-amber-300 focus:border-amber-600 rounded-xl px-3.5 py-2 text-xs text-zinc-900 outline-none placeholder:text-zinc-400"
                     />
                   </div>
 
-                  {/* Expected Clients */}
+                  {/* Expected Clients (Clear initially) */}
                   <div className="space-y-1">
                     <label className="text-xs font-bold text-amber-950 block">
                       Expected Clients / Meetings
@@ -924,22 +1144,33 @@ export const CorporateDashboard: React.FC = () => {
                       type="number"
                       required
                       min={0}
+                      disabled={hasMarkedTodayAttendance}
                       value={expectedClients}
                       onChange={(e) => setExpectedClients(e.target.value)}
-                      placeholder="e.g. 5"
-                      className="w-full bg-white border border-amber-300 focus:border-amber-600 rounded-xl px-3.5 py-2 text-xs text-zinc-900 outline-none"
+                      placeholder="Enter expected clients (e.g. 5)"
+                      className="w-full bg-white disabled:bg-zinc-100 disabled:cursor-not-allowed border border-amber-300 focus:border-amber-600 rounded-xl px-3.5 py-2 text-xs text-zinc-900 outline-none placeholder:text-zinc-400"
                     />
                   </div>
 
+                  {/* Submit Button (Locked if marked today) */}
                   <button
                     type="submit"
-                    disabled={isSubmittingAttendance}
-                    className="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-amber-950 font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                    disabled={isSubmittingAttendance || hasMarkedTodayAttendance}
+                    className={`w-full py-3 rounded-xl font-extrabold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                      hasMarkedTodayAttendance
+                        ? 'bg-zinc-300 text-zinc-600 cursor-not-allowed border border-zinc-400 shadow-none'
+                        : 'bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-amber-950 ring-2 ring-amber-400/60'
+                    }`}
                   >
                     {isSubmittingAttendance ? (
                       <>
                         <RefreshCw className="w-3.5 h-3.5 animate-spin" />
                         <span>Submitting Attendance...</span>
+                      </>
+                    ) : hasMarkedTodayAttendance ? (
+                      <>
+                        <Lock className="w-3.5 h-3.5 text-zinc-600" />
+                        <span>Attendance Already Marked for Today</span>
                       </>
                     ) : (
                       <>
