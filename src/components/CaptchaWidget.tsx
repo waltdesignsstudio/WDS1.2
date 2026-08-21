@@ -4,6 +4,7 @@ import { RefreshCw, CheckCircle2, Calculator, ShieldCheck } from 'lucide-react';
 interface CaptchaWidgetProps {
   onVerify: (token: string | null) => void;
   resetTrigger?: number;
+  theme?: 'light' | 'dark';
 }
 
 interface MathProblem {
@@ -13,7 +14,11 @@ interface MathProblem {
   answer: number;
 }
 
-export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({ onVerify, resetTrigger = 0 }) => {
+export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
+  onVerify,
+  resetTrigger = 0,
+  theme = 'light',
+}) => {
   const [problem, setProblem] = useState<MathProblem>({ num1: 7, num2: 5, operator: '+', answer: 12 });
   const [userAnswer, setUserAnswer] = useState<string>('');
   const [isCorrect, setIsCorrect] = useState<boolean>(false);
@@ -79,15 +84,17 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({ onVerify, resetTri
     }
   };
 
+  const isLight = theme === 'light';
+
   return (
     <div className="w-full my-2 space-y-1.5 font-sans">
-      <div className="flex items-center justify-between text-xs font-semibold text-zinc-300">
-        <label className="flex items-center gap-1.5 text-zinc-300">
-          <Calculator className="w-3.5 h-3.5 text-amber-400" />
+      <div className="flex items-center justify-between text-xs font-semibold">
+        <label className={`flex items-center gap-1.5 ${isLight ? 'text-zinc-700' : 'text-zinc-300'}`}>
+          <Calculator className="w-3.5 h-3.5 text-red-600" />
           <span>Security Verification (Math Challenge)</span>
         </label>
-        <span className="text-[10px] text-zinc-400 font-mono flex items-center gap-1">
-          <ShieldCheck className="w-3 h-3 text-emerald-400" />
+        <span className={`text-[10px] font-mono flex items-center gap-1 ${isLight ? 'text-zinc-500' : 'text-zinc-400'}`}>
+          <ShieldCheck className="w-3 h-3 text-emerald-600" />
           <span>Human Verification</span>
         </span>
       </div>
@@ -95,17 +102,27 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({ onVerify, resetTri
       <div
         className={`p-3 rounded-xl border transition-all flex flex-wrap sm:flex-nowrap items-center justify-between gap-3 ${
           isCorrect
-            ? 'bg-emerald-950/40 border-emerald-500/50 text-emerald-200 shadow-sm'
+            ? isLight
+              ? 'bg-emerald-50 border-emerald-400 text-emerald-950 shadow-xs'
+              : 'bg-emerald-950/40 border-emerald-500/50 text-emerald-200 shadow-sm'
+            : isLight
+            ? 'bg-zinc-50 border-zinc-300 text-zinc-900 hover:border-red-400 shadow-xs'
             : 'bg-black/40 border-white/15 text-white hover:border-amber-500/40'
         }`}
       >
         {/* Math Question Display */}
         <div className="flex items-center gap-2.5">
-          <div className="px-3 py-1.5 rounded-lg bg-black/60 border border-white/10 text-white font-mono font-bold text-sm tracking-wider select-none shadow-inner flex items-center gap-1.5">
-            <span className="text-amber-300">{problem.num1}</span>
-            <span className="text-zinc-400 font-extrabold">{problem.operator}</span>
-            <span className="text-amber-300">{problem.num2}</span>
-            <span className="text-zinc-400">=</span>
+          <div
+            className={`px-3 py-1.5 rounded-lg border font-mono font-bold text-sm tracking-wider select-none flex items-center gap-1.5 ${
+              isLight
+                ? 'bg-white border-zinc-300 text-zinc-900 shadow-xs'
+                : 'bg-black/60 border-white/10 text-white shadow-inner'
+            }`}
+          >
+            <span className="text-red-600 font-extrabold">{problem.num1}</span>
+            <span className="text-zinc-600 font-extrabold">{problem.operator}</span>
+            <span className="text-red-600 font-extrabold">{problem.num2}</span>
+            <span className="text-zinc-600 font-extrabold">=</span>
           </div>
 
           {/* User Answer Input */}
@@ -119,7 +136,11 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({ onVerify, resetTri
               placeholder="?"
               className={`w-16 h-9 text-center font-mono font-extrabold text-sm rounded-lg border outline-none transition-all ${
                 isCorrect
-                  ? 'bg-emerald-950/80 border-emerald-400 text-emerald-200 ring-2 ring-emerald-500/30'
+                  ? isLight
+                    ? 'bg-white border-emerald-500 text-emerald-700 ring-2 ring-emerald-500/20'
+                    : 'bg-emerald-950/80 border-emerald-400 text-emerald-200 ring-2 ring-emerald-500/30'
+                  : isLight
+                  ? 'bg-white border-zinc-300 text-zinc-900 focus:border-red-600 focus:ring-1 focus:ring-red-600/30'
                   : 'bg-black/60 border-white/20 text-white focus:border-amber-400 focus:ring-1 focus:ring-amber-400/50'
               }`}
               maxLength={4}
@@ -131,12 +152,16 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({ onVerify, resetTri
         {/* Status Indicator & Refresh Control */}
         <div className="flex items-center gap-2 ml-auto">
           {isCorrect ? (
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-500/20 text-emerald-300 font-bold text-xs">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+            <div
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md font-bold text-xs ${
+                isLight ? 'bg-emerald-100 text-emerald-800' : 'bg-emerald-500/20 text-emerald-300'
+              }`}
+            >
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
               <span>Verified</span>
             </div>
           ) : (
-            <span className="text-[11px] text-zinc-400 hidden sm:inline-block">
+            <span className={`text-[11px] hidden sm:inline-block ${isLight ? 'text-zinc-500' : 'text-zinc-400'}`}>
               Type answer
             </span>
           )}
@@ -144,7 +169,11 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({ onVerify, resetTri
           <button
             type="button"
             onClick={generateNewProblem}
-            className="p-2 rounded-lg bg-white/5 hover:bg-white/15 text-zinc-400 hover:text-white transition-colors cursor-pointer border border-white/10"
+            className={`p-2 rounded-lg transition-colors cursor-pointer border ${
+              isLight
+                ? 'bg-white hover:bg-zinc-100 text-zinc-700 border-zinc-300 shadow-xs'
+                : 'bg-white/5 hover:bg-white/15 text-zinc-400 hover:text-white border-white/10'
+            }`}
             title="Generate new math question"
             aria-label="New math problem"
           >
