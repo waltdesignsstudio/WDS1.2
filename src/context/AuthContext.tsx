@@ -20,6 +20,7 @@ import {
   addDoc,
   orderBy,
   serverTimestamp,
+  deleteDoc,
 } from 'firebase/firestore';
 import { initializeApp, deleteApp } from 'firebase/app';
 import {

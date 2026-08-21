@@ -33,6 +33,8 @@ import {
   Trash2,
   Plus,
   Send,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { useAuth, UserProfile, AttendanceRecord, DailyReportItem } from '../context/AuthContext';
 import { AGENCY_INFO } from '../data/agencyData';
@@ -95,10 +97,13 @@ export const AdminDashboard: React.FC = () => {
   const [profileMessage, setProfileMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
 
-  // Admin Change Password State
+  // Admin Change Password State & Password Visibility
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [passwordMessage, setPasswordMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
 
@@ -115,6 +120,7 @@ export const AdminDashboard: React.FC = () => {
   const [regLocation, setRegLocation] = useState('');
   const [regRole, setRegRole] = useState('Asst. Sales Manager');
   const [regPassword, setRegPassword] = useState('');
+  const [showRegPassword, setShowRegPassword] = useState(false);
   const [regIncome, setRegIncome] = useState<number>(0);
   const [regProgress, setRegProgress] = useState<number>(0);
   const [regError, setRegError] = useState<string | null>(null);
@@ -246,7 +252,6 @@ export const AdminDashboard: React.FC = () => {
   };
 
   // Attendance Status Update (Approve / Reject)
-  // Enforces: Once Approved or Rejected, status is permanent and final.
   const handleUpdateAttendanceStatus = async (attendanceId: string, newStatus: 'approved' | 'rejected') => {
     setAttendanceActionId(attendanceId);
     try {
@@ -272,7 +277,6 @@ export const AdminDashboard: React.FC = () => {
     e.preventDefault();
     setReportFormError(null);
 
-    // Mandatory Employee Selection Validation
     if (!selectedEmployeeUid) {
       setReportFormError('Please select a corporate employee. Employee selection is mandatory.');
       return;
@@ -472,12 +476,12 @@ export const AdminDashboard: React.FC = () => {
   const pendingAttendanceCount = attendanceList.filter((a) => a.status === 'pending').length;
 
   return (
-    <div className="min-h-screen bg-[#1a021e] text-white flex flex-col font-sans selection:bg-amber-500 selection:text-black">
+    <div className="min-h-screen bg-[#FDF2F4] text-zinc-900 flex flex-col font-sans selection:bg-purple-600 selection:text-white">
       
       {/* ========================================================================= */}
-      {/* DEDICATED ADMIN TOP BAR */}
+      {/* PURPLE HEADER */}
       {/* ========================================================================= */}
-      <header className="bg-[#240528] border-b border-amber-500/30 sticky top-0 z-40 shadow-xl backdrop-blur-md">
+      <header className="bg-[#3B0764] text-white border-b border-purple-900 sticky top-0 z-40 shadow-xl">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5">
           <div className="flex items-center justify-between gap-4">
             
@@ -486,18 +490,18 @@ export const AdminDashboard: React.FC = () => {
               <img
                 src={AGENCY_INFO.logoUrl}
                 alt="Walt Designs & Studio"
-                className="w-10 h-10 rounded-lg object-cover ring-1 ring-amber-500/40"
+                className="w-10 h-10 rounded-xl object-cover ring-2 ring-pink-400/50 shadow-md"
               />
               <div>
                 <div className="flex items-center gap-2">
                   <span className="font-bold text-lg text-white tracking-tight">
                     Walt Designs & Studio
                   </span>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500 text-black uppercase tracking-wider">
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-pink-500 text-white uppercase tracking-wider shadow-sm">
                     Admin IT Hub
                   </span>
                 </div>
-                <p className="text-xs text-zinc-400 font-mono hidden sm:block">
+                <p className="text-xs text-purple-200 font-mono hidden sm:block">
                   Admin User ID: <span className="text-amber-300 font-bold">{profile?.adminUserId || 'ADM-PRIMARY'}</span> • {user?.email}
                 </p>
               </div>
@@ -505,14 +509,14 @@ export const AdminDashboard: React.FC = () => {
 
             {/* Admin Header Actions */}
             <div className="flex items-center gap-3">
-              <div className="hidden lg:flex items-center gap-2 px-3 py-1 rounded-full bg-black/40 border border-white/10 text-xs font-mono text-zinc-300">
-                <Terminal className="w-3.5 h-3.5 text-amber-400" />
+              <div className="hidden lg:flex items-center gap-2 px-3 py-1 rounded-full bg-purple-900/60 border border-purple-700/60 text-xs font-mono text-purple-200">
+                <Terminal className="w-3.5 h-3.5 text-pink-400" />
                 <span>IT & Data Operations</span>
               </div>
 
               <button
                 onClick={() => logout()}
-                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-red-950/70 hover:bg-red-900 border border-red-500/40 text-red-200 shadow-sm transition-all cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-red-600 hover:bg-red-700 text-white shadow-sm transition-all cursor-pointer"
               >
                 <LogOut className="w-3.5 h-3.5" />
                 <span>Logout</span>
@@ -522,15 +526,15 @@ export const AdminDashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* ADMIN DASHBOARD NAVIGATION TABS */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 border-t border-white/10 overflow-x-auto no-scrollbar">
+        {/* ADMIN DASHBOARD NAVIGATION TABS ON PURPLE HEADER */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 border-t border-purple-800/80 overflow-x-auto no-scrollbar">
           <nav className="flex items-center gap-2 py-2">
             <button
               onClick={() => setActiveTab('dashboard')}
               className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
                 activeTab === 'dashboard'
-                  ? 'bg-amber-500 text-black shadow-md'
-                  : 'text-zinc-300 hover:text-white hover:bg-white/5'
+                  ? 'bg-pink-500 text-white shadow-md font-extrabold'
+                  : 'text-purple-200 hover:text-white hover:bg-white/10'
               }`}
             >
               <LayoutDashboard className="w-4 h-4" />
@@ -541,8 +545,8 @@ export const AdminDashboard: React.FC = () => {
               onClick={() => setActiveTab('profile')}
               className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
                 activeTab === 'profile'
-                  ? 'bg-amber-500 text-black shadow-md'
-                  : 'text-zinc-300 hover:text-white hover:bg-white/5'
+                  ? 'bg-pink-500 text-white shadow-md font-extrabold'
+                  : 'text-purple-200 hover:text-white hover:bg-white/10'
               }`}
             >
               <User className="w-4 h-4" />
@@ -553,14 +557,14 @@ export const AdminDashboard: React.FC = () => {
               onClick={() => setActiveTab('portfolio')}
               className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
                 activeTab === 'portfolio'
-                  ? 'bg-amber-500 text-black shadow-md'
-                  : 'text-zinc-300 hover:text-white hover:bg-white/5'
+                  ? 'bg-pink-500 text-white shadow-md font-extrabold'
+                  : 'text-purple-200 hover:text-white hover:bg-white/10'
               }`}
             >
               <Layers className="w-4 h-4" />
               <span>Portfolio</span>
-              <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
-                activeTab === 'portfolio' ? 'bg-black/30 text-black' : 'bg-white/10 text-zinc-300'
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
+                activeTab === 'portfolio' ? 'bg-purple-950 text-pink-300' : 'bg-purple-800 text-white'
               }`}>
                 {corporateList.length}
               </span>
@@ -570,8 +574,8 @@ export const AdminDashboard: React.FC = () => {
               onClick={() => setActiveTab('corporate-registration')}
               className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
                 activeTab === 'corporate-registration'
-                  ? 'bg-amber-500 text-black shadow-md'
-                  : 'text-zinc-300 hover:text-white hover:bg-white/5'
+                  ? 'bg-pink-500 text-white shadow-md font-extrabold'
+                  : 'text-purple-200 hover:text-white hover:bg-white/10'
               }`}
             >
               <UserPlus className="w-4 h-4" />
@@ -582,14 +586,14 @@ export const AdminDashboard: React.FC = () => {
               onClick={() => setActiveTab('attendance')}
               className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
                 activeTab === 'attendance'
-                  ? 'bg-amber-500 text-black shadow-md'
-                  : 'text-zinc-300 hover:text-white hover:bg-white/5'
+                  ? 'bg-pink-500 text-white shadow-md font-extrabold'
+                  : 'text-purple-200 hover:text-white hover:bg-white/10'
               }`}
             >
               <Calendar className="w-4 h-4" />
               <span>Attendance</span>
               {pendingAttendanceCount > 0 && (
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-400 text-black animate-pulse">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-400 text-purple-950 animate-pulse">
                   {pendingAttendanceCount} Pending
                 </span>
               )}
@@ -599,15 +603,15 @@ export const AdminDashboard: React.FC = () => {
               onClick={() => setActiveTab('daily-report')}
               className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
                 activeTab === 'daily-report'
-                  ? 'bg-amber-500 text-black shadow-md'
-                  : 'text-zinc-300 hover:text-white hover:bg-white/5'
+                  ? 'bg-pink-500 text-white shadow-md font-extrabold'
+                  : 'text-purple-200 hover:text-white hover:bg-white/10'
               }`}
             >
               <FileSpreadsheet className="w-4 h-4" />
               <span>Daily Data Report</span>
               {dailyReportList.length > 0 && (
-                <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
-                  activeTab === 'daily-report' ? 'bg-black/30 text-black' : 'bg-white/10 text-zinc-300'
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
+                  activeTab === 'daily-report' ? 'bg-purple-950 text-pink-300' : 'bg-purple-800 text-white'
                 }`}>
                   {dailyReportList.length}
                 </span>
@@ -618,276 +622,212 @@ export const AdminDashboard: React.FC = () => {
       </header>
 
       {/* ========================================================================= */}
-      {/* MAIN ADMIN DASHBOARD BODY */}
+      {/* BABY PINK ADMIN DASHBOARD BODY */}
       {/* ========================================================================= */}
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 space-y-6">
 
         {/* Global Toast for Success */}
         {updateSuccess && (
-          <div className="p-4 rounded-xl bg-emerald-950/90 border border-emerald-500/60 text-emerald-200 text-xs font-semibold flex items-center gap-2 shadow-lg animate-in fade-in">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+          <div className="p-4 rounded-2xl bg-emerald-100 border border-emerald-400 text-emerald-900 text-xs font-bold flex items-center gap-2 shadow-md animate-in fade-in">
+            <CheckCircle2 className="w-4 h-4 text-emerald-700" />
             <span>{updateSuccess}</span>
           </div>
         )}
 
         {/* ======================================================================= */}
-        {/* TAB 1: DASHBOARD (MAIN LANDING & METRICS) */}
+        {/* TAB 1: DASHBOARD (BABY PINK BG & CLEAN WHITE/PINK CARDS) */}
         {/* ======================================================================= */}
         {activeTab === 'dashboard' && (
           <div className="space-y-6 animate-in fade-in">
             {/* Top Welcome Banner */}
-            <div className="p-6 rounded-2xl bg-[#250529] border border-amber-500/30 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6">
-              <div className="space-y-1">
+            <div className="p-6 sm:p-8 rounded-3xl bg-white border-2 border-pink-200 shadow-md flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div className="space-y-1.5">
                 <div className="flex items-center gap-2">
-                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/20 border border-amber-500/40 text-amber-300 uppercase tracking-wider">
+                  <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-pink-100 text-purple-950 uppercase tracking-wider border border-pink-300">
                     Master Administrator
                   </span>
-                  <span className="text-xs font-mono text-zinc-400">
+                  <span className="text-xs font-mono font-bold text-pink-700">
                     ID: {profile?.adminUserId || 'ADM-PRIMARY'}
                   </span>
                 </div>
-                <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-purple-950 tracking-tight">
                   Welcome back, {profile?.name || 'Administrator'}
                 </h1>
-                <p className="text-xs text-zinc-300">
-                  Control center for corporate user provisioning, attendance validation, and platform data maintenance.
+                <p className="text-xs sm:text-sm text-zinc-600 max-w-2xl">
+                  Walt Designs & Studio operational oversight node. Manage corporate sales forces, verify employee attendance records, and assign daily data reports.
                 </p>
               </div>
 
               <div className="flex flex-wrap items-center gap-3">
                 <button
-                  onClick={() => setActiveTab('attendance')}
-                  className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs font-bold shadow-md transition-all flex items-center gap-2 cursor-pointer"
-                >
-                  <Calendar className="w-4 h-4 text-amber-400" />
-                  <span>Review Attendance ({pendingAttendanceCount} Pending)</span>
-                </button>
-
-                <button
                   onClick={() => setActiveTab('corporate-registration')}
-                  className="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold shadow-md transition-all flex items-center gap-2 cursor-pointer"
+                  className="px-4 py-2.5 rounded-xl bg-purple-900 hover:bg-purple-950 text-white text-xs font-bold shadow-md transition-all flex items-center gap-2 cursor-pointer"
                 >
-                  <UserPlus className="w-4 h-4" />
+                  <UserPlus className="w-4 h-4 text-pink-300" />
                   <span>Register Corporate User</span>
                 </button>
+                <button
+                  onClick={() => setActiveTab('daily-report')}
+                  className="px-4 py-2.5 rounded-xl bg-pink-500 hover:bg-pink-600 text-white text-xs font-bold shadow-md transition-all flex items-center gap-2 cursor-pointer"
+                >
+                  <FileSpreadsheet className="w-4 h-4 text-white" />
+                  <span>Daily Data Report</span>
+                </button>
               </div>
             </div>
 
-            {/* Quick Metrics */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-              <div className="p-5 rounded-2xl bg-[#250529] border border-white/10 shadow-md">
-                <div className="flex items-center justify-between text-zinc-400 text-xs font-semibold mb-2">
+            {/* Quick Metrics Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="p-5 rounded-2xl bg-white border border-pink-200 shadow-sm">
+                <div className="flex items-center justify-between text-zinc-500 text-xs font-bold mb-2">
                   <span>Corporate Reps</span>
-                  <Users className="w-4 h-4 text-amber-400" />
+                  <Users className="w-4 h-4 text-purple-600" />
                 </div>
-                <div className="text-3xl font-extrabold text-white font-mono">
+                <div className="text-3xl font-extrabold text-purple-950 font-mono">
                   {corporateList.length}
                 </div>
-                <span className="text-[11px] text-zinc-400 mt-1 block">Active sales team members</span>
+                <span className="text-[11px] text-pink-700 font-medium mt-1 block">Active sales team members</span>
               </div>
 
-              <div className="p-5 rounded-2xl bg-[#250529] border border-white/10 shadow-md">
-                <div className="flex items-center justify-between text-zinc-400 text-xs font-semibold mb-2">
-                  <span>Cumulative Fleet Revenue</span>
-                  <DollarSign className="w-4 h-4 text-emerald-400" />
+              <div className="p-5 rounded-2xl bg-white border border-pink-200 shadow-sm">
+                <div className="flex items-center justify-between text-zinc-500 text-xs font-bold mb-2">
+                  <span>Cumulative Sales</span>
+                  <DollarSign className="w-4 h-4 text-emerald-600" />
                 </div>
-                <div className="text-3xl font-extrabold text-emerald-400 font-mono">
+                <div className="text-3xl font-extrabold text-emerald-700 font-mono">
                   ₹{totalFleetIncome.toLocaleString('en-IN')}
                 </div>
-                <span className="text-[11px] text-zinc-400 mt-1 block">Total distributed income</span>
+                <span className="text-[11px] text-zinc-500 mt-1 block">Fleet income tracked</span>
               </div>
 
-              <div className="p-5 rounded-2xl bg-[#250529] border border-white/10 shadow-md">
-                <div className="flex items-center justify-between text-zinc-400 text-xs font-semibold mb-2">
-                  <span>Avg Target Progress</span>
-                  <TrendingUp className="w-4 h-4 text-amber-400" />
-                </div>
-                <div className="text-3xl font-extrabold text-amber-400 font-mono">
-                  {avgProgress}%
-                </div>
-                <span className="text-[11px] text-zinc-400 mt-1 block">Fleet execution efficiency</span>
-              </div>
-
-              <div className="p-5 rounded-2xl bg-[#250529] border border-white/10 shadow-md">
-                <div className="flex items-center justify-between text-zinc-400 text-xs font-semibold mb-2">
+              <div className="p-5 rounded-2xl bg-white border border-pink-200 shadow-sm">
+                <div className="flex items-center justify-between text-zinc-500 text-xs font-bold mb-2">
                   <span>Pending Attendance</span>
-                  <Clock className="w-4 h-4 text-amber-400" />
+                  <Clock className="w-4 h-4 text-amber-500" />
                 </div>
-                <div className="text-3xl font-extrabold text-amber-300 font-mono">
+                <div className="text-3xl font-extrabold text-amber-600 font-mono">
                   {pendingAttendanceCount}
                 </div>
-                <span className="text-[11px] text-zinc-400 mt-1 block">Submissions awaiting review</span>
+                <span className="text-[11px] text-zinc-500 mt-1 block">Awaiting admin review</span>
+              </div>
+
+              <div className="p-5 rounded-2xl bg-white border border-pink-200 shadow-sm">
+                <div className="flex items-center justify-between text-zinc-500 text-xs font-bold mb-2">
+                  <span>Daily Data Reports</span>
+                  <FileSpreadsheet className="w-4 h-4 text-pink-500" />
+                </div>
+                <div className="text-3xl font-extrabold text-pink-600 font-mono">
+                  {dailyReportList.length}
+                </div>
+                <span className="text-[11px] text-zinc-500 mt-1 block">Total client lead records</span>
               </div>
             </div>
 
-            {/* Quick Actions & Recent Attendance Review */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2 p-6 rounded-2xl bg-[#250529] border border-white/10 shadow-xl space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-bold text-base text-white flex items-center gap-2">
-                      <Calendar className="w-4 h-4 text-amber-400" />
-                      <span>Recent Attendance Submissions</span>
-                    </h3>
-                    <p className="text-xs text-zinc-400 mt-0.5">
-                      Review and manage employee work hours
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => setActiveTab('attendance')}
-                    className="text-xs text-amber-400 hover:text-amber-300 font-semibold cursor-pointer"
-                  >
-                    Open Attendance Tab ({attendanceList.length}) →
-                  </button>
+            {/* Quick Actions / Navigation Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div 
+                onClick={() => setActiveTab('corporate-registration')}
+                className="p-6 rounded-2xl bg-white border border-pink-200 hover:border-pink-400 shadow-sm hover:shadow-md transition-all cursor-pointer space-y-2 group"
+              >
+                <div className="w-10 h-10 rounded-xl bg-pink-100 text-purple-900 flex items-center justify-center group-hover:scale-105 transition-transform">
+                  <UserPlus className="w-5 h-5" />
                 </div>
-
-                {attendanceList.length === 0 ? (
-                  <p className="text-xs text-zinc-400 p-4 text-center">No attendance records submitted yet.</p>
-                ) : (
-                  <div className="space-y-2.5">
-                    {attendanceList.slice(0, 4).map((item) => (
-                      <div
-                        key={item.id}
-                        className="p-3.5 rounded-xl bg-black/40 border border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-                      >
-                        <div className="space-y-0.5">
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-xs text-white">{item.employeeName}</span>
-                            <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-amber-500/20 text-amber-300">
-                              {item.employeeCode}
-                            </span>
-                            <span className="text-xs text-zinc-400">• {item.date}</span>
-                          </div>
-                          <p className="text-[11px] text-zinc-400 font-mono">
-                            Work: {item.todayWorkHours} hrs • Expected Clients: {item.expectedClients}
-                          </p>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase font-mono ${
-                              item.status === 'pending'
-                                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                                : item.status === 'approved'
-                                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                                : 'bg-red-500/20 text-red-300 border border-red-500/40'
-                            }`}
-                          >
-                            {item.status}
-                          </span>
-
-                          {item.status === 'pending' && (
-                            <div className="flex items-center gap-1">
-                              <button
-                                onClick={() => handleUpdateAttendanceStatus(item.id, 'approved')}
-                                className="p-1 rounded bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-300 transition-colors"
-                                title="Approve"
-                              >
-                                <Check className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                onClick={() => handleUpdateAttendanceStatus(item.id, 'rejected')}
-                                className="p-1 rounded bg-red-500/20 hover:bg-red-500/40 text-red-300 transition-colors"
-                                title="Reject"
-                              >
-                                <X className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <h3 className="font-bold text-base text-purple-950">Add Corporate Representative</h3>
+                <p className="text-xs text-zinc-600 leading-relaxed">
+                  Provision new employee accounts and generate unique WDS Corporate IDs with initial target quotas.
+                </p>
               </div>
 
-              {/* System Security Card */}
-              <div className="p-6 rounded-2xl bg-[#250529] border border-white/10 shadow-xl space-y-4">
-                <h3 className="font-bold text-base text-white flex items-center gap-2">
-                  <Shield className="w-4 h-4 text-amber-400" />
-                  <span>Security & Compliance</span>
-                </h3>
-                <div className="space-y-3 text-xs text-zinc-300 divide-y divide-white/5">
-                  <div className="pt-2">
-                    <span className="text-zinc-400 block">Isolated Secondary Provisioning:</span>
-                    <span className="text-emerald-400 font-mono text-[11px]">ACTIVE (Zero Session Reset)</span>
-                  </div>
-                  <div className="pt-2">
-                    <span className="text-zinc-400 block">Cloudflare Turnstile CAPTCHA:</span>
-                    <span className="text-emerald-400 font-mono text-[11px]">ENABLED on All Logins</span>
-                  </div>
-                  <div className="pt-2">
-                    <span className="text-zinc-400 block">Firestore Security Rules:</span>
-                    <span className="text-emerald-400 font-mono text-[11px]">ENFORCED (Role-Based + Attendance Guard)</span>
-                  </div>
-                  <div className="pt-2">
-                    <span className="text-zinc-400 block">Public Registration:</span>
-                    <span className="text-zinc-300 font-mono text-[11px]">DISABLED (Admin-Only Creation)</span>
-                  </div>
+              <div 
+                onClick={() => setActiveTab('attendance')}
+                className="p-6 rounded-2xl bg-white border border-pink-200 hover:border-pink-400 shadow-sm hover:shadow-md transition-all cursor-pointer space-y-2 group"
+              >
+                <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center group-hover:scale-105 transition-transform">
+                  <Calendar className="w-5 h-5" />
                 </div>
+                <h3 className="font-bold text-base text-purple-950">Verify Daily Attendance</h3>
+                <p className="text-xs text-zinc-600 leading-relaxed">
+                  Review logged work hours, examine reported expected clients, and approve or reject submissions permanently.
+                </p>
+              </div>
+
+              <div 
+                onClick={() => setActiveTab('daily-report')}
+                className="p-6 rounded-2xl bg-white border border-pink-200 hover:border-pink-400 shadow-sm hover:shadow-md transition-all cursor-pointer space-y-2 group"
+              >
+                <div className="w-10 h-10 rounded-xl bg-purple-100 text-purple-900 flex items-center justify-center group-hover:scale-105 transition-transform">
+                  <FileSpreadsheet className="w-5 h-5" />
+                </div>
+                <h3 className="font-bold text-base text-purple-950">Daily Data Report Hub</h3>
+                <p className="text-xs text-zinc-600 leading-relaxed">
+                  Create daily lead reports and assign client requirements to specific sales employees with tracking.
+                </p>
               </div>
             </div>
           </div>
         )}
 
         {/* ======================================================================= */}
-        {/* TAB 2: MY PROFILE (DETAILS + EDITING + PASSWORD CHANGE) */}
+        {/* TAB 2: MY PROFILE (BABY PINK BG) */}
         {/* ======================================================================= */}
         {activeTab === 'profile' && (
           <div className="space-y-6 animate-in fade-in">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               
-              {/* Profile Details */}
-              <div className="p-6 rounded-2xl bg-[#250529] border border-white/10 shadow-xl space-y-6">
+              {/* Admin Profile Overview */}
+              <div className="p-6 sm:p-7 rounded-3xl bg-white border-2 border-pink-200 shadow-md space-y-5">
                 <div>
-                  <h3 className="font-bold text-base text-white flex items-center gap-2">
-                    <User className="w-4 h-4 text-amber-400" />
-                    <span>Administrator Credentials</span>
+                  <h3 className="font-extrabold text-base text-purple-950 flex items-center gap-2">
+                    <Shield className="w-4 h-4 text-pink-600" />
+                    <span>Administrator Identity</span>
                   </h3>
-                  <p className="text-xs text-zinc-400 mt-0.5">
-                    Authorized Master IT Administrator Profile
+                  <p className="text-xs text-zinc-500 mt-0.5">
+                    Root administrative authority credentials
                   </p>
                 </div>
 
-                <div className="space-y-3 text-xs divide-y divide-white/5 font-sans">
+                <div className="space-y-3 text-xs divide-y divide-pink-100 font-sans">
                   <div className="pt-2 flex justify-between">
-                    <span className="text-zinc-400">Admin User ID</span>
-                    <span className="font-mono font-bold text-amber-300">{profile?.adminUserId || 'ADM-PRIMARY'}</span>
+                    <span className="text-zinc-500">Admin User ID</span>
+                    <span className="font-mono font-bold text-purple-950">{profile?.adminUserId || 'ADM-PRIMARY'}</span>
                   </div>
                   <div className="pt-2 flex justify-between">
-                    <span className="text-zinc-400">Full Name</span>
-                    <span className="font-semibold text-white">{profile?.name || 'Administrator'}</span>
+                    <span className="text-zinc-500">Authority Role</span>
+                    <span className="font-bold text-purple-900">Master Agency Administrator</span>
                   </div>
                   <div className="pt-2 flex justify-between">
-                    <span className="text-zinc-400">Official Email</span>
-                    <span className="font-mono text-zinc-300 truncate max-w-[150px]">{profile?.email || user?.email}</span>
+                    <span className="text-zinc-500">Full Name</span>
+                    <span className="font-bold text-zinc-900">{profile?.name || 'Administrator'}</span>
                   </div>
                   <div className="pt-2 flex justify-between">
-                    <span className="text-zinc-400">Phone</span>
-                    <span className="font-mono text-zinc-300">{profile?.phone || '—'}</span>
+                    <span className="text-zinc-500">Login Email</span>
+                    <span className="font-mono text-zinc-900 truncate max-w-[160px]">{user?.email}</span>
                   </div>
                   <div className="pt-2 flex justify-between">
-                    <span className="text-zinc-400">System Role</span>
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500 text-black uppercase">
-                      {profile?.role || 'admin'}
-                    </span>
+                    <span className="text-zinc-500">Contact Phone</span>
+                    <span className="font-mono text-zinc-900">{profile?.phone || '—'}</span>
                   </div>
                   <div className="pt-2 flex justify-between">
-                    <span className="text-zinc-400">Security UID</span>
-                    <span className="font-mono text-[10px] text-zinc-400 truncate max-w-[130px]">{user?.uid}</span>
+                    <span className="text-zinc-500">Security UID</span>
+                    <span className="font-mono text-[10px] text-zinc-400 truncate max-w-[140px]">{user?.uid}</span>
                   </div>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-pink-50 border border-pink-200 text-[11px] text-pink-900 space-y-1">
+                  <span className="font-bold text-purple-950 block">Administrator Privilege Notice:</span>
+                  <span>You have root privileges to provision corporate accounts, review attendance, and assign client lead reports.</span>
                 </div>
               </div>
 
-              {/* Edit Permitted Profile Details */}
-              <div className="p-6 rounded-2xl bg-[#250529] border border-white/10 shadow-xl space-y-4">
+              {/* Edit Admin Contact Info */}
+              <div className="p-6 sm:p-7 rounded-3xl bg-white border-2 border-pink-200 shadow-md space-y-4">
                 <div>
-                  <h3 className="font-bold text-base text-white flex items-center gap-2">
-                    <Edit3 className="w-4 h-4 text-amber-400" />
-                    <span>Edit Profile Information</span>
+                  <h3 className="font-extrabold text-base text-purple-950 flex items-center gap-2">
+                    <Edit3 className="w-4 h-4 text-pink-600" />
+                    <span>Edit Profile Details</span>
                   </h3>
-                  <p className="text-xs text-zinc-400 mt-0.5">
-                    Update your administrative contact details
+                  <p className="text-xs text-zinc-500 mt-0.5">
+                    Update your official display name and contact phone
                   </p>
                 </div>
 
@@ -895,14 +835,14 @@ export const AdminDashboard: React.FC = () => {
                   <div
                     className={`p-3 rounded-xl text-xs flex items-center gap-2 ${
                       profileMessage.type === 'success'
-                        ? 'bg-emerald-950/80 border border-emerald-500/40 text-emerald-200'
-                        : 'bg-red-950/80 border border-red-500/40 text-red-200'
+                        ? 'bg-emerald-100 border border-emerald-400 text-emerald-900 font-medium'
+                        : 'bg-red-100 border border-red-400 text-red-900 font-medium'
                     }`}
                   >
                     {profileMessage.type === 'success' ? (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                      <CheckCircle2 className="w-4 h-4 text-emerald-700" />
                     ) : (
-                      <AlertCircle className="w-4 h-4 text-red-400" />
+                      <AlertCircle className="w-4 h-4 text-red-700" />
                     )}
                     <span>{profileMessage.text}</span>
                   </div>
@@ -910,50 +850,51 @@ export const AdminDashboard: React.FC = () => {
 
                 <form onSubmit={handleSaveAdminProfile} className="space-y-3.5">
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-zinc-300">Full Name</label>
+                    <label className="text-xs font-bold text-zinc-700">Display Name</label>
                     <input
                       type="text"
                       required
                       value={adminName}
                       onChange={(e) => setAdminName(e.target.value)}
-                      className="w-full bg-black/40 border border-white/15 focus:border-amber-500 rounded-xl px-3.5 py-2 text-xs text-white outline-none"
+                      placeholder="e.g. Priyanshu Kumar"
+                      className="w-full bg-white border border-pink-300 focus:border-purple-600 rounded-xl px-3.5 py-2 text-xs text-zinc-900 outline-none"
                     />
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-zinc-300">Contact Phone</label>
+                    <label className="text-xs font-bold text-zinc-700">Contact Phone</label>
                     <input
                       type="text"
                       value={adminPhone}
                       onChange={(e) => setAdminPhone(e.target.value)}
                       placeholder="+91 8276825128"
-                      className="w-full bg-black/40 border border-white/15 focus:border-amber-500 rounded-xl px-3.5 py-2 text-xs text-white outline-none"
+                      className="w-full bg-white border border-pink-300 focus:border-purple-600 rounded-xl px-3.5 py-2 text-xs text-zinc-900 outline-none"
                     />
                   </div>
 
                   <button
                     type="submit"
                     disabled={isUpdatingProfile}
-                    className="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                    className="w-full py-2.5 rounded-xl bg-purple-900 hover:bg-purple-950 text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                   >
                     {isUpdatingProfile ? (
                       <RefreshCw className="w-3.5 h-3.5 animate-spin" />
                     ) : (
-                      <Save className="w-3.5 h-3.5" />
+                      <Save className="w-3.5 h-3.5 text-pink-300" />
                     )}
-                    <span>Save Changes</span>
+                    <span>Save Administrator Profile</span>
                   </button>
                 </form>
               </div>
 
-              {/* Secure Password Change */}
-              <div className="p-6 rounded-2xl bg-[#250529] border border-white/10 shadow-xl space-y-4">
+              {/* Change Admin Password with Hide / Unhide Toggle */}
+              <div className="p-6 sm:p-7 rounded-3xl bg-white border-2 border-pink-200 shadow-md space-y-4">
                 <div>
-                  <h3 className="font-bold text-base text-white flex items-center gap-2">
-                    <KeyRound className="w-4 h-4 text-amber-400" />
+                  <h3 className="font-extrabold text-base text-purple-950 flex items-center gap-2">
+                    <KeyRound className="w-4 h-4 text-pink-600" />
                     <span>Change Password</span>
                   </h3>
-                  <p className="text-xs text-zinc-400 mt-0.5">
+                  <p className="text-xs text-zinc-500 mt-0.5">
                     Update your Firebase Authentication password
                   </p>
                 </div>
@@ -962,65 +903,98 @@ export const AdminDashboard: React.FC = () => {
                   <div
                     className={`p-3 rounded-xl text-xs flex items-center gap-2 ${
                       passwordMessage.type === 'success'
-                        ? 'bg-emerald-950/80 border border-emerald-500/40 text-emerald-200'
-                        : 'bg-red-950/80 border border-red-500/40 text-red-200'
+                        ? 'bg-emerald-100 border border-emerald-400 text-emerald-900 font-medium'
+                        : 'bg-red-100 border border-red-400 text-red-900 font-medium'
                     }`}
                   >
                     {passwordMessage.type === 'success' ? (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                      <CheckCircle2 className="w-4 h-4 text-emerald-700" />
                     ) : (
-                      <AlertCircle className="w-4 h-4 text-red-400" />
+                      <AlertCircle className="w-4 h-4 text-red-700" />
                     )}
                     <span>{passwordMessage.text}</span>
                   </div>
                 )}
 
                 <form onSubmit={handleChangeAdminPassword} className="space-y-3">
+                  {/* Current Password with Hide/Unhide */}
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-zinc-300">Current Password</label>
-                    <input
-                      type="password"
-                      required
-                      value={currentPassword}
-                      onChange={(e) => setCurrentPassword(e.target.value)}
-                      placeholder="••••••••"
-                      className="w-full bg-black/40 border border-white/15 focus:border-amber-500 rounded-xl px-3.5 py-2 text-xs text-white outline-none"
-                    />
+                    <label className="text-xs font-bold text-zinc-700">Current Password</label>
+                    <div className="relative">
+                      <input
+                        type={showCurrentPassword ? 'text' : 'password'}
+                        required
+                        value={currentPassword}
+                        onChange={(e) => setCurrentPassword(e.target.value)}
+                        placeholder="••••••••"
+                        className="w-full bg-white border border-pink-300 focus:border-purple-600 rounded-xl pl-3.5 pr-10 py-2 text-xs text-zinc-900 outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-800 cursor-pointer p-1"
+                        title={showCurrentPassword ? 'Hide password' : 'Show password'}
+                      >
+                        {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
                   </div>
 
+                  {/* New Password with Hide/Unhide */}
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-zinc-300">New Password</label>
-                    <input
-                      type="password"
-                      required
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      placeholder="At least 6 characters"
-                      className="w-full bg-black/40 border border-white/15 focus:border-amber-500 rounded-xl px-3.5 py-2 text-xs text-white outline-none"
-                    />
+                    <label className="text-xs font-bold text-zinc-700">New Password</label>
+                    <div className="relative">
+                      <input
+                        type={showNewPassword ? 'text' : 'password'}
+                        required
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        placeholder="At least 6 characters"
+                        className="w-full bg-white border border-pink-300 focus:border-purple-600 rounded-xl pl-3.5 pr-10 py-2 text-xs text-zinc-900 outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPassword(!showNewPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-800 cursor-pointer p-1"
+                        title={showNewPassword ? 'Hide password' : 'Show password'}
+                      >
+                        {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
                   </div>
 
+                  {/* Confirm New Password with Hide/Unhide */}
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-zinc-300">Confirm New Password</label>
-                    <input
-                      type="password"
-                      required
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      placeholder="Re-enter new password"
-                      className="w-full bg-black/40 border border-white/15 focus:border-amber-500 rounded-xl px-3.5 py-2 text-xs text-white outline-none"
-                    />
+                    <label className="text-xs font-bold text-zinc-700">Confirm New Password</label>
+                    <div className="relative">
+                      <input
+                        type={showConfirmPassword ? 'text' : 'password'}
+                        required
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        placeholder="Re-enter new password"
+                        className="w-full bg-white border border-pink-300 focus:border-purple-600 rounded-xl pl-3.5 pr-10 py-2 text-xs text-zinc-900 outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-800 cursor-pointer p-1"
+                        title={showConfirmPassword ? 'Hide password' : 'Show password'}
+                      >
+                        {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
                   </div>
 
                   <button
                     type="submit"
                     disabled={isChangingPassword}
-                    className="w-full py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                    className="w-full py-2.5 rounded-xl bg-purple-900 hover:bg-purple-950 text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                   >
                     {isChangingPassword ? (
-                      <RefreshCw className="w-3.5 h-3.5 animate-spin text-amber-400" />
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
                     ) : (
-                      <KeyRound className="w-3.5 h-3.5 text-amber-400" />
+                      <KeyRound className="w-3.5 h-3.5 text-pink-300" />
                     )}
                     <span>Update Password</span>
                   </button>
@@ -1032,18 +1006,18 @@ export const AdminDashboard: React.FC = () => {
         )}
 
         {/* ======================================================================= */}
-        {/* TAB 3: PORTFOLIO (CORPORATE EMPLOYEES & MILESTONES) */}
+        {/* TAB 3: PORTFOLIO (CORPORATE EMPLOYEES & MILESTONES) (BABY PINK BG) */}
         {/* ======================================================================= */}
         {activeTab === 'portfolio' && (
           <div className="space-y-6 animate-in fade-in">
-            <div className="p-6 rounded-2xl bg-[#250529] border border-white/10 shadow-xl space-y-4">
+            <div className="p-6 sm:p-8 rounded-3xl bg-white border-2 border-pink-200 shadow-md space-y-5">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <h3 className="font-bold text-base text-white flex items-center gap-2">
-                    <Layers className="w-4 h-4 text-amber-400" />
+                  <h3 className="font-extrabold text-base text-purple-950 flex items-center gap-2">
+                    <Layers className="w-4 h-4 text-pink-600" />
                     <span>Corporate Sales Representatives</span>
                   </h3>
-                  <p className="text-xs text-zinc-400 mt-0.5">
+                  <p className="text-xs text-zinc-500 mt-0.5">
                     Manage corporate milestones, earned commissions, and target completion indices
                   </p>
                 </div>
@@ -1056,24 +1030,25 @@ export const AdminDashboard: React.FC = () => {
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       placeholder="Search by ID, name, email..."
-                      className="w-full bg-black/40 border border-white/15 focus:border-amber-500 rounded-xl pl-9 pr-3 py-1.5 text-xs text-white placeholder:text-zinc-500 outline-none"
+                      className="w-full bg-white border border-pink-300 focus:border-purple-600 rounded-xl pl-9 pr-3 py-1.5 text-xs text-zinc-900 placeholder:text-zinc-400 outline-none shadow-xs"
                     />
                   </div>
 
                   <button
                     onClick={loadCorporateData}
-                    className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 text-xs flex items-center gap-1.5 cursor-pointer"
+                    className="p-2 px-3 rounded-xl bg-pink-50 hover:bg-pink-100 border border-pink-200 text-purple-950 text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs"
                     title="Reload data"
                   >
                     <RefreshCw className={`w-3.5 h-3.5 ${loadingUsers ? 'animate-spin' : ''}`} />
+                    <span>Refresh</span>
                   </button>
                 </div>
               </div>
 
               {/* Table */}
-              <div className="overflow-x-auto rounded-xl border border-white/10 bg-black/30">
+              <div className="overflow-x-auto rounded-2xl border border-pink-200 bg-white shadow-xs">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-black/60 text-zinc-400 font-mono uppercase text-[10px] border-b border-white/10">
+                  <thead className="bg-pink-100/90 text-purple-950 font-mono uppercase text-[10px] font-bold border-b border-pink-200">
                     <tr>
                       <th className="px-4 py-3">Corporate ID</th>
                       <th className="px-4 py-3">Representative</th>
@@ -1083,79 +1058,78 @@ export const AdminDashboard: React.FC = () => {
                       <th className="px-4 py-3 text-right">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-white/5">
+                  <tbody className="divide-y divide-pink-100">
                     {loadingUsers ? (
                       <tr>
-                        <td colSpan={6} className="px-4 py-8 text-center text-zinc-400">
-                          <div className="w-6 h-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                        <td colSpan={6} className="px-4 py-8 text-center text-zinc-500">
+                          <div className="w-6 h-6 border-2 border-pink-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
                           <span>Loading corporate records...</span>
                         </td>
                       </tr>
                     ) : filteredCorporateList.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="px-4 py-8 text-center text-zinc-400">
+                        <td colSpan={6} className="px-4 py-8 text-center text-zinc-500">
                           No corporate representatives found.
                         </td>
                       </tr>
                     ) : (
                       filteredCorporateList.map((item) => {
                         const isEditing = editingUid === item.uid;
+
                         return (
-                          <tr key={item.uid} className="hover:bg-white/5 transition-colors">
-                            {/* Corporate User ID */}
-                            <td className="px-4 py-3.5 font-mono font-bold text-amber-300 whitespace-nowrap">
+                          <tr key={item.uid} className="hover:bg-pink-50/80 transition-colors">
+                            <td className="px-4 py-3 font-mono font-bold text-purple-950 whitespace-nowrap">
                               {item.corporateUserId || 'WDS-XXXX'}
                             </td>
 
-                            {/* Representative */}
-                            <td className="px-4 py-3.5">
-                              <div className="font-bold text-white">{item.name}</div>
-                              <div className="text-[11px] text-zinc-400 font-mono">{item.email}</div>
-                              <div className="text-[10px] text-zinc-500 font-mono">{item.phone}</div>
-                            </td>
-
-                            {/* Role / Location */}
-                            <td className="px-4 py-3.5">
-                              <div className="text-zinc-200">{item.corporateRole || 'Sales Rep'}</div>
-                              <div className="text-[11px] text-zinc-400 flex items-center gap-1">
-                                <MapPin className="w-3 h-3 text-amber-400" />
-                                <span>{item.location || 'Pan-India'}</span>
+                            <td className="px-4 py-3">
+                              <div className="font-bold text-zinc-900">{item.name}</div>
+                              <div className="text-[11px] font-mono text-zinc-500 truncate max-w-[150px]">
+                                {item.email}
                               </div>
                             </td>
 
-                            {/* Income */}
-                            <td className="px-4 py-3.5 font-mono">
+                            <td className="px-4 py-3">
+                              <div className="text-zinc-800 font-medium">{item.corporateRole || 'Sales Rep'}</div>
+                              <div className="text-[11px] text-zinc-500">{item.location || 'Pan-India'}</div>
+                            </td>
+
+                            <td className="px-4 py-3">
                               {isEditing ? (
                                 <input
                                   type="number"
                                   value={editIncome}
                                   onChange={(e) => setEditIncome(Number(e.target.value))}
-                                  className="w-28 bg-black/60 border border-amber-500 rounded px-2 py-1 text-xs text-emerald-400 font-bold outline-none"
+                                  className="w-28 bg-white border border-pink-400 rounded-lg px-2 py-1 text-xs text-zinc-900 font-mono"
                                 />
                               ) : (
-                                <span className="font-bold text-emerald-400">
+                                <span className="font-mono font-bold text-emerald-700">
                                   ₹{(item.income || 0).toLocaleString('en-IN')}
                                 </span>
                               )}
                             </td>
 
-                            {/* Progress */}
-                            <td className="px-4 py-3.5 font-mono">
+                            <td className="px-4 py-3">
                               {isEditing ? (
-                                <input
-                                  type="number"
-                                  min={0}
-                                  max={100}
-                                  value={editProgress}
-                                  onChange={(e) => setEditProgress(Number(e.target.value))}
-                                  className="w-20 bg-black/60 border border-amber-500 rounded px-2 py-1 text-xs text-amber-400 font-bold outline-none"
-                                />
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    max={100}
+                                    value={editProgress}
+                                    onChange={(e) => setEditProgress(Number(e.target.value))}
+                                    className="w-16 bg-white border border-pink-400 rounded-lg px-2 py-1 text-xs text-zinc-900 font-mono"
+                                  />
+                                  <span className="text-xs text-zinc-500">%</span>
+                                </div>
                               ) : (
                                 <div className="space-y-1">
-                                  <span className="font-bold text-amber-400">{item.progress || 0}%</span>
-                                  <div className="w-20 bg-white/10 rounded-full h-1 overflow-hidden">
+                                  <span className="font-mono font-bold text-purple-900">
+                                    {item.progress || 0}%
+                                  </span>
+                                  <div className="w-24 bg-pink-100 rounded-full h-1.5 overflow-hidden">
                                     <div
-                                      className="bg-amber-500 h-full rounded-full"
+                                      className="bg-pink-500 h-full rounded-full"
                                       style={{ width: `${Math.min(item.progress || 0, 100)}%` }}
                                     />
                                   </div>
@@ -1163,31 +1137,31 @@ export const AdminDashboard: React.FC = () => {
                               )}
                             </td>
 
-                            {/* Actions */}
-                            <td className="px-4 py-3.5 text-right whitespace-nowrap">
+                            <td className="px-4 py-3 text-right">
                               {isEditing ? (
-                                <div className="flex items-center justify-end gap-2">
+                                <div className="flex items-center justify-end gap-1.5">
                                   <button
                                     onClick={() => handleSaveProgress(item.uid)}
-                                    className="px-2.5 py-1 rounded bg-amber-500 text-black font-bold text-xs flex items-center gap-1 cursor-pointer"
+                                    className="p-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1 shadow-sm cursor-pointer"
                                   >
-                                    <Save className="w-3 h-3" />
+                                    <Check className="w-3.5 h-3.5" />
                                     <span>Save</span>
                                   </button>
                                   <button
                                     onClick={() => setEditingUid(null)}
-                                    className="px-2.5 py-1 rounded bg-white/10 text-zinc-300 text-xs cursor-pointer"
+                                    className="p-1.5 rounded-lg bg-zinc-200 hover:bg-zinc-300 text-zinc-700 text-xs font-bold flex items-center gap-1 cursor-pointer"
                                   >
-                                    Cancel
+                                    <X className="w-3.5 h-3.5" />
+                                    <span>Cancel</span>
                                   </button>
                                 </div>
                               ) : (
                                 <button
                                   onClick={() => handleStartEdit(item)}
-                                  className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-amber-400 transition-colors cursor-pointer"
-                                  title="Edit Income and Target Progress"
+                                  className="p-1.5 px-2.5 rounded-lg bg-pink-100 hover:bg-pink-200 text-purple-950 text-xs font-bold flex items-center gap-1 ml-auto cursor-pointer shadow-xs"
                                 >
                                   <Edit3 className="w-3.5 h-3.5" />
+                                  <span>Edit</span>
                                 </button>
                               )}
                             </td>
@@ -1203,62 +1177,62 @@ export const AdminDashboard: React.FC = () => {
         )}
 
         {/* ======================================================================= */}
-        {/* TAB 4: CORPORATE REGISTRATION (ADMIN ONLY) */}
+        {/* TAB 4: CORPORATE REGISTRATION (ADMIN ONLY) (BABY PINK BG) */}
         {/* ======================================================================= */}
         {activeTab === 'corporate-registration' && (
           <div className="space-y-6 animate-in fade-in">
             {/* Success modal after user created */}
             {createdUser && (
-              <div className="p-6 rounded-2xl bg-[#1e2f1e] border border-emerald-500/50 shadow-2xl space-y-4">
+              <div className="p-6 rounded-3xl bg-emerald-50 border-2 border-emerald-400 shadow-xl space-y-4">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400">
-                      <CheckCircle2 className="w-5 h-5" />
+                    <div className="w-10 h-10 rounded-full bg-emerald-200 border border-emerald-400 flex items-center justify-center text-emerald-800">
+                      <CheckCircle2 className="w-6 h-6" />
                     </div>
                     <div>
-                      <h4 className="font-extrabold text-base text-white">Corporate Account Provisioned Successfully</h4>
-                      <p className="text-xs text-zinc-300">The Admin active session remains uninterrupted.</p>
+                      <h4 className="font-extrabold text-base text-emerald-950">Corporate Account Provisioned Successfully</h4>
+                      <p className="text-xs text-emerald-800">The Admin active session remains uninterrupted.</p>
                     </div>
                   </div>
                   <button
                     onClick={() => setCreatedUser(null)}
-                    className="p-1.5 rounded-lg bg-white/10 text-zinc-400 hover:text-white"
+                    className="p-1.5 rounded-lg bg-emerald-200 hover:bg-emerald-300 text-emerald-900 cursor-pointer"
                   >
                     <X className="w-4 h-4" />
                   </button>
                 </div>
 
-                <div className="p-4 rounded-xl bg-black/40 border border-white/10 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div className="p-4 rounded-2xl bg-white border border-emerald-300 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                   <div>
-                    <span className="text-zinc-400 block">Generated Corporate User ID:</span>
-                    <span className="font-mono text-base font-bold text-amber-300">{createdUser.corporateUserId}</span>
+                    <span className="text-zinc-500 block">Generated Corporate User ID:</span>
+                    <span className="font-mono text-base font-bold text-purple-950">{createdUser.corporateUserId}</span>
                   </div>
                   <div>
-                    <span className="text-zinc-400 block">Representative Name:</span>
-                    <span className="font-bold text-white">{createdUser.name}</span>
+                    <span className="text-zinc-500 block">Representative Name:</span>
+                    <span className="font-bold text-zinc-900">{createdUser.name}</span>
                   </div>
                   <div>
-                    <span className="text-zinc-400 block">Login Email (Used for Login):</span>
-                    <span className="font-mono text-zinc-200">{createdUser.email}</span>
+                    <span className="text-zinc-500 block">Login Email (Used for Login):</span>
+                    <span className="font-mono text-zinc-800">{createdUser.email}</span>
                   </div>
                   <div>
-                    <span className="text-zinc-400 block">Temporary Password:</span>
-                    <span className="font-mono text-amber-400 font-bold">{createdUser.password}</span>
+                    <span className="text-zinc-500 block">Temporary Password:</span>
+                    <span className="font-mono text-purple-900 font-bold">{createdUser.password}</span>
                   </div>
                 </div>
 
                 <div className="flex items-center justify-between pt-2">
                   <button
                     onClick={copyCreatedCredentials}
-                    className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold flex items-center gap-2 cursor-pointer shadow-md"
+                    className="px-4 py-2.5 rounded-xl bg-purple-900 hover:bg-purple-950 text-white text-xs font-bold flex items-center gap-2 cursor-pointer shadow-md"
                   >
-                    <Copy className="w-3.5 h-3.5" />
+                    <Copy className="w-3.5 h-3.5 text-pink-300" />
                     <span>{copiedNotification ? 'Credentials Copied!' : 'Copy Credentials to Clipboard'}</span>
                   </button>
 
                   <button
                     onClick={() => setCreatedUser(null)}
-                    className="text-xs text-zinc-400 hover:text-white"
+                    className="text-xs text-zinc-600 hover:text-zinc-900 font-medium cursor-pointer"
                   >
                     Dismiss
                   </button>
@@ -1266,21 +1240,21 @@ export const AdminDashboard: React.FC = () => {
               </div>
             )}
 
-            {/* Registration Form */}
-            <div className="max-w-2xl mx-auto p-6 rounded-2xl bg-[#250529] border border-white/10 shadow-xl space-y-6">
+            {/* Registration Form with Password Hide/Unhide */}
+            <div className="max-w-2xl mx-auto p-6 sm:p-8 rounded-3xl bg-white border-2 border-pink-200 shadow-md space-y-6">
               <div>
-                <h3 className="font-bold text-base text-white flex items-center gap-2">
-                  <UserPlus className="w-4 h-4 text-amber-400" />
+                <h3 className="font-extrabold text-base text-purple-950 flex items-center gap-2">
+                  <UserPlus className="w-4 h-4 text-pink-600" />
                   <span>Register New Corporate Sales Representative</span>
                 </h3>
-                <p className="text-xs text-zinc-400 mt-0.5">
+                <p className="text-xs text-zinc-500 mt-0.5">
                   Provisions a new Firebase Auth account and generates a unique WDS-XXXX Corporate ID
                 </p>
               </div>
 
               {regError && (
-                <div className="p-3 rounded-xl bg-red-950/80 border border-red-500/40 text-red-200 text-xs flex items-start gap-2">
-                  <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                <div className="p-3 rounded-xl bg-red-100 border border-red-400 text-red-900 text-xs flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 text-red-700 shrink-0 mt-0.5" />
                   <span>{regError}</span>
                 </div>
               )}
@@ -1288,63 +1262,74 @@ export const AdminDashboard: React.FC = () => {
               <form onSubmit={handleCorporateRegistration} className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-zinc-300">Full Name *</label>
+                    <label className="text-xs font-bold text-zinc-700">Full Name *</label>
                     <input
                       type="text"
                       required
                       value={regName}
                       onChange={(e) => setRegName(e.target.value)}
                       placeholder="e.g. Rahul Sharma"
-                      className="w-full bg-black/40 border border-white/15 focus:border-amber-500 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none"
+                      className="w-full bg-white border border-pink-300 focus:border-purple-600 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 outline-none"
                     />
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-zinc-300">Contact Phone *</label>
+                    <label className="text-xs font-bold text-zinc-700">Contact Phone *</label>
                     <input
                       type="text"
                       required
                       value={regPhone}
                       onChange={(e) => setRegPhone(e.target.value)}
                       placeholder="+91 9876543210"
-                      className="w-full bg-black/40 border border-white/15 focus:border-amber-500 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none"
+                      className="w-full bg-white border border-pink-300 focus:border-purple-600 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 outline-none"
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-zinc-300">Official Email *</label>
+                    <label className="text-xs font-bold text-zinc-700">Official Email *</label>
                     <input
                       type="email"
                       required
                       value={regEmail}
                       onChange={(e) => setRegEmail(e.target.value)}
                       placeholder="rahul.sharma@waltdesigns.com"
-                      className="w-full bg-black/40 border border-white/15 focus:border-amber-500 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none"
+                      className="w-full bg-white border border-pink-300 focus:border-purple-600 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 outline-none"
                     />
                   </div>
 
+                  {/* Initial Password with Hide/Unhide */}
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-zinc-300">Initial Password *</label>
-                    <input
-                      type="password"
-                      required
-                      value={regPassword}
-                      onChange={(e) => setRegPassword(e.target.value)}
-                      placeholder="Minimum 6 characters"
-                      className="w-full bg-black/40 border border-white/15 focus:border-amber-500 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none"
-                    />
+                    <label className="text-xs font-bold text-zinc-700">Initial Password *</label>
+                    <div className="relative">
+                      <input
+                        type={showRegPassword ? 'text' : 'password'}
+                        required
+                        value={regPassword}
+                        onChange={(e) => setRegPassword(e.target.value)}
+                        placeholder="Minimum 6 characters"
+                        className="w-full bg-white border border-pink-300 focus:border-purple-600 rounded-xl pl-3.5 pr-10 py-2.5 text-xs text-zinc-900 outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowRegPassword(!showRegPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-800 cursor-pointer p-1"
+                        title={showRegPassword ? 'Hide password' : 'Show password'}
+                      >
+                        {showRegPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-zinc-300">Designation Role</label>
+                    <label className="text-xs font-bold text-zinc-700">Designation Role</label>
                     <select
                       value={regRole}
                       onChange={(e) => setRegRole(e.target.value)}
-                      className="w-full bg-[#1b031e] border border-white/15 focus:border-amber-500 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none"
+                      className="w-full bg-white border border-pink-300 focus:border-purple-600 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 outline-none"
                     >
                       <option value="Asst. Sales Manager">Asst. Sales Manager</option>
                       <option value="Senior Sales Manager">Senior Sales Manager</option>
@@ -1354,31 +1339,31 @@ export const AdminDashboard: React.FC = () => {
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-zinc-300">Territory / Location</label>
+                    <label className="text-xs font-bold text-zinc-700">Territory / Location</label>
                     <input
                       type="text"
                       value={regLocation}
                       onChange={(e) => setRegLocation(e.target.value)}
                       placeholder="e.g. Delhi NCR Region"
-                      className="w-full bg-black/40 border border-white/15 focus:border-amber-500 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none"
+                      className="w-full bg-white border border-pink-300 focus:border-purple-600 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 outline-none"
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-zinc-300">Initial Sales Income (₹)</label>
+                    <label className="text-xs font-bold text-zinc-700">Initial Sales Income (₹)</label>
                     <input
                       type="number"
                       value={regIncome}
                       onChange={(e) => setRegIncome(Number(e.target.value))}
                       placeholder="0"
-                      className="w-full bg-black/40 border border-white/15 focus:border-amber-500 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none"
+                      className="w-full bg-white border border-pink-300 focus:border-purple-600 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 outline-none"
                     />
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-zinc-300">Initial Target Progress (%)</label>
+                    <label className="text-xs font-bold text-zinc-700">Initial Target Progress (%)</label>
                     <input
                       type="number"
                       min={0}
@@ -1386,83 +1371,75 @@ export const AdminDashboard: React.FC = () => {
                       value={regProgress}
                       onChange={(e) => setRegProgress(Number(e.target.value))}
                       placeholder="0"
-                      className="w-full bg-black/40 border border-white/15 focus:border-amber-500 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none"
+                      className="w-full bg-white border border-pink-300 focus:border-purple-600 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 outline-none"
                     />
                   </div>
                 </div>
 
-                <div className="pt-2">
-                  <button
-                    type="submit"
-                    disabled={isRegistering}
-                    className="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-                  >
-                    {isRegistering ? (
-                      <>
-                        <RefreshCw className="w-4 h-4 animate-spin" />
-                        <span>Provisioning Corporate Account...</span>
-                      </>
-                    ) : (
-                      <>
-                        <UserPlus className="w-4 h-4" />
-                        <span>Create Corporate Account</span>
-                      </>
-                    )}
-                  </button>
-                </div>
+                <button
+                  type="submit"
+                  disabled={isRegistering}
+                  className="w-full py-3 rounded-xl bg-purple-900 hover:bg-purple-950 text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  {isRegistering ? (
+                    <RefreshCw className="w-4 h-4 animate-spin text-pink-300" />
+                  ) : (
+                    <UserPlus className="w-4 h-4 text-pink-300" />
+                  )}
+                  <span>{isRegistering ? 'Provisioning Account...' : 'Provision Corporate Account'}</span>
+                </button>
               </form>
             </div>
           </div>
         )}
 
         {/* ======================================================================= */}
-        {/* TAB 5: ATTENDANCE (ADMIN MANAGEMENT & APPROVALS) */}
+        {/* TAB 5: ATTENDANCE (BABY PINK BG) */}
         {/* ======================================================================= */}
         {activeTab === 'attendance' && (
           <div className="space-y-6 animate-in fade-in">
-            <div className="p-6 rounded-2xl bg-[#250529] border border-white/10 shadow-xl space-y-4">
+            <div className="p-6 sm:p-8 rounded-3xl bg-white border-2 border-pink-200 shadow-md space-y-5">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <h3 className="font-bold text-base text-white flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-amber-400" />
-                    <span>Employee Attendance Management</span>
+                  <h3 className="font-extrabold text-base text-purple-950 flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-pink-600" />
+                    <span>Corporate Attendance Logs</span>
                   </h3>
-                  <p className="text-xs text-zinc-400 mt-0.5">
-                    Review submitted daily logs and approve or reject attendance records
+                  <p className="text-xs text-zinc-500 mt-0.5">
+                    Review and finalize attendance records. Decisions once submitted are permanent.
                   </p>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2">
-                  {/* Filter Pills */}
-                  <div className="flex items-center gap-1 bg-black/40 p-1 rounded-xl border border-white/10 text-xs">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-1 bg-pink-50 p-1 rounded-xl border border-pink-200 text-xs">
                     <button
                       onClick={() => setAttendanceFilter('all')}
-                      className={`px-3 py-1 rounded-lg font-semibold transition-colors ${
-                        attendanceFilter === 'all' ? 'bg-amber-500 text-black' : 'text-zinc-300 hover:text-white'
+                      className={`px-3 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                        attendanceFilter === 'all' ? 'bg-purple-900 text-white shadow-xs' : 'text-zinc-600 hover:text-zinc-900'
                       }`}
                     >
                       All ({attendanceList.length})
                     </button>
                     <button
                       onClick={() => setAttendanceFilter('pending')}
-                      className={`px-3 py-1 rounded-lg font-semibold transition-colors ${
-                        attendanceFilter === 'pending' ? 'bg-amber-500 text-black' : 'text-zinc-300 hover:text-white'
+                      className={`px-3 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                        attendanceFilter === 'pending' ? 'bg-amber-500 text-black shadow-xs' : 'text-zinc-600 hover:text-zinc-900'
                       }`}
                     >
                       Pending ({pendingAttendanceCount})
                     </button>
                     <button
                       onClick={() => setAttendanceFilter('approved')}
-                      className={`px-3 py-1 rounded-lg font-semibold transition-colors ${
-                        attendanceFilter === 'approved' ? 'bg-amber-500 text-black' : 'text-zinc-300 hover:text-white'
+                      className={`px-3 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                        attendanceFilter === 'approved' ? 'bg-emerald-600 text-white shadow-xs' : 'text-zinc-600 hover:text-zinc-900'
                       }`}
                     >
                       Approved
                     </button>
                     <button
                       onClick={() => setAttendanceFilter('rejected')}
-                      className={`px-3 py-1 rounded-lg font-semibold transition-colors ${
-                        attendanceFilter === 'rejected' ? 'bg-amber-500 text-black' : 'text-zinc-300 hover:text-white'
+                      className={`px-3 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                        attendanceFilter === 'rejected' ? 'bg-red-600 text-white shadow-xs' : 'text-zinc-600 hover:text-zinc-900'
                       }`}
                     >
                       Rejected
@@ -1471,129 +1448,116 @@ export const AdminDashboard: React.FC = () => {
 
                   <button
                     onClick={loadAttendanceData}
-                    className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 text-xs flex items-center gap-1 cursor-pointer"
-                    title="Refresh attendance records"
+                    className="p-2 px-3 rounded-xl bg-pink-50 hover:bg-pink-100 border border-pink-200 text-purple-950 text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs"
                   >
                     <RefreshCw className={`w-3.5 h-3.5 ${loadingAttendance ? 'animate-spin' : ''}`} />
+                    <span>Refresh</span>
                   </button>
                 </div>
               </div>
 
               {/* Attendance Table */}
-              <div className="overflow-x-auto rounded-xl border border-white/10 bg-black/30">
+              <div className="overflow-x-auto rounded-2xl border border-pink-200 bg-white shadow-xs">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-black/60 text-zinc-400 font-mono uppercase text-[10px] border-b border-white/10">
+                  <thead className="bg-pink-100/90 text-purple-950 font-mono uppercase text-[10px] font-bold border-b border-pink-200">
                     <tr>
-                      <th className="px-4 py-3">Employee Code</th>
-                      <th className="px-4 py-3">Employee Name</th>
-                      <th className="px-4 py-3">Attendance Date</th>
+                      <th className="px-4 py-3">Employee Code / Name</th>
+                      <th className="px-4 py-3">Date</th>
                       <th className="px-4 py-3">Work Hours</th>
                       <th className="px-4 py-3">Expected Clients</th>
-                      <th className="px-4 py-3">Submission Timestamp</th>
-                      <th className="px-4 py-3">Current Status</th>
-                      <th className="px-4 py-3 text-right">Approval Actions</th>
+                      <th className="px-4 py-3">Status</th>
+                      <th className="px-4 py-3 text-right">Approval Action</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-white/5">
+                  <tbody className="divide-y divide-pink-100">
                     {loadingAttendance ? (
                       <tr>
-                        <td colSpan={8} className="px-4 py-8 text-center text-zinc-400">
-                          <div className="w-6 h-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-                          <span>Loading attendance submissions...</span>
+                        <td colSpan={6} className="px-4 py-8 text-center text-zinc-500">
+                          <div className="w-6 h-6 border-2 border-pink-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                          <span>Loading attendance logs...</span>
                         </td>
                       </tr>
                     ) : filteredAttendanceList.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="px-4 py-8 text-center text-zinc-400">
+                        <td colSpan={6} className="px-4 py-8 text-center text-zinc-500">
                           No attendance records found matching this filter.
                         </td>
                       </tr>
                     ) : (
-                      filteredAttendanceList.map((item) => (
-                        <tr key={item.id} className="hover:bg-white/5 transition-colors">
-                          {/* Employee Code */}
-                          <td className="px-4 py-3.5 font-mono font-bold text-amber-300 whitespace-nowrap">
-                            {item.employeeCode}
-                          </td>
+                      filteredAttendanceList.map((item) => {
+                        const isActioning = attendanceActionId === item.id;
+                        const isFinalized = item.status === 'approved' || item.status === 'rejected';
 
-                          {/* Employee Name */}
-                          <td className="px-4 py-3.5 font-semibold text-white">
-                            {item.employeeName}
-                          </td>
+                        return (
+                          <tr key={item.id} className="hover:bg-pink-50/80 transition-colors">
+                            <td className="px-4 py-3">
+                              <div className="font-mono font-bold text-purple-950">{item.employeeCode}</div>
+                              <div className="text-[11px] text-zinc-600 font-medium">{item.employeeName || 'Corporate Rep'}</div>
+                            </td>
 
-                          {/* Date */}
-                          <td className="px-4 py-3.5 font-mono text-zinc-200">
-                            {item.date}
-                          </td>
+                            <td className="px-4 py-3 font-mono text-zinc-900 font-semibold whitespace-nowrap">
+                              {item.date}
+                            </td>
 
-                          {/* Work Hours */}
-                          <td className="px-4 py-3.5 font-mono text-zinc-300">
-                            {item.todayWorkHours} Hours
-                          </td>
+                            <td className="px-4 py-3 font-mono text-zinc-800">
+                              {item.todayWorkHours} Hours
+                            </td>
 
-                          {/* Expected Clients */}
-                          <td className="px-4 py-3.5 font-mono text-zinc-300">
-                            {item.expectedClients} Clients
-                          </td>
+                            <td className="px-4 py-3 font-mono text-zinc-800">
+                              {item.expectedClients} Clients
+                            </td>
 
-                          {/* Submission Date */}
-                          <td className="px-4 py-3.5 font-mono text-[11px] text-zinc-400">
-                            {item.createdAt ? new Date(item.createdAt).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' }) : '—'}
-                          </td>
+                            <td className="px-4 py-3 whitespace-nowrap">
+                              {item.status === 'pending' && (
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 border border-amber-300 text-amber-900">
+                                  <Clock className="w-3 h-3 text-amber-700 animate-pulse" />
+                                  <span>Pending Review</span>
+                                </span>
+                              )}
+                              {item.status === 'approved' && (
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 border border-emerald-300 text-emerald-900">
+                                  <CheckCircle2 className="w-3 h-3 text-emerald-700" />
+                                  <span>Approved</span>
+                                </span>
+                              )}
+                              {item.status === 'rejected' && (
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-red-100 border border-red-300 text-red-900">
+                                  <XCircle className="w-3 h-3 text-red-700" />
+                                  <span>Rejected</span>
+                                </span>
+                              )}
+                            </td>
 
-                          {/* Current Status */}
-                          <td className="px-4 py-3.5">
-                            {item.status === 'pending' && (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase bg-amber-500/20 border border-amber-500/40 text-amber-300">
-                                <Clock className="w-3 h-3 animate-pulse" />
-                                <span>Pending</span>
-                              </span>
-                            )}
-                            {item.status === 'approved' && (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase bg-emerald-500/20 border border-emerald-500/40 text-emerald-300">
-                                <CheckCircle2 className="w-3 h-3" />
-                                <span>Approved</span>
-                              </span>
-                            )}
-                            {item.status === 'rejected' && (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase bg-red-500/20 border border-red-500/40 text-red-300">
-                                <XCircle className="w-3 h-3" />
-                                <span>Rejected</span>
-                              </span>
-                            )}
-                          </td>
+                            <td className="px-4 py-3 text-right">
+                              {isFinalized ? (
+                                <span className="text-[11px] font-mono font-bold text-zinc-400 italic">
+                                  Decision Finalized
+                                </span>
+                              ) : (
+                                <div className="flex items-center justify-end gap-2">
+                                  <button
+                                    onClick={() => handleUpdateAttendanceStatus(item.id, 'approved')}
+                                    disabled={isActioning}
+                                    className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1 shadow-sm cursor-pointer disabled:opacity-50"
+                                  >
+                                    <Check className="w-3 h-3" />
+                                    <span>Approve</span>
+                                  </button>
 
-                          {/* Actions */}
-                          <td className="px-4 py-3.5 text-right whitespace-nowrap">
-                            {item.status === 'pending' ? (
-                              <div className="flex items-center justify-end gap-1.5">
-                                <button
-                                  onClick={() => handleUpdateAttendanceStatus(item.id, 'approved')}
-                                  disabled={attendanceActionId === item.id}
-                                  className="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 font-semibold text-xs flex items-center gap-1 cursor-pointer transition-colors disabled:opacity-50"
-                                >
-                                  <Check className="w-3 h-3" />
-                                  <span>Approve</span>
-                                </button>
-
-                                <button
-                                  onClick={() => handleUpdateAttendanceStatus(item.id, 'rejected')}
-                                  disabled={attendanceActionId === item.id}
-                                  className="px-2.5 py-1 rounded-lg bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 text-red-300 font-semibold text-xs flex items-center gap-1 cursor-pointer transition-colors disabled:opacity-50"
-                                >
-                                  <X className="w-3 h-3" />
-                                  <span>Reject</span>
-                                </button>
-                              </div>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-white/5 border border-white/10 text-zinc-400">
-                                <Lock className="w-3 h-3 text-zinc-500" />
-                                <span>Finalized</span>
-                              </span>
-                            )}
-                          </td>
-                        </tr>
-                      ))
+                                  <button
+                                    onClick={() => handleUpdateAttendanceStatus(item.id, 'rejected')}
+                                    disabled={isActioning}
+                                    className="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold text-xs flex items-center gap-1 shadow-sm cursor-pointer disabled:opacity-50"
+                                  >
+                                    <X className="w-3 h-3" />
+                                    <span>Reject</span>
+                                  </button>
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
                 </table>
@@ -1603,356 +1567,313 @@ export const AdminDashboard: React.FC = () => {
         )}
 
         {/* ======================================================================= */}
-        {/* TAB 6: DAILY DATA REPORT (ADMIN ENTRY & EMPLOYEE ASSIGNMENT) */}
+        {/* TAB 6: DAILY DATA REPORT (BABY PINK BG) */}
         {/* ======================================================================= */}
         {activeTab === 'daily-report' && (
           <div className="space-y-6 animate-in fade-in">
-            {/* Header / Intro Card */}
-            <div className="p-6 rounded-2xl bg-[#250529] border border-amber-500/30 shadow-xl space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                  <h3 className="font-bold text-base text-white flex items-center gap-2">
-                    <FileSpreadsheet className="w-4 h-4 text-amber-400" />
-                    <span>Daily Data Report Hub</span>
-                  </h3>
-                  <p className="text-xs text-zinc-400 mt-0.5">
-                    Create client lead reports and assign them directly to verified Corporate employees
-                  </p>
-                </div>
-
-                <button
-                  onClick={loadDailyReports}
-                  className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 text-xs flex items-center gap-1.5 cursor-pointer self-start sm:self-auto border border-white/10"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${loadingDailyReports ? 'animate-spin' : ''}`} />
-                  <span>Refresh Reports</span>
-                </button>
+            
+            {/* Create Daily Report Form Card */}
+            <div className="p-6 sm:p-8 rounded-3xl bg-white border-2 border-pink-200 shadow-md space-y-6">
+              <div>
+                <h3 className="font-extrabold text-base text-purple-950 flex items-center gap-2">
+                  <Plus className="w-4 h-4 text-pink-600" />
+                  <span>Create Daily Data Report (Assign to Corporate Rep)</span>
+                </h3>
+                <p className="text-xs text-zinc-500 mt-0.5">
+                  Input incoming client data and assign the task to an employee. Employee selection is mandatory.
+                </p>
               </div>
 
-              {/* Create Report Form Card */}
-              <div className="p-5 rounded-xl bg-black/40 border border-white/10 space-y-4">
-                <div className="flex items-center gap-2 border-b border-white/10 pb-3">
-                  <Plus className="w-4 h-4 text-amber-400" />
-                  <h4 className="text-xs font-bold text-white uppercase tracking-wider">
-                    Create New Daily Data Report
-                  </h4>
+              {reportFormError && (
+                <div className="p-3.5 rounded-2xl bg-red-100 border border-red-400 text-red-900 text-xs flex items-start gap-2 font-medium">
+                  <AlertTriangle className="w-4 h-4 text-red-700 shrink-0 mt-0.5" />
+                  <span>{reportFormError}</span>
                 </div>
+              )}
 
-                {reportFormError && (
-                  <div className="p-3 rounded-xl bg-red-950/80 border border-red-500/40 text-red-200 text-xs flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
-                    <span>{reportFormError}</span>
-                  </div>
-                )}
-
-                <form onSubmit={handleCreateDailyReportSubmit} className="space-y-4">
-                  {/* Mandatory Employee Selection */}
-                  <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-1.5">
-                    <label className="text-xs font-bold text-amber-300 flex items-center justify-between">
-                      <span>Select Employee (MANDATORY) *</span>
-                      <span className="text-[10px] font-normal text-amber-400">
-                        {corporateList.length} Active Corporate Representatives Available
-                      </span>
-                    </label>
+              <form onSubmit={handleCreateDailyReportSubmit} className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-zinc-700">Assign To Employee *</label>
                     <select
                       required
                       value={selectedEmployeeUid}
                       onChange={(e) => setSelectedEmployeeUid(e.target.value)}
-                      className="w-full bg-[#1e0524] border border-amber-500/50 focus:border-amber-400 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none font-medium cursor-pointer"
+                      className="w-full bg-white border border-pink-300 focus:border-purple-600 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 outline-none"
                     >
-                      <option value="">-- Select Active Corporate Employee (Mandatory) * --</option>
+                      <option value="">-- Select Corporate Employee --</option>
                       {corporateList.map((emp) => (
                         <option key={emp.uid} value={emp.uid}>
-                          {emp.name} ({emp.corporateUserId || 'WDS-ACTIVE'}) • {emp.corporateRole || 'Sales'} • {emp.location || 'Corporate'}
+                          {emp.name} ({emp.corporateUserId || 'WDS-CORP'})
                         </option>
                       ))}
                     </select>
-                    <p className="text-[10px] text-zinc-400">
-                      The report will be tied to this employee's unique Firebase UID and will only be visible in their portal.
-                    </p>
                   </div>
 
-                  {/* Report Details Grid */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
-                    {/* S.No */}
-                    <div className="space-y-1">
-                      <label className="text-xs font-semibold text-zinc-300">S.No (Optional / Auto)</label>
-                      <input
-                        type="text"
-                        value={reportSNo}
-                        onChange={(e) => setReportSNo(e.target.value)}
-                        placeholder={`e.g. ${dailyReportList.length + 1}`}
-                        className="w-full bg-black/50 border border-white/15 focus:border-amber-500 rounded-xl px-3 py-2 text-xs text-white outline-none font-mono"
-                      />
-                    </div>
-
-                    {/* Client Name */}
-                    <div className="space-y-1">
-                      <label className="text-xs font-semibold text-zinc-300">Client / Lead Name *</label>
-                      <input
-                        type="text"
-                        required
-                        value={reportName}
-                        onChange={(e) => setReportName(e.target.value)}
-                        placeholder="e.g. Acme Retail Enterprises"
-                        className="w-full bg-black/50 border border-white/15 focus:border-amber-500 rounded-xl px-3 py-2 text-xs text-white outline-none"
-                      />
-                    </div>
-
-                    {/* Email */}
-                    <div className="space-y-1">
-                      <label className="text-xs font-semibold text-zinc-300">Email Address *</label>
-                      <input
-                        type="email"
-                        required
-                        value={reportEmail}
-                        onChange={(e) => setReportEmail(e.target.value)}
-                        placeholder="client@example.com"
-                        className="w-full bg-black/50 border border-white/15 focus:border-amber-500 rounded-xl px-3 py-2 text-xs text-white outline-none"
-                      />
-                    </div>
-
-                    {/* Contact Number */}
-                    <div className="space-y-1">
-                      <label className="text-xs font-semibold text-zinc-300">Contact Number *</label>
-                      <input
-                        type="tel"
-                        required
-                        value={reportNumber}
-                        onChange={(e) => setReportNumber(e.target.value)}
-                        placeholder="+91 98765 43210"
-                        className="w-full bg-black/50 border border-white/15 focus:border-amber-500 rounded-xl px-3 py-2 text-xs text-white outline-none font-mono"
-                      />
-                    </div>
-
-                    {/* Location */}
-                    <div className="space-y-1">
-                      <label className="text-xs font-semibold text-zinc-300">Location / City *</label>
-                      <input
-                        type="text"
-                        required
-                        value={reportLocation}
-                        onChange={(e) => setReportLocation(e.target.value)}
-                        placeholder="e.g. Connaught Place, New Delhi"
-                        className="w-full bg-black/50 border border-white/15 focus:border-amber-500 rounded-xl px-3 py-2 text-xs text-white outline-none"
-                      />
-                    </div>
-
-                    {/* Initial Status */}
-                    <div className="space-y-1">
-                      <label className="text-xs font-semibold text-zinc-300">Lead Status</label>
-                      <select
-                        value={reportStatus}
-                        onChange={(e) => setReportStatus(e.target.value)}
-                        className="w-full bg-[#1e0524] border border-white/15 focus:border-amber-500 rounded-xl px-3 py-2 text-xs text-white outline-none"
-                      >
-                        <option value="Assigned">Assigned</option>
-                        <option value="In Progress">In Progress</option>
-                        <option value="Contacted">Contacted</option>
-                        <option value="Meeting Scheduled">Meeting Scheduled</option>
-                        <option value="Proposal Sent">Proposal Sent</option>
-                        <option value="Closed / Won">Closed / Won</option>
-                        <option value="Pending">Pending</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* Requirement Details */}
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-zinc-300">Design / Business Requirement *</label>
+                    <label className="text-xs font-bold text-zinc-700">S.No (Optional)</label>
+                    <input
+                      type="text"
+                      value={reportSNo}
+                      onChange={(e) => setReportSNo(e.target.value)}
+                      placeholder={`Auto: #${dailyReportList.length + 1}`}
+                      className="w-full bg-white border border-pink-300 focus:border-purple-600 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 outline-none"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-zinc-700">Client Name *</label>
+                    <input
+                      type="text"
+                      required
+                      value={reportName}
+                      onChange={(e) => setReportName(e.target.value)}
+                      placeholder="e.g. Amit Kumar"
+                      className="w-full bg-white border border-pink-300 focus:border-purple-600 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-zinc-700">Client Email *</label>
+                    <input
+                      type="email"
+                      required
+                      value={reportEmail}
+                      onChange={(e) => setReportEmail(e.target.value)}
+                      placeholder="client@company.in"
+                      className="w-full bg-white border border-pink-300 focus:border-purple-600 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 outline-none"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-zinc-700">Contact Number *</label>
+                    <input
+                      type="text"
+                      required
+                      value={reportNumber}
+                      onChange={(e) => setReportNumber(e.target.value)}
+                      placeholder="+91 9876543210"
+                      className="w-full bg-white border border-pink-300 focus:border-purple-600 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 outline-none"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-zinc-700">Client Location *</label>
+                    <input
+                      type="text"
+                      required
+                      value={reportLocation}
+                      onChange={(e) => setReportLocation(e.target.value)}
+                      placeholder="e.g. Noida / New Delhi"
+                      className="w-full bg-white border border-pink-300 focus:border-purple-600 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="sm:col-span-2 space-y-1">
+                    <label className="text-xs font-bold text-zinc-700">Client Requirement / Brief *</label>
                     <textarea
                       required
                       rows={2}
                       value={reportRequirement}
                       onChange={(e) => setReportRequirement(e.target.value)}
-                      placeholder="e.g. Complete luxury corporate branding, 3D interior renders, and full packaging kit for new flagship branch."
-                      className="w-full bg-black/50 border border-white/15 focus:border-amber-500 rounded-xl p-3 text-xs text-white outline-none resize-none"
+                      placeholder="e.g. Looking for e-commerce website redesign with custom payment gateway integration and fast delivery."
+                      className="w-full bg-white border border-pink-300 focus:border-purple-600 rounded-xl px-3.5 py-2 text-xs text-zinc-900 outline-none resize-none"
                     />
                   </div>
 
-                  {/* Submit Button */}
-                  <div className="flex justify-end">
-                    <button
-                      type="submit"
-                      disabled={isCreatingReport}
-                      className="px-6 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs shadow-md transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
-                    >
-                      {isCreatingReport ? (
-                        <>
-                          <RefreshCw className="w-4 h-4 animate-spin" />
-                          <span>Assigning Report...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Send className="w-4 h-4" />
-                          <span>Save & Assign Daily Data Report</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </form>
-              </div>
-
-              {/* Data Reports List & Filter */}
-              <div className="space-y-3 pt-2">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div className="flex items-center gap-2">
-                    <h4 className="text-xs font-bold text-white uppercase tracking-wider">
-                      All Daily Data Reports ({dailyReportList.length})
-                    </h4>
-                  </div>
-
-                  {/* Search and Employee Filter */}
-                  <div className="flex flex-wrap items-center gap-2">
-                    {/* Search */}
-                    <div className="relative">
-                      <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                      <input
-                        type="text"
-                        value={reportSearchQuery}
-                        onChange={(e) => setReportSearchQuery(e.target.value)}
-                        placeholder="Search name, requirement..."
-                        className="pl-8 pr-3 py-1.5 rounded-xl bg-black/40 border border-white/10 text-xs text-white focus:border-amber-500 outline-none w-48"
-                      />
-                    </div>
-
-                    {/* Employee Filter */}
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-zinc-700">Report Status</label>
                     <select
-                      value={reportFilterEmployee}
-                      onChange={(e) => setReportFilterEmployee(e.target.value)}
-                      className="px-3 py-1.5 rounded-xl bg-black/40 border border-white/10 text-xs text-zinc-200 outline-none"
+                      value={reportStatus}
+                      onChange={(e) => setReportStatus(e.target.value)}
+                      className="w-full bg-white border border-pink-300 focus:border-purple-600 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 outline-none"
                     >
-                      <option value="all">All Assigned Employees</option>
-                      {corporateList.map((emp) => (
-                        <option key={emp.uid} value={emp.uid}>
-                          {emp.name} ({emp.corporateUserId})
-                        </option>
-                      ))}
+                      <option value="Assigned">Assigned</option>
+                      <option value="Contacted">Contacted</option>
+                      <option value="Discussion in Progress">Discussion in Progress</option>
+                      <option value="Proposal Sent">Proposal Sent</option>
+                      <option value="Converted">Converted</option>
+                      <option value="Closed / Not Interested">Closed / Not Interested</option>
                     </select>
                   </div>
                 </div>
 
-                {/* Reports Table */}
-                <div className="overflow-x-auto rounded-xl border border-white/10 bg-black/30">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-black/60 text-zinc-400 font-mono uppercase text-[10px] border-b border-white/10">
-                      <tr>
-                        <th className="px-3.5 py-3">S.No</th>
-                        <th className="px-3.5 py-3">Client Name</th>
-                        <th className="px-3.5 py-3">Email</th>
-                        <th className="px-3.5 py-3">Number</th>
-                        <th className="px-3.5 py-3">Location</th>
-                        <th className="px-3.5 py-3">Requirement</th>
-                        <th className="px-3.5 py-3">Assigned Employee</th>
-                        <th className="px-3.5 py-3">Status</th>
-                        <th className="px-3.5 py-3 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-white/5">
-                      {loadingDailyReports ? (
-                        <tr>
-                          <td colSpan={9} className="px-4 py-8 text-center text-zinc-400">
-                            <div className="w-6 h-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-                            <span>Loading Daily Data Reports...</span>
-                          </td>
-                        </tr>
-                      ) : dailyReportList.length === 0 ? (
-                        <tr>
-                          <td colSpan={9} className="px-4 py-8 text-center text-zinc-400">
-                            No daily data reports created yet. Use the form above to assign your first report.
-                          </td>
-                        </tr>
-                      ) : (
-                        dailyReportList
-                          .filter((item) => {
-                            const matchesEmp =
-                              reportFilterEmployee === 'all' || item.assignedEmployeeUid === reportFilterEmployee;
-                            const q = reportSearchQuery.toLowerCase().trim();
-                            const matchesSearch =
-                              !q ||
-                              item.name.toLowerCase().includes(q) ||
-                              item.email.toLowerCase().includes(q) ||
-                              item.number.toLowerCase().includes(q) ||
-                              item.location.toLowerCase().includes(q) ||
-                              item.requirement.toLowerCase().includes(q) ||
-                              item.assignedEmployeeName.toLowerCase().includes(q) ||
-                              item.assignedEmployeeCode.toLowerCase().includes(q) ||
-                              String(item.sNo).toLowerCase().includes(q);
-                            return matchesEmp && matchesSearch;
-                          })
-                          .map((item) => (
-                            <tr key={item.id} className="hover:bg-white/5 transition-colors">
-                              {/* S.No */}
-                              <td className="px-3.5 py-3 font-mono font-bold text-amber-400 whitespace-nowrap">
-                                #{item.sNo}
-                              </td>
-
-                              {/* Client Name */}
-                              <td className="px-3.5 py-3 font-semibold text-white">
-                                {item.name}
-                              </td>
-
-                              {/* Email */}
-                              <td className="px-3.5 py-3 font-mono text-zinc-300">
-                                {item.email}
-                              </td>
-
-                              {/* Number */}
-                              <td className="px-3.5 py-3 font-mono text-zinc-300 whitespace-nowrap">
-                                {item.number}
-                              </td>
-
-                              {/* Location */}
-                              <td className="px-3.5 py-3 text-zinc-300">
-                                {item.location}
-                              </td>
-
-                              {/* Requirement */}
-                              <td className="px-3.5 py-3 text-zinc-200 max-w-xs truncate" title={item.requirement}>
-                                {item.requirement}
-                              </td>
-
-                              {/* Assigned Employee */}
-                              <td className="px-3.5 py-3 whitespace-nowrap">
-                                <div className="font-semibold text-white">{item.assignedEmployeeName}</div>
-                                <div className="text-[10px] font-mono text-amber-300">{item.assignedEmployeeCode}</div>
-                              </td>
-
-                              {/* Status with Quick Change */}
-                              <td className="px-3.5 py-3 whitespace-nowrap">
-                                <select
-                                  value={item.status}
-                                  onChange={(e) => handleUpdateReportStatus(item.id, e.target.value)}
-                                  disabled={reportActionId === item.id}
-                                  className="bg-black/50 border border-white/20 rounded-lg px-2 py-1 text-[11px] font-semibold text-amber-300 outline-none cursor-pointer hover:border-amber-500"
-                                >
-                                  <option value="Assigned">Assigned</option>
-                                  <option value="In Progress">In Progress</option>
-                                  <option value="Contacted">Contacted</option>
-                                  <option value="Meeting Scheduled">Meeting Scheduled</option>
-                                  <option value="Proposal Sent">Proposal Sent</option>
-                                  <option value="Closed / Won">Closed / Won</option>
-                                  <option value="Pending">Pending</option>
-                                </select>
-                              </td>
-
-                              {/* Actions */}
-                              <td className="px-3.5 py-3 text-right whitespace-nowrap">
-                                <button
-                                  onClick={() => handleDeleteReport(item.id)}
-                                  disabled={reportActionId === item.id}
-                                  className="p-1.5 rounded-lg bg-red-950/40 hover:bg-red-900 border border-red-500/40 text-red-300 text-xs transition-colors cursor-pointer disabled:opacity-50"
-                                  title="Delete Report"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              </td>
-                            </tr>
-                          ))
-                      )}
-                    </tbody>
-                  </table>
+                <div className="pt-2 flex justify-end">
+                  <button
+                    type="submit"
+                    disabled={isCreatingReport}
+                    className="px-6 py-2.5 rounded-xl bg-purple-900 hover:bg-purple-950 text-white font-bold text-xs shadow-md transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                  >
+                    {isCreatingReport ? (
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin text-pink-300" />
+                    ) : (
+                      <Send className="w-3.5 h-3.5 text-pink-300" />
+                    )}
+                    <span>{isCreatingReport ? 'Creating & Assigning...' : 'Create & Assign Daily Report'}</span>
+                  </button>
                 </div>
+              </form>
+            </div>
+
+            {/* List & Search Assigned Daily Data Reports */}
+            <div className="p-6 sm:p-8 rounded-3xl bg-white border-2 border-pink-200 shadow-md space-y-5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h3 className="font-extrabold text-base text-purple-950 flex items-center gap-2">
+                    <FileSpreadsheet className="w-4 h-4 text-pink-600" />
+                    <span>All Daily Data Reports & Assigned Leads</span>
+                  </h3>
+                  <p className="text-xs text-zinc-500 mt-0.5">
+                    Track client requirement fulfillment and update status directly
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="relative">
+                    <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      value={reportSearchQuery}
+                      onChange={(e) => setReportSearchQuery(e.target.value)}
+                      placeholder="Search client, location..."
+                      className="pl-8 pr-3 py-1.5 rounded-xl bg-white border border-pink-300 text-xs text-zinc-900 focus:border-purple-600 outline-none w-44 shadow-xs"
+                    />
+                  </div>
+
+                  <select
+                    value={reportFilterEmployee}
+                    onChange={(e) => setReportFilterEmployee(e.target.value)}
+                    className="py-1.5 px-3 rounded-xl bg-white border border-pink-300 text-xs text-zinc-900 outline-none shadow-xs"
+                  >
+                    <option value="all">All Corporate Reps</option>
+                    {corporateList.map((emp) => (
+                      <option key={emp.uid} value={emp.uid}>
+                        {emp.name}
+                      </option>
+                    ))}
+                  </select>
+
+                  <button
+                    onClick={loadDailyReports}
+                    className="p-2 px-3 rounded-xl bg-pink-50 hover:bg-pink-100 border border-pink-200 text-purple-950 text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${loadingDailyReports ? 'animate-spin' : ''}`} />
+                    <span>Refresh</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Data Table */}
+              <div className="overflow-x-auto rounded-2xl border border-pink-200 bg-white shadow-xs">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-pink-100/90 text-purple-950 font-mono uppercase text-[10px] font-bold border-b border-pink-200">
+                    <tr>
+                      <th className="px-3.5 py-3">S.No</th>
+                      <th className="px-3.5 py-3">Assigned Rep</th>
+                      <th className="px-3.5 py-3">Client Name</th>
+                      <th className="px-3.5 py-3">Email</th>
+                      <th className="px-3.5 py-3">Number</th>
+                      <th className="px-3.5 py-3">Location</th>
+                      <th className="px-3.5 py-3">Requirement</th>
+                      <th className="px-3.5 py-3">Status</th>
+                      <th className="px-3.5 py-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-pink-100">
+                    {loadingDailyReports ? (
+                      <tr>
+                        <td colSpan={9} className="px-4 py-8 text-center text-zinc-500">
+                          <div className="w-6 h-6 border-2 border-pink-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                          <span>Loading daily reports...</span>
+                        </td>
+                      </tr>
+                    ) : dailyReportList.length === 0 ? (
+                      <tr>
+                        <td colSpan={9} className="px-4 py-8 text-center text-zinc-500">
+                          No Daily Data Reports created yet. Use the form above to add a client record.
+                        </td>
+                      </tr>
+                    ) : (
+                      dailyReportList
+                        .filter((r) => {
+                          const matchesEmployee = reportFilterEmployee === 'all' || r.assignedEmployeeUid === reportFilterEmployee;
+                          const q = reportSearchQuery.toLowerCase().trim();
+                          const matchesQuery =
+                            !q ||
+                            r.name.toLowerCase().includes(q) ||
+                            r.email.toLowerCase().includes(q) ||
+                            r.number.toLowerCase().includes(q) ||
+                            r.location.toLowerCase().includes(q) ||
+                            r.requirement.toLowerCase().includes(q) ||
+                            String(r.sNo).toLowerCase().includes(q) ||
+                            (r.assignedEmployeeName && r.assignedEmployeeName.toLowerCase().includes(q)) ||
+                            (r.assignedEmployeeCode && r.assignedEmployeeCode.toLowerCase().includes(q));
+                          return matchesEmployee && matchesQuery;
+                        })
+                        .map((report) => (
+                          <tr key={report.id} className="hover:bg-pink-50/80 transition-colors">
+                            <td className="px-3.5 py-3 font-mono font-bold text-purple-950 whitespace-nowrap">
+                              #{report.sNo}
+                            </td>
+
+                            <td className="px-3.5 py-3">
+                              <div className="font-bold text-zinc-900">{report.assignedEmployeeName}</div>
+                              <div className="font-mono text-[10px] text-pink-700">{report.assignedEmployeeCode}</div>
+                            </td>
+
+                            <td className="px-3.5 py-3 font-bold text-zinc-900">
+                              {report.name}
+                            </td>
+
+                            <td className="px-3.5 py-3 font-mono text-zinc-700">
+                              {report.email}
+                            </td>
+
+                            <td className="px-3.5 py-3 font-mono text-zinc-700 whitespace-nowrap">
+                              {report.number}
+                            </td>
+
+                            <td className="px-3.5 py-3 text-zinc-700">
+                              {report.location}
+                            </td>
+
+                            <td className="px-3.5 py-3 text-zinc-800 max-w-xs" title={report.requirement}>
+                              {report.requirement}
+                            </td>
+
+                            <td className="px-3.5 py-3 whitespace-nowrap">
+                              <select
+                                value={report.status}
+                                onChange={(e) => handleUpdateReportStatus(report.id, e.target.value)}
+                                className="bg-pink-50 border border-pink-300 rounded-lg px-2 py-1 text-[11px] font-bold text-purple-950 outline-none"
+                              >
+                                <option value="Assigned">Assigned</option>
+                                <option value="Contacted">Contacted</option>
+                                <option value="Discussion in Progress">In Progress</option>
+                                <option value="Proposal Sent">Proposal Sent</option>
+                                <option value="Converted">Converted</option>
+                                <option value="Closed / Not Interested">Closed</option>
+                              </select>
+                            </td>
+
+                            <td className="px-3.5 py-3 text-right">
+                              <button
+                                onClick={() => handleDeleteReport(report.id)}
+                                className="p-1.5 rounded-lg bg-red-100 hover:bg-red-200 text-red-700 text-xs transition-colors cursor-pointer"
+                                title="Delete Report"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
