@@ -76,3 +76,30 @@
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.06);
 }
+
+@keyframes shine-sweep {
+  0% {
+    transform: translateX(-100%) skewX(-15deg);
+  }
+  50%, 100% {
+    transform: translateX(200%) skewX(-15deg);
+  }
+}
+
+.animate-shine-sweep {
+  animation: shine-sweep 2.8s infinite cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes gold-pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(251, 191, 36, 0.5), inset 0 0 12px rgba(251, 191, 36, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 28px rgba(245, 158, 11, 0.85), inset 0 0 20px rgba(251, 191, 36, 0.6);
+  }
+}
+
+.animate-gold-glow {
+  animation: gold-pulse-glow 2s infinite ease-in-out;
+}
+

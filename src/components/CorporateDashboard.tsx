@@ -691,45 +691,6 @@ export const CorporateDashboard: React.FC = () => {
                 </span>
               )}
             </button>
-
-            {/* NOTIFICATIONS TAB */}
-            <button
-              onClick={() => setActiveTab('notifications')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
-                activeTab === 'notifications'
-                  ? 'bg-amber-400 text-purple-950 shadow-md font-extrabold'
-                  : 'text-purple-200 hover:text-white hover:bg-white/10'
-              }`}
-            >
-              <Bell className="w-4 h-4" />
-              <span>Notifications</span>
-            </button>
-
-            {/* NOTICES TAB */}
-            <button
-              onClick={() => setActiveTab('notices')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
-                activeTab === 'notices'
-                  ? 'bg-amber-400 text-purple-950 shadow-md font-extrabold'
-                  : 'text-purple-200 hover:text-white hover:bg-white/10'
-              }`}
-            >
-              <Megaphone className="w-4 h-4" />
-              <span>Notices</span>
-            </button>
-
-            {/* LEADERBOARD TAB */}
-            <button
-              onClick={() => setActiveTab('leaderboard')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
-                activeTab === 'leaderboard'
-                  ? 'bg-amber-400 text-purple-950 shadow-md font-extrabold'
-                  : 'text-purple-200 hover:text-white hover:bg-white/10'
-              }`}
-            >
-              <Trophy className="w-4 h-4" />
-              <span>Leaderboard</span>
-            </button>
           </nav>
         </div>
       </header>
@@ -781,37 +742,83 @@ export const CorporateDashboard: React.FC = () => {
                 </div>
               </div>
 
-              {/* HIGHLIGHTED "SUBMIT TODAY'S ATTENDANCE" BUTTON OR TODAY'S STATUS */}
+              {/* HIGHLIGHTED "SUBMIT TODAY'S ATTENDANCE" BUTTON & DASHBOARD HUB ACTIONS */}
               <div className="flex flex-wrap items-center gap-3 z-10">
+                {/* NOTIFICATION BELL BUTTON */}
+                <button
+                  type="button"
+                  onClick={() => setIsNotificationsModalOpen(true)}
+                  className="relative p-3 rounded-2xl bg-white border-2 border-amber-300 hover:border-purple-600 text-purple-950 hover:bg-amber-50 shadow-sm transition-all cursor-pointer group flex items-center gap-2"
+                  title="View Notifications"
+                >
+                  <div className="relative">
+                    <Bell className="w-5 h-5 text-amber-700 group-hover:text-purple-900 group-hover:rotate-12 transition-transform" />
+                    {unreadNotificationsCount > 0 && (
+                      <span className="absolute -top-2 -right-2 flex h-4 min-w-4 px-1 items-center justify-center text-[10px] font-black text-white bg-red-600 rounded-full animate-bounce shadow-xs">
+                        {unreadNotificationsCount}
+                      </span>
+                    )}
+                  </div>
+                  <span className="font-extrabold text-xs text-amber-950 hidden sm:inline">Notifications</span>
+                </button>
+
+                {/* NOTICES BUTTON */}
+                <button
+                  type="button"
+                  onClick={() => setIsNoticesModalOpen(true)}
+                  className="relative p-3 rounded-2xl bg-white border-2 border-amber-300 hover:border-purple-600 text-purple-950 hover:bg-amber-50 shadow-sm transition-all cursor-pointer group flex items-center gap-2"
+                  title="View Official Notices"
+                >
+                  <Megaphone className="w-5 h-5 text-amber-700 group-hover:text-purple-900 transition-transform" />
+                  <span className="font-extrabold text-xs text-amber-950 hidden sm:inline">Notices</span>
+                  {recentNoticesList.length > 0 && (
+                    <span className="inline-flex items-center justify-center px-2 py-0.5 text-[10px] font-black text-purple-950 bg-amber-300 rounded-full font-mono shadow-xs">
+                      {recentNoticesList.length}
+                    </span>
+                  )}
+                </button>
+
+                {/* SHINING AND HIGHLIGHTED LEADERBOARD BUTTON */}
+                <button
+                  type="button"
+                  onClick={() => setIsLeaderboardModalOpen(true)}
+                  className="relative overflow-hidden px-5 py-3 rounded-2xl bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 text-purple-950 font-black text-xs sm:text-sm shadow-xl hover:shadow-2xl ring-4 ring-yellow-400/80 hover:ring-yellow-300 transition-all duration-300 flex items-center gap-2.5 cursor-pointer transform hover:-translate-y-0.5 active:translate-y-0 animate-gold-glow group"
+                  title="Open Animated Sales Leaderboard"
+                >
+                  {/* Continuous Shimmer Light Beam Effect */}
+                  <div className="absolute inset-0 w-1/2 bg-white/40 skew-x-[-20deg] animate-shine-sweep pointer-events-none" />
+
+                  <Crown className="w-4 h-4 text-amber-950 group-hover:rotate-12 transition-transform animate-pulse" />
+                  <span className="tracking-wide uppercase font-extrabold text-purple-950 drop-shadow-xs">Leaderboard</span>
+                  <Trophy className="w-4 h-4 text-amber-950 group-hover:scale-110 transition-transform" />
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-purple-950 text-amber-300 font-mono shadow-xs">
+                    RANKINGS
+                  </span>
+                </button>
+
+                {/* Attendance CTA */}
                 {hasMarkedTodayAttendance ? (
-                  <div className="p-3.5 px-5 rounded-2xl bg-emerald-50 border-2 border-emerald-400 text-emerald-950 flex items-center gap-3 shadow-md">
-                    <div className="w-9 h-9 rounded-xl bg-emerald-500 text-white flex items-center justify-center font-bold">
-                      <CheckCircle2 className="w-5 h-5" />
+                  <div className="p-3 px-4 rounded-2xl bg-emerald-50 border-2 border-emerald-400 text-emerald-950 flex items-center gap-2.5 shadow-md">
+                    <div className="w-8 h-8 rounded-xl bg-emerald-500 text-white flex items-center justify-center font-bold">
+                      <CheckCircle2 className="w-4 h-4" />
                     </div>
                     <div>
-                      <div className="font-extrabold text-xs text-emerald-950 uppercase tracking-wide">
-                        Attendance Marked Today
+                      <div className="font-extrabold text-[11px] text-emerald-950 uppercase tracking-wide">
+                        Attendance Marked
                       </div>
-                      <div className="text-[11px] text-emerald-800 font-mono">
-                        Hours: {todayAttendanceRecord?.todayWorkHours}h • Status: {todayAttendanceRecord?.status?.toUpperCase()}
-                      </div>
-                      <div className="text-[10px] text-emerald-700 mt-0.5">
-                        Unlocks in: <span className="font-mono font-bold">{getMidnightUnlockCountdown()}</span>
+                      <div className="text-[10px] text-emerald-800 font-mono">
+                        {todayAttendanceRecord?.todayWorkHours}h • {todayAttendanceRecord?.status?.toUpperCase()}
                       </div>
                     </div>
                   </div>
                 ) : (
                   <button
                     onClick={() => setActiveTab('attendance')}
-                    className="relative group px-6 py-3.5 rounded-2xl bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 bg-[length:200%_auto] hover:bg-right text-amber-950 font-black text-xs sm:text-sm shadow-xl hover:shadow-2xl ring-4 ring-amber-300/80 hover:ring-amber-400 transition-all duration-300 flex items-center gap-2.5 cursor-pointer transform hover:-translate-y-0.5 active:translate-y-0"
+                    className="relative group px-5 py-3 rounded-2xl bg-[#3B0764] hover:bg-purple-900 text-white font-extrabold text-xs sm:text-sm shadow-xl ring-2 ring-purple-400 transition-all duration-300 flex items-center gap-2 cursor-pointer"
                   >
-                    <span className="relative flex h-3 w-3">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-3 w-3 bg-red-600"></span>
-                    </span>
-                    <Calendar className="w-4 h-4 text-amber-950 font-bold" />
-                    <span className="tracking-wide">Submit Today's Attendance</span>
-                    <Sparkles className="w-4 h-4 text-amber-950 group-hover:rotate-12 transition-transform" />
+                    <Calendar className="w-4 h-4 text-amber-300 font-bold" />
+                    <span>Submit Attendance</span>
+                    <Sparkles className="w-3.5 h-3.5 text-amber-300 group-hover:rotate-12 transition-transform" />
                   </button>
                 )}
               </div>
@@ -961,6 +968,181 @@ export const CorporateDashboard: React.FC = () => {
                   </button>
                 </div>
               )}
+            </div>
+
+            {/* NOTICES & LEADERBOARDS DASHBOARD SECTIONS */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* COMPANY NOTICES PREVIEW CARD */}
+              <div className="p-6 sm:p-7 rounded-3xl bg-[#FFFBEB] border-2 border-amber-300 shadow-md space-y-4 flex flex-col justify-between">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between pb-3 border-b border-amber-200">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-xl bg-purple-900 text-amber-300 flex items-center justify-center font-bold">
+                        <Megaphone className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h3 className="font-extrabold text-sm sm:text-base text-amber-950">
+                          Official Notices & Circulars
+                        </h3>
+                        <p className="text-[11px] text-amber-800">
+                          Administrative updates and enterprise announcements
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => setIsNoticesModalOpen(true)}
+                      className="text-xs font-extrabold text-purple-950 hover:text-purple-700 underline cursor-pointer"
+                    >
+                      View All ({recentNoticesList.length}) →
+                    </button>
+                  </div>
+
+                  {recentNoticesList.length === 0 ? (
+                    <div className="p-5 rounded-2xl bg-white border border-amber-200 text-center text-xs text-amber-900">
+                      No active notices posted. All department circulars will appear here.
+                    </div>
+                  ) : (
+                    <div className="space-y-2.5">
+                      {recentNoticesList.slice(0, 3).map((notice) => (
+                        <div
+                          key={notice.id}
+                          onClick={() => setIsNoticesModalOpen(true)}
+                          className="p-3.5 rounded-2xl bg-white border border-amber-200 hover:border-amber-400 transition-all cursor-pointer shadow-2xs hover:shadow-xs group"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <h4 className="font-bold text-xs text-amber-950 group-hover:text-purple-900 transition-colors line-clamp-1">
+                              {notice.title}
+                            </h4>
+                            <span className="text-[10px] font-mono text-amber-800 shrink-0 font-bold">
+                              {notice.date}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-amber-900/80 line-clamp-2 mt-1">
+                            {notice.content}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsNoticesModalOpen(true)}
+                  className="w-full py-2.5 px-4 rounded-xl bg-amber-200/80 hover:bg-amber-300 text-amber-950 text-xs font-extrabold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <Megaphone className="w-3.5 h-3.5" />
+                  <span>Open Full Notice Board</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              {/* SALES LEADERBOARD HIGHLIGHTS CARD */}
+              <div className="p-6 sm:p-7 rounded-3xl bg-gradient-to-br from-[#FFFBEB] via-[#FEF3C7] to-[#FDE68A] border-2 border-amber-400 shadow-md space-y-4 flex flex-col justify-between relative overflow-hidden">
+                {/* Background Shimmer Ribbon */}
+                <div className="absolute -right-12 -top-12 w-32 h-32 bg-amber-300/30 rounded-full blur-xl pointer-events-none" />
+
+                <div className="space-y-3 relative z-10">
+                  <div className="flex items-center justify-between pb-3 border-b border-amber-300">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500 to-yellow-600 text-purple-950 flex items-center justify-center font-black shadow-xs">
+                        <Trophy className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <h3 className="font-extrabold text-sm sm:text-base text-purple-950">
+                            Sales Leaderboard
+                          </h3>
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-purple-950 text-amber-300">
+                            TOP 3
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-amber-900 font-medium">
+                          Company top sales closers & monthly volume leaders
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => setIsLeaderboardModalOpen(true)}
+                      className="text-xs font-extrabold text-purple-950 hover:text-purple-700 underline cursor-pointer"
+                    >
+                      View Rank →
+                    </button>
+                  </div>
+
+                  {topLeaderboardList.length === 0 ? (
+                    <div className="p-5 rounded-2xl bg-white/90 border border-amber-300 text-center text-xs text-amber-950 font-medium">
+                      Leaderboard ranks are updating from verified sales closed.
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {topLeaderboardList.slice(0, 3).map((leader, index) => {
+                        const isFirst = index === 0;
+                        const isSecond = index === 1;
+                        return (
+                          <div
+                            key={leader.id || index}
+                            onClick={() => setIsLeaderboardModalOpen(true)}
+                            className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
+                              isFirst
+                                ? 'bg-amber-100/90 border-amber-400 shadow-sm'
+                                : isSecond
+                                ? 'bg-white/90 border-amber-300 shadow-2xs'
+                                : 'bg-white/70 border-amber-200'
+                            }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div
+                                className={`w-7 h-7 rounded-xl flex items-center justify-center font-mono font-black text-xs ${
+                                  isFirst
+                                    ? 'bg-amber-500 text-purple-950 shadow-xs'
+                                    : isSecond
+                                    ? 'bg-zinc-300 text-zinc-900'
+                                    : 'bg-amber-700 text-amber-100'
+                                }`}
+                              >
+                                #{leader.rank || index + 1}
+                              </div>
+                              <div>
+                                <div className="font-extrabold text-xs text-purple-950 flex items-center gap-1.5">
+                                  <span>{leader.employeeName}</span>
+                                  {isFirst && <Crown className="w-3.5 h-3.5 text-amber-700 fill-amber-500" />}
+                                </div>
+                                <div className="text-[10px] font-mono text-amber-900 font-bold">
+                                  {leader.corporateId} • {leader.dealsClosed} deals
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="text-right">
+                              <div className="font-mono font-black text-xs text-purple-950">
+                                ₹{(leader.totalSales || 0).toLocaleString('en-IN')}
+                              </div>
+                              <div className="text-[10px] text-emerald-800 font-bold">
+                                +₹{(leader.incentives || 0).toLocaleString('en-IN')} inc.
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Animated Shining Button to Open Full Leaderboard */}
+                <button
+                  type="button"
+                  onClick={() => setIsLeaderboardModalOpen(true)}
+                  className="relative overflow-hidden w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-purple-950 via-purple-900 to-purple-950 hover:from-purple-900 hover:to-purple-900 text-amber-300 text-xs font-black flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg border-2 border-amber-400 group animate-gold-glow"
+                >
+                  <div className="absolute inset-0 w-1/2 bg-white/20 skew-x-[-20deg] animate-shine-sweep pointer-events-none" />
+                  <Trophy className="w-4 h-4 text-amber-300 group-hover:scale-110 transition-transform" />
+                  <span className="uppercase tracking-wider">Open Full Animated Leaderboard</span>
+                  <Sparkles className="w-4 h-4 text-amber-300" />
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -2016,24 +2198,104 @@ export const CorporateDashboard: React.FC = () => {
           </div>
         )}
 
-        {/* TAB 7: NOTIFICATIONS */}
-        {activeTab === 'notifications' && (
-          <div className="animate-in fade-in">
-            <CorporateNotificationsSection />
+        {/* MODAL POPUPS FOR NOTIFICATIONS, NOTICES, AND LEADERBOARD */}
+        {isNotificationsModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="relative w-full max-w-4xl max-h-[90vh] bg-white rounded-3xl shadow-2xl border-2 border-amber-400 overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
+              <div className="p-4 sm:p-5 bg-gradient-to-r from-purple-950 via-purple-900 to-purple-950 text-white flex items-center justify-between border-b border-amber-400/30">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-amber-400 text-purple-950 flex items-center justify-center font-bold">
+                    <Bell className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="font-extrabold text-sm sm:text-base text-amber-300">
+                      My Notifications
+                    </h3>
+                    <p className="text-[11px] text-purple-200">
+                      Direct alerts, attendance confirmations & task assignments
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setIsNotificationsModalOpen(false);
+                    loadDashboardExtras();
+                  }}
+                  className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-all cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="p-4 sm:p-6 overflow-y-auto flex-1 bg-amber-50/40">
+                <CorporateNotificationsSection />
+              </div>
+            </div>
           </div>
         )}
 
-        {/* TAB 8: NOTICES */}
-        {activeTab === 'notices' && (
-          <div className="animate-in fade-in">
-            <CorporateNoticesSection />
+        {isNoticesModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="relative w-full max-w-4xl max-h-[90vh] bg-white rounded-3xl shadow-2xl border-2 border-amber-400 overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
+              <div className="p-4 sm:p-5 bg-gradient-to-r from-purple-950 via-purple-900 to-purple-950 text-white flex items-center justify-between border-b border-amber-400/30">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-amber-400 text-purple-950 flex items-center justify-center font-bold">
+                    <Megaphone className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="font-extrabold text-sm sm:text-base text-amber-300">
+                      Company Circulars & Notices
+                    </h3>
+                    <p className="text-[11px] text-purple-200">
+                      Agency administrative directives and team announcements
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsNoticesModalOpen(false)}
+                  className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-all cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="p-4 sm:p-6 overflow-y-auto flex-1 bg-amber-50/40">
+                <CorporateNoticesSection />
+              </div>
+            </div>
           </div>
         )}
 
-        {/* TAB 9: LEADERBOARD */}
-        {activeTab === 'leaderboard' && (
-          <div className="animate-in fade-in">
-            <CorporateLeaderboardSection />
+        {isLeaderboardModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
+            <div className="relative w-full max-w-4xl max-h-[90vh] bg-white rounded-3xl shadow-2xl border-2 border-amber-500 overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
+              <div className="p-4 sm:p-5 bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-500 text-purple-950 flex items-center justify-between border-b-2 border-amber-400 relative overflow-hidden">
+                <div className="absolute inset-0 w-1/2 bg-white/30 skew-x-[-20deg] animate-shine-sweep pointer-events-none" />
+                <div className="flex items-center gap-2.5 relative z-10">
+                  <div className="w-9 h-9 rounded-xl bg-purple-950 text-amber-300 flex items-center justify-center font-black shadow-md">
+                    <Trophy className="w-5 h-5 animate-pulse" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-black text-sm sm:text-base text-purple-950 uppercase tracking-wide">
+                        Enterprise Sales Leaderboard
+                      </h3>
+                      <Crown className="w-4 h-4 text-amber-950 fill-amber-700" />
+                    </div>
+                    <p className="text-[11px] text-purple-900 font-bold">
+                      Real-time rankings based on completed transactions and revenue quota
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsLeaderboardModalOpen(false)}
+                  className="p-2 rounded-xl bg-purple-950/10 hover:bg-purple-950/20 text-purple-950 transition-all cursor-pointer relative z-10"
+                >
+                  <X className="w-5 h-5 font-bold" />
+                </button>
+              </div>
+              <div className="p-4 sm:p-6 overflow-y-auto flex-1 bg-amber-50/40">
+                <CorporateLeaderboardSection />
+              </div>
+            </div>
           </div>
         )}
 
