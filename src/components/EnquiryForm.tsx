@@ -19,12 +19,14 @@ interface EnquiryFormProps {
   initialService?: string;
   className?: string;
   showTitle?: boolean;
+  theme?: 'dark' | 'golden';
 }
 
 export const EnquiryForm: React.FC<EnquiryFormProps> = ({ 
   initialService = 'Web Designing/Developing',
   className = '',
-  showTitle = true
+  showTitle = true,
+  theme = 'golden'
 }) => {
   const [formData, setFormData] = useState({
     name: '',
@@ -93,19 +95,25 @@ export const EnquiryForm: React.FC<EnquiryFormProps> = ({
     setStatus('idle');
   };
 
+  const isGold = theme === 'golden';
+
   return (
-    <div className={`relative bg-[#10121a] border border-white/10 rounded-2xl p-6 sm:p-8 shadow-2xl backdrop-blur-xl ${className}`}>
+    <div className={`relative ${
+      isGold 
+        ? 'bg-gradient-to-b from-[#1c1404] via-[#161003] to-[#120c02] border-2 border-amber-400/90 shadow-[0_0_35px_rgba(245,158,11,0.22)]' 
+        : 'bg-[#10121a] border border-white/10 shadow-2xl'
+    } rounded-3xl p-6 sm:p-8 backdrop-blur-xl ${className}`}>
       
       {showTitle && (
-        <div className="mb-4 pb-3 border-b border-zinc-800">
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-mono mb-1.5">
-            <Sparkles className="w-3.5 h-3.5" />
+        <div className="mb-4 pb-3 border-b border-amber-400/30">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-400/15 border border-amber-400/40 text-amber-300 text-xs font-mono mb-1.5 font-bold shadow-xs">
+            <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
             <span>Direct Client Pipeline</span>
           </div>
-          <h3 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
+          <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight">
             Submit Your Project Brief
           </h3>
-          <p className="text-zinc-400 text-xs sm:text-sm mt-0.5">
+          <p className="text-amber-200/80 text-xs sm:text-sm mt-0.5 font-medium">
             Fill in your specifications below. We review all briefs and respond within 12 hours guaranteed.
           </p>
         </div>
@@ -174,11 +182,11 @@ export const EnquiryForm: React.FC<EnquiryFormProps> = ({
             
             {/* Field: Name */}
             <div className="space-y-1">
-              <label htmlFor="name" className="block text-xs font-medium text-zinc-300">
+              <label htmlFor="name" className={`block text-xs font-semibold ${isGold ? 'text-amber-200' : 'text-zinc-300'}`}>
                 Full Name <span className="text-amber-400">*</span>
               </label>
               <div className="relative">
-                <User className="w-4 h-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <User className={`w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 ${isGold ? 'text-amber-400/80' : 'text-zinc-500'}`} />
                 <input
                   id="name"
                   type="text"
@@ -187,18 +195,22 @@ export const EnquiryForm: React.FC<EnquiryFormProps> = ({
                   value={formData.name}
                   onChange={handleChange}
                   placeholder="e.g. Rahul Sharma"
-                  className="w-full bg-[#161822] border border-zinc-700/80 focus:border-amber-400 focus:ring-1 focus:ring-amber-400 rounded-lg pl-9 pr-3 py-2 text-xs sm:text-sm text-white placeholder-zinc-500 transition-all outline-none"
+                  className={`w-full rounded-xl pl-9 pr-3 py-2 text-xs sm:text-sm text-white placeholder-amber-200/40 transition-all outline-none ${
+                    isGold
+                      ? 'bg-[#221a05] border border-amber-400/50 focus:border-amber-400 focus:ring-1 focus:ring-amber-400 shadow-xs'
+                      : 'bg-[#161822] border border-zinc-700/80 focus:border-amber-400 focus:ring-1 focus:ring-amber-400'
+                  }`}
                 />
               </div>
             </div>
 
             {/* Field: Phone */}
             <div className="space-y-1">
-              <label htmlFor="phone" className="block text-xs font-medium text-zinc-300">
+              <label htmlFor="phone" className={`block text-xs font-semibold ${isGold ? 'text-amber-200' : 'text-zinc-300'}`}>
                 Phone / WhatsApp Number <span className="text-amber-400">*</span>
               </label>
               <div className="relative">
-                <Phone className="w-4 h-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <Phone className={`w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 ${isGold ? 'text-amber-400/80' : 'text-zinc-500'}`} />
                 <input
                   id="phone"
                   type="tel"
@@ -207,7 +219,11 @@ export const EnquiryForm: React.FC<EnquiryFormProps> = ({
                   value={formData.phone}
                   onChange={handleChange}
                   placeholder="+91 98765 43210"
-                  className="w-full bg-[#161822] border border-zinc-700/80 focus:border-amber-400 focus:ring-1 focus:ring-amber-400 rounded-lg pl-9 pr-3 py-2 text-xs sm:text-sm text-white placeholder-zinc-500 transition-all outline-none"
+                  className={`w-full rounded-xl pl-9 pr-3 py-2 text-xs sm:text-sm text-white placeholder-amber-200/40 transition-all outline-none font-mono ${
+                    isGold
+                      ? 'bg-[#221a05] border border-amber-400/50 focus:border-amber-400 focus:ring-1 focus:ring-amber-400 shadow-xs'
+                      : 'bg-[#161822] border border-zinc-700/80 focus:border-amber-400 focus:ring-1 focus:ring-amber-400'
+                  }`}
                 />
               </div>
             </div>
@@ -218,11 +234,11 @@ export const EnquiryForm: React.FC<EnquiryFormProps> = ({
             
             {/* Field: Email */}
             <div className="space-y-1">
-              <label htmlFor="email" className="block text-xs font-medium text-zinc-300">
+              <label htmlFor="email" className={`block text-xs font-semibold ${isGold ? 'text-amber-200' : 'text-zinc-300'}`}>
                 Email Address <span className="text-amber-400">*</span>
               </label>
               <div className="relative">
-                <Mail className="w-4 h-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <Mail className={`w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 ${isGold ? 'text-amber-400/80' : 'text-zinc-500'}`} />
                 <input
                   id="email"
                   type="email"
@@ -231,18 +247,22 @@ export const EnquiryForm: React.FC<EnquiryFormProps> = ({
                   value={formData.email}
                   onChange={handleChange}
                   placeholder="name@company.com"
-                  className="w-full bg-[#161822] border border-zinc-700/80 focus:border-amber-400 focus:ring-1 focus:ring-amber-400 rounded-lg pl-9 pr-3 py-2 text-xs sm:text-sm text-white placeholder-zinc-500 transition-all outline-none"
+                  className={`w-full rounded-xl pl-9 pr-3 py-2 text-xs sm:text-sm text-white placeholder-amber-200/40 transition-all outline-none ${
+                    isGold
+                      ? 'bg-[#221a05] border border-amber-400/50 focus:border-amber-400 focus:ring-1 focus:ring-amber-400 shadow-xs'
+                      : 'bg-[#161822] border border-zinc-700/80 focus:border-amber-400 focus:ring-1 focus:ring-amber-400'
+                  }`}
                 />
               </div>
             </div>
 
             {/* Field: Location / Region */}
             <div className="space-y-1">
-              <label htmlFor="location" className="block text-xs font-medium text-zinc-300">
+              <label htmlFor="location" className={`block text-xs font-semibold ${isGold ? 'text-amber-200' : 'text-zinc-300'}`}>
                 Location / Region <span className="text-amber-400">*</span>
               </label>
               <div className="relative">
-                <MapPin className="w-4 h-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <MapPin className={`w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 ${isGold ? 'text-amber-400/80' : 'text-zinc-500'}`} />
                 <input
                   id="location"
                   type="text"
@@ -251,7 +271,11 @@ export const EnquiryForm: React.FC<EnquiryFormProps> = ({
                   value={formData.location}
                   onChange={handleChange}
                   placeholder="e.g. Delhi NCR, West Bengal, Bengaluru..."
-                  className="w-full bg-[#161822] border border-zinc-700/80 focus:border-amber-400 focus:ring-1 focus:ring-amber-400 rounded-lg pl-9 pr-3 py-2 text-xs sm:text-sm text-white placeholder-zinc-500 transition-all outline-none"
+                  className={`w-full rounded-xl pl-9 pr-3 py-2 text-xs sm:text-sm text-white placeholder-amber-200/40 transition-all outline-none ${
+                    isGold
+                      ? 'bg-[#221a05] border border-amber-400/50 focus:border-amber-400 focus:ring-1 focus:ring-amber-400 shadow-xs'
+                      : 'bg-[#161822] border border-zinc-700/80 focus:border-amber-400 focus:ring-1 focus:ring-amber-400'
+                  }`}
                 />
               </div>
             </div>
@@ -260,7 +284,7 @@ export const EnquiryForm: React.FC<EnquiryFormProps> = ({
 
           {/* Field: Service Selection */}
           <div className="space-y-1">
-            <label htmlFor="service" className="block text-xs font-medium text-zinc-300">
+            <label htmlFor="service" className={`block text-xs font-semibold ${isGold ? 'text-amber-200' : 'text-zinc-300'}`}>
               Select Required Service Division <span className="text-amber-400">*</span>
             </label>
             <div className="relative">
@@ -270,14 +294,18 @@ export const EnquiryForm: React.FC<EnquiryFormProps> = ({
                 required
                 value={formData.service}
                 onChange={handleChange}
-                className="w-full bg-[#161822] border border-zinc-700/80 focus:border-amber-400 focus:ring-1 focus:ring-amber-400 rounded-lg px-3 py-2 text-xs sm:text-sm text-white transition-all outline-none cursor-pointer"
+                className={`w-full rounded-xl px-3 py-2 text-xs sm:text-sm text-white transition-all outline-none cursor-pointer ${
+                  isGold
+                    ? 'bg-[#221a05] border border-amber-400/50 focus:border-amber-400 focus:ring-1 focus:ring-amber-400 shadow-xs'
+                    : 'bg-[#161822] border border-zinc-700/80 focus:border-amber-400 focus:ring-1 focus:ring-amber-400'
+                }`}
               >
                 {DIVISIONS.map((div) => (
-                  <option key={div.id} value={div.title} className="bg-[#10121a] text-white">
+                  <option key={div.id} value={div.title} className="bg-[#1c1404] text-amber-100">
                     Division {div.divisionNumber}: {div.title} ({div.affordableEstimate})
                   </option>
                 ))}
-                <option value="Custom Multi-Division Package" className="bg-[#10121a] text-white">
+                <option value="Custom Multi-Division Package" className="bg-[#1c1404] text-amber-100">
                   Custom Multi-Division Bundle
                 </option>
               </select>
@@ -286,7 +314,7 @@ export const EnquiryForm: React.FC<EnquiryFormProps> = ({
 
           {/* Field: Project Details */}
           <div className="space-y-1">
-            <label htmlFor="details" className="block text-xs font-medium text-zinc-300">
+            <label htmlFor="details" className={`block text-xs font-semibold ${isGold ? 'text-amber-200' : 'text-zinc-300'}`}>
               Project Details & Requirements <span className="text-amber-400">*</span>
             </label>
             <div className="relative">
@@ -298,14 +326,18 @@ export const EnquiryForm: React.FC<EnquiryFormProps> = ({
                 value={formData.details}
                 onChange={handleChange}
                 placeholder="Share your goals, target launch timeline, reference designs, or specific specifications..."
-                className="w-full bg-[#161822] border border-zinc-700/80 focus:border-amber-400 focus:ring-1 focus:ring-amber-400 rounded-lg p-2.5 text-xs sm:text-sm text-white placeholder-zinc-500 transition-all outline-none resize-none"
+                className={`w-full rounded-xl p-2.5 text-xs sm:text-sm text-white placeholder-amber-200/40 transition-all outline-none resize-none ${
+                  isGold
+                    ? 'bg-[#221a05] border border-amber-400/50 focus:border-amber-400 focus:ring-1 focus:ring-amber-400 shadow-xs'
+                    : 'bg-[#161822] border border-zinc-700/80 focus:border-amber-400 focus:ring-1 focus:ring-amber-400'
+                }`}
               ></textarea>
             </div>
           </div>
 
           {/* Form Actions */}
-          <div className="pt-1 flex flex-col sm:flex-row items-center justify-between gap-3">
-            <div className="flex items-center gap-1.5 text-xs text-zinc-400">
+          <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="flex items-center gap-1.5 text-xs text-amber-300/80 font-medium">
               <Clock className="w-3.5 h-3.5 text-amber-400" />
               <span>Response guarantee: &lt;12 hrs</span>
             </div>
@@ -313,17 +345,18 @@ export const EnquiryForm: React.FC<EnquiryFormProps> = ({
             <button
               type="submit"
               disabled={status === 'submitting'}
-              className="w-full sm:w-auto px-5 py-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-sm transition-all disabled:opacity-50 disabled:pointer-events-none"
+              className="relative group overflow-hidden w-full sm:w-auto px-6 py-3 rounded-xl bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-purple-950 font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg hover:shadow-xl ring-2 ring-amber-300 transition-all disabled:opacity-50 disabled:pointer-events-none cursor-pointer transform hover:-translate-y-0.5 active:translate-y-0"
             >
               {status === 'submitting' ? (
                 <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <Loader2 className="w-4 h-4 animate-spin text-purple-950" />
                   <span>Submitting Inquiry...</span>
                 </>
               ) : (
                 <>
-                  <span>Send Project Inquiry</span>
-                  <Send className="w-3.5 h-3.5" />
+                  <Sparkles className="w-4 h-4 text-purple-950 group-hover:rotate-12 transition-transform" />
+                  <span className="uppercase tracking-wider">Send Project Inquiry</span>
+                  <Send className="w-4 h-4 text-purple-950" />
                 </>
               )}
             </button>
