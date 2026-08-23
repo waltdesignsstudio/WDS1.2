@@ -39,10 +39,10 @@ const QUICK_PROMPTS = [
 ];
 
 export const CorporateAiSupport: React.FC<{ isOpen?: boolean; onClose?: () => void }> = ({
-  isOpen = false,
+  isOpen = true,
   onClose,
 }) => {
-  const { profile, user } = useAuth();
+  const { profile } = useAuth();
   const corporateId = profile?.corporateUserId || 'WDS-EXEC';
   const employeeName = profile?.name || 'Executive';
 
@@ -50,7 +50,7 @@ export const CorporateAiSupport: React.FC<{ isOpen?: boolean; onClose?: () => vo
     {
       id: 'welcome-1',
       sender: 'assistant',
-      text: `Hello ${employeeName} (${corporateId})! 👋 I am your Walt Corporate AI Help & Strategy Assistant. I'm here 24/7 to assist you with sales closing scripts, commission policies, attendance protocols, expected lead conversions, and agency division specifics. How can I help you today?`,
+      text: `Hello ${employeeName} (${corporateId})! 👋\n\nI am your Walt Corporate AI Help & Strategy Desk Assistant. I'm here 24/7 to assist you with sales closing scripts, commission policies, attendance protocols, expected lead conversions, and agency division specifics.\n\nHow can I help you today?`,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     },
   ]);
@@ -198,8 +198,15 @@ Provide clear, actionable, corporate-grade answers on agency services (Web Dev, 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl border-2 border-purple-900/40 overflow-hidden flex flex-col h-[85vh] max-h-[700px] animate-in zoom-in-95 duration-200">
+    <div
+      onClick={(e) => {
+        if (e.target === e.currentTarget && onClose) {
+          onClose();
+        }
+      }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-backdrop-fade"
+    >
+      <div className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl border-2 border-purple-900/40 overflow-hidden flex flex-col h-[85vh] max-h-[700px] animate-modal-pop transform">
         
         {/* Header */}
         <div className="p-4 sm:p-5 bg-gradient-to-r from-purple-950 via-[#2d0538] to-purple-950 text-white flex items-center justify-between border-b border-amber-400/30">

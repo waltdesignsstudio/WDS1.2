@@ -158,14 +158,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   return (
     <div
+      onClick={(e) => {
+        if (!inline && e.target === e.currentTarget) {
+          handleClose();
+        }
+      }}
       className={
         inline
           ? 'w-full max-w-md mx-auto my-6'
-          : 'fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300'
+          : 'fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-backdrop-fade'
       }
     >
-      {/* MODAL CARD: RED TOP HEADER + WHITE BOTTOM BODY WITH SMOOTH ZOOM & SLIDE ANIMATION */}
-      <div className="relative w-full max-w-md bg-white border-2 border-red-600/80 rounded-3xl shadow-2xl overflow-hidden font-sans text-zinc-900 animate-in fade-in zoom-in-90 slide-in-from-bottom-8 duration-300 ease-out transform">
+      {/* MODAL CARD: RED TOP HEADER + WHITE BOTTOM BODY WITH SMOOTH POPUP ANIMATION */}
+      <div className="relative w-full max-w-md bg-white border-2 border-red-600/80 rounded-3xl shadow-2xl overflow-hidden font-sans text-zinc-900 animate-modal-pop transform">
         
         {/* Close Button on Red Header */}
         {!inline && (

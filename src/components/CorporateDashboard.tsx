@@ -695,6 +695,18 @@ export const CorporateDashboard: React.FC = () => {
                 </span>
               )}
             </button>
+
+            {/* AI HELP DESK QUICK CHAT TRIGGER IN NAV */}
+            <button
+              type="button"
+              onClick={() => setIsAiSupportOpen(true)}
+              className="px-3.5 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap bg-amber-400/20 text-amber-300 border border-amber-400/40 hover:bg-amber-400 hover:text-purple-950 shadow-sm"
+              title="Open AI Help Desk & Strategy Assistant"
+            >
+              <Bot className="w-4 h-4 text-amber-300 hover:text-purple-950" />
+              <span>AI Help Desk</span>
+              <Sparkles className="w-3 h-3 text-amber-300 animate-pulse" />
+            </button>
           </nav>
         </div>
       </header>
@@ -2379,14 +2391,11 @@ export const CorporateDashboard: React.FC = () => {
           </div>
         )}
 
-        {/* AI CORPORATE SUPPORT / HELP DESK MODAL */}
-        {isAiSupportOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
-            <div className="relative w-full max-w-2xl bg-[#13031a] rounded-3xl shadow-2xl border-2 border-amber-400/80 overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
-              <CorporateAiSupport onClose={() => setIsAiSupportOpen(false)} />
-            </div>
-          </div>
-        )}
+        {/* AI CORPORATE SUPPORT / HELP DESK CHAT MODAL */}
+        <CorporateAiSupport
+          isOpen={isAiSupportOpen}
+          onClose={() => setIsAiSupportOpen(false)}
+        />
 
         {/* FLOATING QUICK AI HELP BUTTON (BOTTOM RIGHT) */}
         <button

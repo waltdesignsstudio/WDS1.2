@@ -103,3 +103,35 @@
   animation: gold-pulse-glow 2s infinite ease-in-out;
 }
 
+/* Modal Popup & Fade Animations */
+@keyframes modal-pop-up {
+  0% {
+    opacity: 0;
+    transform: scale(0.85) translateY(24px);
+  }
+  70% {
+    transform: scale(1.02) translateY(-2px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes backdrop-fade-in {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.animate-modal-pop {
+  animation: modal-pop-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-backdrop-fade {
+  animation: backdrop-fade-in 0.25s ease-out forwards;
+}
+
