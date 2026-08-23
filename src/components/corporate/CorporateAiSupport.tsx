@@ -92,31 +92,49 @@ export const CorporateAiSupport: React.FC<{ isOpen?: boolean; onClose?: () => vo
 • **Leaderboard Standings**: Updated in real-time as soon as Admin confirms closed client projects!`;
     }
 
-    if (q.includes('division') || q.includes('service') || q.includes('package') || q.includes('deliverable') || q.includes('price')) {
-      return `📦 **Walt Agency 5 Core Service Divisions**:
-1. **Division 01 - Web Designing / Developing**: Custom responsive UI/UX, React/Next.js/WordPress development, SEO setup, 3-7 day turnaround. (Starts at ₹3,999 - ₹19,999+)
-2. **Division 02 - ATS Resume & CV**: Recruiter-optimized keywords, PDF + Word formats, 24-48 hr delivery. (₹499 - ₹1,499)
-3. **Division 03 - High-CTR YouTube Thumbnails**: 1080p Photoshop compositions, high contrast & curiosity hooks. (₹299 - ₹999/pack)
-4. **Division 04 - Short & Long Video Editing**: Reels, Shorts, Podcasts, 4K color grading, dynamic sound design. (₹799 - ₹4,999+)
-5. **Division 05 - Pan-India Business Registrations**: MSME, GST, Udyam, Private Limited consultancy. (₹999 - ₹7,499)
-*Tip: Multi-division bundles convert 35% higher when pitched together!*`;
+    if (q.includes('division') || q.includes('service') || q.includes('package') || q.includes('deliverable') || q.includes('price') || q.includes('turnaround') || q.includes('rate')) {
+      return `📦 **Walt Agency Official Service Divisions & Pricing Matrix**:
+1. **Division 01 - Web Designing & Developing**:
+   • Starting at: **Rs. 4,999/-**
+   • Turnaround: **2-3 Days**
+   • Deliverables: React/Next.js/Tailwind, mobile-responsive, zero lag, SEO foundation.
+
+2. **Division 02 - Resume & CV Making**:
+   • Starting at: **Rs. 199/-**
+   • Turnaround: **1-2 hrs**
+   • Deliverables: ATS score >95%, Executive format, PDF + Word, digital bio page.
+
+3. **Division 03 - Thumbnail & Video Editing**:
+   • Starting at: **Rs. 499/-**
+   • Turnaround: **8-10 hrs**
+   • Deliverables: High CTR YouTube thumbnails, Reels/Shorts/Podcasts, cinematic audio, color grading.
+
+4. **Division 04 - Growth Agency & Business Establishment**:
+   • Starting at: **Rs. 3,999/-**
+   • Turnaround: **2-3 Days**
+   • Deliverables: Google Maps Top 3 ranking, Local SEO citations, influencer collaborations.
+
+5. **Division 05 - Licence & Forms Registration**:
+   • Starting at: **Rs. 299/-**
+   • Turnaround: **24-48 hrs**
+   • Deliverables: MSME, GST filings, trade licences, business form guidance.`;
     }
 
     if (q.includes('objection') || q.includes('expensive') || q.includes('discount') || q.includes('pitch') || q.includes('client')) {
       return `🎯 **Client Objection Handling Playbook**:
 • **Objection: "Your price is slightly higher than freelancers."**
-  👉 *Response Script*: *"I completely understand! The difference is that freelancers often disappear or leave you with buggy code. With Walt Designs & Studio, you get a dedicated engineering team, zero-lag performance, structured milestones, 1-year technical support, and strict guaranteed delivery."*
+  👉 *Response Script*: *"I completely understand! The difference is that freelancers often disappear or leave you with buggy code. With Walt Designs & Studio, you get a dedicated engineering team, zero-lag performance, structured milestones (Web dev in 2-3 days from Rs.4999), 1-year technical support, and strict guaranteed delivery."*
 • **Objection: "Can you give a discount?"**
-  👉 *Response Script*: *"Instead of compromising on quality by cutting the price, what I can do today is include free premium SEO setup and 3 extra revision cycles worth ₹4,000 complimentary if we lock the project brief today."*`;
+  👉 *Response Script*: *"Instead of compromising on quality by cutting our starting rates, what I can do today is include free premium SEO setup and 3 extra revision cycles worth ₹4,000 complimentary if we lock the project brief today."*`;
     }
 
     if (q.includes('script') || q.includes('whatsapp') || q.includes('follow up') || q.includes('follow-up') || q.includes('message')) {
       return `💬 **High-Converting WhatsApp Outreach Script**:
 *"Hi [Client Name]! 👋 This is ${employeeName} from Walt Designs & Studio.*
 
-*Following up regarding your inquiry for ${DIVISIONS[0].title}. We have reserved a priority onboarding slot for your project this week, which includes zero-lag architecture and custom deliverables.*
+*Following up regarding your inquiry for Web Designing & Development (Starting at Rs. 4,999/- with 2-3 Days turnaround). We have reserved a priority onboarding slot for your brand this week, which includes zero-lag architecture and custom deliverables.*
 
-*Would you have 5 minutes today for a quick walkthrough or should I send over the sample design deck?*
+*Would you have 5 minutes today for a quick walkthrough or should I send over the live sample design deck?*
 
 *Best regards,*
 *${employeeName} | Corporate Sales Manager | Walt Designs & Studio"*`;
@@ -125,9 +143,10 @@ export const CorporateAiSupport: React.FC<{ isOpen?: boolean; onClose?: () => vo
     return `💡 **Executive Advisory**:
 As a corporate sales executive at Walt Designs & Studio:
 1. **Prioritize Expected Data**: Contact assigned client leads within 15 minutes of assignment.
-2. **Update Status**: Remember to switch lead status to "Interested" or "Not Interested" promptly.
-3. **Daily Reports**: Submit all daily outreach numbers before 10:00 PM for verification.
-4. For urgent escalations, reach Founder Priyanshu Kumar directly at +91 8276825128.`;
+2. **Current Service Packages**: Web Dev (Rs.4999, 2-3 days), Resume (Rs.199, 1-2h), Thumbnails/Video (Rs.499, 8-10h), Growth (Rs.3999), Registrations (Rs.299).
+3. **Update Status**: Remember to switch lead status to "Interested" or "Not Interested" promptly.
+4. **Daily Reports**: Submit all daily outreach numbers before 10:00 PM for verification.
+5. For urgent escalations, reach Founder Priyanshu Kumar directly at +91 8276825128.`;
   };
 
   const handleSendMessage = async (textToSend?: string) => {
@@ -145,15 +164,42 @@ As a corporate sales executive at Walt Designs & Studio:
     if (!textToSend) setInputText('');
     setIsTyping(true);
 
+    // Natural typing delay simulation (1.2s to 1.8s) so the 3-dot animation is realistically visible
+    const delayPromise = new Promise((resolve) => setTimeout(resolve, 1400));
+
     try {
       let aiResponseText = '';
-      const apiKey = process.env.GEMINI_API_KEY || (import.meta as any).env?.VITE_GEMINI_API_KEY;
+      const apiKey =
+        process.env.GEMINI_API_KEY ||
+        (import.meta as any).env?.VITE_GEMINI_API_KEY ||
+        (window as any).DEFAULT_GEMINI_API_KEY ||
+        (window as any).GEMINI_API_KEY ||
+        '';
 
       if (apiKey) {
         const ai = new GoogleGenAI({ apiKey });
-        const systemInstruction = `You are the specialized Corporate AI Strategy & Employee Help Desk Assistant for "Walt Designs & Studio" (Founder: Priyanshu Kumar, HQ: Delhi NCR & West Bengal).
-Employee Info: Name: ${employeeName}, Corporate ID: ${corporateId}, Role: ${profile?.corporateRole || 'Sales Executive'}.
-Provide clear, actionable, corporate-grade answers on agency services (Web Dev, Resume, Thumbnails, Video Editing, Business Registration), commission structure (8-15% incentives + bonuses), attendance rules (1/day locked until midnight, approved/pending/in-review/rejected statuses), and high-conversion client objection scripts. Keep answers concise, highly professional, structured with bullet points.`;
+        const systemInstruction = `You are the specialized Corporate AI Strategy & Employee Help Desk Assistant for "Walt Designs & Studio" (Founder & Director: Priyanshu Kumar, HQ: Delhi NCR & West Bengal, Phone: +91 8276825128, Email: waltdesignsstudio@gmail.com).
+
+Current Employee Info:
+- Name: ${employeeName}
+- Corporate ID: ${corporateId}
+- Role: ${profile?.corporateRole || 'Sales Executive'}
+
+Official Agency Services & Turnarounds:
+1. Web Designing/Developing: Starting at Rs.4,999/-, Turnaround 2-3 Days (React, Tailwind, Vite, CMS, zero lag, SEO foundation).
+2. Resume & CV Making: Starting at Rs.199/-, Turnaround 1-2 hrs (ATS-Friendly score >95%, Executive format, PDF + Word).
+3. Thumbnail & Video Editing: Starting at Rs.499/-, Turnaround 8-10 hrs (High CTR YouTube thumbnails, Reels, Shorts, 4K Color Grade).
+4. Growth Agency & Business Establishment: Starting at Rs.3,999/-, Turnaround 2-3 Days (Google Maps Top 3 ranking, GMB SEO, Influencer Outreach).
+5. Licence & Forms Registration: Starting at Rs.299/-, Turnaround 24-48 hrs (MSME, GST, Local Trade Licences, Form Assistance).
+
+Corporate Protocols:
+- Daily Attendance: 1 submission/day (00:00 to 23:59), auto-locked until 12:00 AM midnight. Statuses: Approved (credited), Pending (waiting admin sync), In Review, Rejected. Requires 8+ hours & expected clients count.
+- Sales Commission: Base salary + 8% to 15% closed deals commission + quarterly 5% target achievement bonuses + Leaderboard recognitions.
+- Sales Scripts & Objection Handling: Give ready-to-copy WhatsApp scripts, objection handling responses, and closing advice tailored directly to whatever the employee asks.
+
+Instructions:
+- Provide clear, actionable, corporate-grade answers formatted with bullet points and bold highlights.
+- Address the user's specific question directly with high relevance.`;
 
         const response = await ai.models.generateContent({
           model: 'gemini-3.7-flash',
@@ -172,6 +218,9 @@ Provide clear, actionable, corporate-grade answers on agency services (Web Dev, 
         aiResponseText = getKnowledgeResponse(text);
       }
 
+      // Await typing delay completion
+      await delayPromise;
+
       const assistantMsg: ChatMessage = {
         id: `assistant-${Date.now()}`,
         sender: 'assistant',
@@ -182,6 +231,7 @@ Provide clear, actionable, corporate-grade answers on agency services (Web Dev, 
       setMessages((prev) => [...prev, assistantMsg]);
     } catch (err) {
       console.warn('AI Gen error, using corporate fallback:', err);
+      await delayPromise;
       const fallbackText = getKnowledgeResponse(text);
       const assistantMsg: ChatMessage = {
         id: `assistant-${Date.now()}`,
@@ -280,16 +330,16 @@ Provide clear, actionable, corporate-grade answers on agency services (Web Dev, 
           })}
 
           {isTyping && (
-            <div className="flex gap-3 justify-start">
+            <div className="flex gap-3 justify-start items-center">
               <div className="w-8 h-8 rounded-xl bg-purple-900 text-amber-300 flex items-center justify-center shrink-0 shadow-xs">
-                <Bot className="w-4 h-4 animate-spin" />
+                <Sparkles className="w-4 h-4 animate-pulse" />
               </div>
-              <div className="bg-white border border-purple-100 rounded-2xl rounded-tl-none p-3.5 text-xs text-purple-950 flex items-center gap-2 shadow-xs">
-                <span className="animate-pulse font-bold">AI Assistant is analyzing enterprise guidelines...</span>
-                <span className="flex gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-purple-600 animate-bounce"></span>
-                  <span className="w-1.5 h-1.5 rounded-full bg-purple-600 animate-bounce delay-100"></span>
-                  <span className="w-1.5 h-1.5 rounded-full bg-purple-600 animate-bounce delay-200"></span>
+              <div className="bg-white border border-purple-200/80 rounded-2xl rounded-tl-none py-3 px-4 text-xs text-purple-950 flex items-center gap-2.5 shadow-sm">
+                <span className="font-semibold text-purple-900">AI Assistant is typing</span>
+                <span className="flex items-center gap-1 pt-0.5">
+                  <span className="w-2 h-2 rounded-full bg-purple-600 animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                  <span className="w-2 h-2 rounded-full bg-purple-600 animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                  <span className="w-2 h-2 rounded-full bg-purple-600 animate-bounce" style={{ animationDelay: '300ms' }}></span>
                 </span>
               </div>
             </div>

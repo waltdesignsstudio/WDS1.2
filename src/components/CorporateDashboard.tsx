@@ -722,44 +722,59 @@ export const CorporateDashboard: React.FC = () => {
         {activeTab === 'dashboard' && (
           <div className="space-y-6 animate-in fade-in">
             
-            {/* Top Welcome Banner with Live Timing Greeting */}
-            <div className="p-6 sm:p-8 rounded-3xl bg-[#FFFBEB] border-2 border-amber-300 shadow-md flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden">
-              <div className="space-y-2 z-10">
+            {/* Top Welcome Banner with Live Timing Greeting & Dry Leaves Wallpaper Background */}
+            <div className="p-6 sm:p-8 rounded-3xl bg-[#fef9ee] border-2 border-amber-400/80 shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden group">
+              
+              {/* Light & Transparent Dry Leaves Wallpaper Texture Background */}
+              <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                <img
+                  src="https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=1600&q=80"
+                  alt="Dry Leaves Wallpaper Background"
+                  className="w-full h-full object-cover opacity-30 mix-blend-multiply transition-transform duration-1000 group-hover:scale-105"
+                />
+                <div className="absolute inset-0 bg-gradient-to-r from-amber-50/85 via-amber-100/60 to-orange-50/80 backdrop-blur-[0.5px]" />
+                
+                {/* Subtle Decorative Autumn Leaf Vectors / Light Accents */}
+                <div className="absolute -top-10 -right-10 w-44 h-44 bg-amber-300/30 rounded-full blur-2xl" />
+                <div className="absolute -bottom-10 -left-10 w-44 h-44 bg-orange-300/20 rounded-full blur-2xl" />
+              </div>
+
+              <div className="space-y-2.5 z-10 relative">
                 
                 {/* Time-Based Greeting Badge & Corporate Role */}
                 <div className="flex flex-wrap items-center gap-2">
-                  <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold ${greetingInfo.bg} ${greetingInfo.color} border border-amber-300/80 shadow-xs`}>
+                  <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold ${greetingInfo.bg} ${greetingInfo.color} border border-amber-400/80 shadow-xs backdrop-blur-md`}>
                     <GreetingIcon className="w-3.5 h-3.5" />
                     <span>{greetingInfo.greeting}</span>
                   </div>
 
-                  <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-amber-400 text-amber-950 uppercase tracking-wider font-mono shadow-sm">
+                  <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-amber-400 text-amber-950 uppercase tracking-wider font-mono shadow-sm border border-amber-500/40">
                     {corporateId}
                   </span>
                   
-                  <span className="text-xs font-bold text-amber-800">
+                  <span className="text-xs font-extrabold text-amber-900 bg-white/80 px-2.5 py-0.5 rounded-full border border-amber-300/60 shadow-2xs">
                     {profile?.corporateRole || 'Asst. Sales Manager'}
                   </span>
                 </div>
 
                 {/* Personalized Greeting Title */}
-                <h1 className="text-2xl sm:text-3xl font-extrabold text-amber-950 tracking-tight">
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-amber-950 tracking-tight drop-shadow-2xs">
                   {greetingInfo.greeting}, {profile?.name || 'Sales Representative'}
                 </h1>
                 
-                <p className="text-xs sm:text-sm text-amber-900/80 max-w-2xl leading-relaxed">
+                <p className="text-xs sm:text-sm text-amber-950 font-medium max-w-2xl leading-relaxed bg-white/60 p-2 rounded-xl border border-amber-200/60 shadow-2xs backdrop-blur-xs">
                   Access your assigned enterprise sales metrics, expected client prospects, target achievement indices, and daily attendance logs.
                 </p>
 
                 {/* Mobile Live Clock Display */}
                 <div className="flex md:hidden items-center gap-2 pt-1 font-mono text-xs font-bold text-amber-900">
-                  <Clock className="w-3.5 h-3.5 text-amber-600" />
+                  <Clock className="w-3.5 h-3.5 text-amber-700" />
                   <span>{formattedTime} • {formattedDate}</span>
                 </div>
               </div>
 
               {/* HIGHLIGHTED "SUBMIT TODAY'S ATTENDANCE" BUTTON & DASHBOARD HUB ACTIONS */}
-              <div className="flex flex-wrap items-center gap-3 z-10">
+              <div className="flex flex-wrap items-center gap-3 z-10 relative">
                 {/* AI HELP DESK BUTTON */}
                 <button
                   type="button"
@@ -776,7 +791,7 @@ export const CorporateDashboard: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsNotificationsModalOpen(true)}
-                  className="relative p-3 rounded-2xl bg-white border-2 border-amber-300 hover:border-purple-600 text-purple-950 hover:bg-amber-50 shadow-sm transition-all cursor-pointer group flex items-center gap-2"
+                  className="relative p-3 rounded-2xl bg-white/95 border-2 border-amber-300 hover:border-purple-600 text-purple-950 hover:bg-amber-50 shadow-sm transition-all cursor-pointer group flex items-center gap-2"
                   title="View Notifications"
                 >
                   <div className="relative">
@@ -794,7 +809,7 @@ export const CorporateDashboard: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsNoticesModalOpen(true)}
-                  className="relative p-3 rounded-2xl bg-white border-2 border-amber-300 hover:border-purple-600 text-purple-950 hover:bg-amber-50 shadow-sm transition-all cursor-pointer group flex items-center gap-2"
+                  className="relative p-3 rounded-2xl bg-white/95 border-2 border-amber-300 hover:border-purple-600 text-purple-950 hover:bg-amber-50 shadow-sm transition-all cursor-pointer group flex items-center gap-2"
                   title="View Official Notices"
                 >
                   <Megaphone className="w-5 h-5 text-amber-700 group-hover:text-purple-900 transition-transform" />
@@ -829,12 +844,12 @@ export const CorporateDashboard: React.FC = () => {
                   <div
                     className={`p-3 px-4 rounded-2xl border-2 flex items-center gap-2.5 shadow-md ${
                       todayAttendanceRecord?.status === 'rejected'
-                        ? 'bg-red-50 border-red-500 text-red-950 ring-2 ring-red-300'
+                        ? 'bg-red-50/95 border-red-500 text-red-950 ring-2 ring-red-300'
                         : todayAttendanceRecord?.status === 'approved'
-                        ? 'bg-emerald-50 border-emerald-500 text-emerald-950 ring-2 ring-emerald-300'
+                        ? 'bg-emerald-50/95 border-emerald-500 text-emerald-950 ring-2 ring-emerald-300'
                         : todayAttendanceRecord?.status === 'in_review' || todayAttendanceRecord?.status === 'under_review'
-                        ? 'bg-orange-50 border-orange-500 text-orange-950 ring-2 ring-orange-300'
-                        : 'bg-yellow-50 border-yellow-400 text-yellow-950 ring-2 ring-yellow-300'
+                        ? 'bg-orange-50/95 border-orange-500 text-orange-950 ring-2 ring-orange-300'
+                        : 'bg-yellow-50/95 border-yellow-400 text-yellow-950 ring-2 ring-yellow-300'
                     }`}
                   >
                     <div
