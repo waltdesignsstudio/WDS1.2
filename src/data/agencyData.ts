@@ -38,11 +38,11 @@ export interface FAQItem {
 export const AGENCY_INFO = {
   name: "Walt Designs & Studio",
   tagline: "We engineer premium, professional digital products designed with zero lag.",
-  founder: "Prince Kumar",
+  founder: "Priyanshu Kumar",
   founderRole: "Founder & Creative Director",
   founderQuote: "We set out to challenge the average agency narrative in India. No slow templates, no generic templates, and no hidden billing brackets. Every Walt project gets my direct focus and execution signature.",
-  phone: "Available on Inquiry",
-  phoneRaw: "",
+  phone: "+91 8276825128",
+  phoneRaw: "+918276825128",
   email: "waltdesignsstudio@gmail.com",
   formspreeEndpoint: "https://formspree.io/f/xreylalq",
   headOffice: "West Bengal, India",
@@ -310,6 +310,6 @@ export const FAQS: FAQItem[] = [
   {
     category: "Support & Timeline",
     question: "What is your response time for new inquiries?",
-    answer: "We guarantee a first personalized technical response in under 12 hours. For urgent project kickoffs, you can reach out via our direct WhatsApp desk or instant inquiry form."
+    answer: "We guarantee a first personalized technical response in under 12 hours. For urgent project kickoffs, you can also dial our direct Executive Hotline at +91 8276825128."
   }
 ];

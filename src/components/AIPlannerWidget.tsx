@@ -261,7 +261,7 @@ ${blueprint.growthPlaybook.map(g => `- ${g}`).join('\n')}`;
             </div>
             <div className="p-3 bg-zinc-900/80 rounded-lg border border-zinc-800">
               <span className="text-zinc-500 block">Direct Oversight:</span>
-              <span className="text-zinc-200 font-bold text-sm">Prince Kumar</span>
+              <span className="text-zinc-200 font-bold text-sm">Priyanshu Kumar</span>
             </div>
           </div>
 

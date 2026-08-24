@@ -1164,7 +1164,7 @@ export const CorporateDashboard: React.FC = () => {
 
                   {(() => {
                     const fallbackLeaders = [
-                      { id: 'def-1', name: 'Prince Kumar', employeeCode: 'WDS-DIR01', dealsClosed: 14, earnings: 185000, incentives: 22200, rank: 1 },
+                      { id: 'def-1', name: 'Priyanshu Kumar', employeeCode: 'WDS-DIR01', dealsClosed: 14, earnings: 185000, incentives: 22200, rank: 1 },
                       { id: 'def-2', name: 'Rahul Verma', employeeCode: 'WDS-9421', dealsClosed: 9, earnings: 120000, incentives: 14400, rank: 2 },
                       { id: 'def-3', name: 'Ananya Sen', employeeCode: 'WDS-8302', dealsClosed: 6, earnings: 95000, incentives: 11400, rank: 3 },
                     ];
@@ -1175,7 +1175,7 @@ export const CorporateDashboard: React.FC = () => {
                         {leadersToShow.map((leader, index) => {
                           const isFirst = index === 0;
                           const isSecond = index === 1;
-                          const leaderName = (leader as any).name || (leader as any).employeeName || (index === 0 ? 'Prince Kumar' : index === 1 ? 'Rahul Verma' : 'Ananya Sen');
+                          const leaderName = (leader as any).name || (leader as any).employeeName || (index === 0 ? 'Priyanshu Kumar' : index === 1 ? 'Rahul Verma' : 'Ananya Sen');
                           const empCode = (leader as any).employeeCode || (leader as any).corporateId || (index === 0 ? 'WDS-DIR01' : index === 1 ? 'WDS-9421' : 'WDS-8302');
                           const deals = (leader as any).dealsClosed !== undefined ? (leader as any).dealsClosed : (index === 0 ? 14 : index === 1 ? 9 : 6);
                           const sales = (leader as any).earnings || (leader as any).totalSales || (index === 0 ? 185000 : index === 1 ? 120000 : 95000);
@@ -1405,7 +1405,7 @@ export const CorporateDashboard: React.FC = () => {
                           required
                           value={editName}
                           onChange={(e) => setEditName(e.target.value)}
-                          placeholder="e.g. Prince Kumar"
+                          placeholder="e.g. Priyanshu Kumar"
                           className="w-full bg-white border border-amber-300 focus:border-amber-600 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 outline-none shadow-xs"
                         />
                       </div>

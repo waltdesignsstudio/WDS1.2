@@ -89,22 +89,22 @@ export const ContactPage: React.FC = () => {
                 </p>
               </div>
 
-              {/* Channel 2: Instant Desk */}
+              {/* Channel 2: Executive Hotline */}
               <div className="bg-[#38041b] border border-pink-500/30 hover:border-pink-400 rounded-2xl p-5 space-y-2.5 transition-all group shadow-lg">
                 <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-emerald-300 group-hover:scale-105 transition-transform">
-                  <MessageSquare className="w-5 h-5" />
+                  <Phone className="w-5 h-5" />
                 </div>
                 <span className="text-[11px] font-mono text-emerald-300 font-bold uppercase block">
-                  DIGITAL DESK
+                  EXECUTIVE HOTLINE
                 </span>
                 <a 
-                  href={`mailto:${AGENCY_INFO.email}`}
-                  className="text-base font-bold font-mono text-white hover:text-emerald-300 transition-colors block truncate"
+                  href={`tel:${AGENCY_INFO.phoneRaw}`}
+                  className="text-base font-bold font-mono text-white hover:text-emerald-300 transition-colors block"
                 >
-                  Direct Inquiry Support
+                  {AGENCY_INFO.phone}
                 </a>
                 <p className="text-pink-200/70 text-xs leading-relaxed">
-                  Available for priority web setup, design consultation, or urgent registration assistance.
+                  Available for emergency web setup or urgent registration assistance.
                 </p>
               </div>
 
@@ -170,7 +170,7 @@ export const ContactPage: React.FC = () => {
                 Direct Inquiry Form
               </h2>
               <p className="text-pink-200/80 text-xs sm:text-sm mt-1">
-                All submissions route directly to Founder Prince Kumar with encrypted transmission.
+                All submissions route directly to Founder Priyanshu Kumar with encrypted transmission.
               </p>
             </div>
 

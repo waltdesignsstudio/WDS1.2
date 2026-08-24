@@ -78,11 +78,11 @@ export const FAQSection: React.FC = () => {
             <span>Have a unique question not covered here?</span>
           </div>
           <a
-            href="/contact"
+            href="tel:+918276825128"
             className="text-amber-300 hover:text-amber-200 font-semibold flex items-center gap-1 shrink-0"
           >
-            <span>Reach Founder Desk Directly</span>
-            <span className="font-mono">→</span>
+            <span>Call Founder Hotline Directly</span>
+            <span className="font-mono">(+91 8276825128)</span>
           </a>
         </div>
 

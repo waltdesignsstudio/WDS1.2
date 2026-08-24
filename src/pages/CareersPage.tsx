@@ -24,82 +24,144 @@ import {
   Star,
   Quote,
   TrendingUp,
-  Users,
+  BadgeCheck,
+  Filter,
 } from 'lucide-react';
 import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
 
-const SUCCESS_STORIES = [
+interface Testimonial {
+  id: string;
+  name: string;
+  city: string;
+  state: string;
+  role: string;
+  tenure: string;
+  earnings: string;
+  numericEarnings: number;
+  clientsClosed: number;
+  category: 'student' | 'top_earner' | 'part_time';
+  categoryLabel: string;
+  rating: number;
+  image: string;
+  quote: string;
+  verifiedPayout: string;
+}
+
+const SUCCESS_STORIES: Testimonial[] = [
   {
-    name: "Rahul Sharma",
-    role: "Freelance Sales Assistant Manager",
-    location: "Lucknow, Uttar Pradesh",
-    earnings: "₹14,400 Earnings",
-    clientsClosed: "12 Clients Closed (₹1,200/client)",
-    image: "https://images.unsplash.com/photo-1618886614638-80e3c103d31a?auto=format&fit=crop&w=300&q=80",
+    id: '1',
+    name: 'Pooja Verma',
+    city: 'Indore',
+    state: 'Madhya Pradesh',
+    role: 'Sales Assistant Manager',
+    tenure: '4 months with Walt',
+    earnings: '₹16,800',
+    numericEarnings: 16800,
+    clientsClosed: 14,
+    category: 'student',
+    categoryLabel: 'College Student • WFH',
     rating: 5,
-    tag: "Verified Freelancer • Student",
-    review: "I joined while in my final year of college looking for part-time income. Walt Designs & Studio is 100% investmentless with zero registration cost. They provided pitch templates and Google Sheet tracking. I closed 12 clients for web dev and resumes and received my full ₹14,400 directly via UPI on time.",
+    image: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=300&h=300&q=80',
+    quote:
+      'Being a college student, I was scared of fake online jobs asking for registration fees. Walt Designs is 100% genuine with zero investment. They provided ready-to-send pitch scripts and lead catalogs. I closed 14 branding clients last month and received ₹16,800 directly in my bank account via UPI!',
+    verifiedPayout: 'Verified UPI Transfer: ₹16,800',
   },
   {
-    name: "Ananya Sen",
-    role: "Senior Freelance Sales Partner",
-    location: "Kolkata, West Bengal",
-    earnings: "₹20,400 Earnings",
-    clientsClosed: "17 Clients Closed (₹1,200/client)",
-    image: "https://images.unsplash.com/photo-1617137984095-74e4e5e3613f?auto=format&fit=crop&w=300&q=80",
+    id: '2',
+    name: 'Aman Sharma',
+    city: 'Lucknow',
+    state: 'Uttar Pradesh',
+    role: 'Sales Assistant Manager',
+    tenure: '6 months with Walt',
+    earnings: '₹20,400',
+    numericEarnings: 20400,
+    clientsClosed: 17,
+    category: 'top_earner',
+    categoryLabel: 'Top Performer • Remote',
     rating: 5,
-    tag: "Top Monthly Performer • Promoted Tier",
-    review: "The quick 2-3 day delivery time of Walt's web team makes closing deals easy because business owners see live progress. I work just 2 hours daily from home in the evening. In my second month I achieved ₹20,400 with full payment transparency.",
+    image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&h=300&q=80',
+    quote:
+      'The support data and WhatsApp pitch playbooks make client conversations effortless. Reaching local doctors, gym owners, and retail shops needing websites is straightforward. Closing 4 clients a week helped me earn ₹20,400 last month with total freedom.',
+    verifiedPayout: 'Verified Bank Sync: ₹20,400',
   },
   {
-    name: "Vikramaditya Chauhan",
-    role: "Freelance Growth Associate",
-    location: "Jaipur, Rajasthan",
-    earnings: "₹9,600 Earnings",
-    clientsClosed: "8 Clients in 1st Month",
-    image: "https://images.unsplash.com/photo-1628157582853-a796fa650a6a?auto=format&fit=crop&w=300&q=80",
+    id: '3',
+    name: 'Sneha Mukherjee',
+    city: 'Kolkata',
+    state: 'West Bengal',
+    role: 'Sales Assistant Manager',
+    tenure: '3 months with Walt',
+    earnings: '₹13,200',
+    numericEarnings: 13200,
+    clientsClosed: 11,
+    category: 'part_time',
+    categoryLabel: 'Part-Time • 2 hrs/day',
     rating: 5,
-    tag: "Fresher Success • 100% Remote",
-    review: "As a fresher with no previous corporate sales experience, I was nervous. But the company guidance decks and WhatsApp scripts gave me instant clarity. Within 3 weeks I converted 8 business clients and earned ₹9,600. ₹1,200 per client is a genuine incentive!",
+    image: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=300&h=300&q=80',
+    quote:
+      'I spend only 2 hours in the evening reaching out to local boutique brands and restaurant owners who require menu cards and social media designs. Walt’s design team produces top-quality work, so clients convert easily. Earned ₹13,200 without paying a single rupee.',
+    verifiedPayout: 'Verified UPI Transfer: ₹13,200',
   },
   {
-    name: "Pooja Verma",
-    role: "Freelance Sales Assistant Manager",
-    location: "Patna, Bihar",
-    earnings: "₹16,800 Earnings",
-    clientsClosed: "14 Clients Closed (₹1,200/client)",
-    image: "https://images.unsplash.com/photo-1594744803329-e58b31de8bf5?auto=format&fit=crop&w=300&q=80",
+    id: '4',
+    name: 'Rohit Patel',
+    city: 'Ahmedabad',
+    state: 'Gujarat',
+    role: 'Sales Assistant Manager',
+    tenure: '5 months with Walt',
+    earnings: '₹19,200',
+    numericEarnings: 19200,
+    clientsClosed: 16,
+    category: 'top_earner',
+    categoryLabel: 'Consistent Earner',
     rating: 5,
-    tag: "Work From Home • Verified Earner",
-    review: "I manage my work entirely from home between family schedules. The lead support data provided by the company helped me connect with local businesses needing modern websites and Google mapping. Every payout (₹16,800 total) was transferred right after client sign-offs.",
+    image: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=300&h=300&q=80',
+    quote:
+      'No HR hiring gimmicks, no Demat opening targets. Pure performance commission of ₹1,200 per client on legitimate graphic and web packages. When small businesses see Walt’s live portfolio, they trust quickly. Reached ₹19,200 this past month.',
+    verifiedPayout: 'Verified Bank Sync: ₹19,200',
   },
   {
-    name: "Amit Patel",
-    role: "Freelance Sales Associate",
-    location: "Ahmedabad, Gujarat",
-    earnings: "₹8,400 Earnings",
-    clientsClosed: "7 Clients Closed",
-    image: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=300&q=80",
+    id: '5',
+    name: 'Divya Nair',
+    city: 'Bengaluru',
+    state: 'Karnataka',
+    role: 'Sales Assistant Manager',
+    tenure: '1 month with Walt',
+    earnings: '₹8,400',
+    numericEarnings: 8400,
+    clientsClosed: 7,
+    category: 'student',
+    categoryLabel: 'Fresher • 1st Month',
     rating: 5,
-    tag: "Part-Time • Zero Investment",
-    review: "Started as a side hustle alongside my studies. Closing 7 clients fetched me ₹8,400 in just 18 days. The zero investment promise is 100% real — didn't pay a single rupee to start.",
+    image: 'https://images.unsplash.com/photo-1567532939604-b6b5b0db2604?auto=format&fit=crop&w=300&h=300&q=80',
+    quote:
+      'I was a complete fresher with zero prior marketing experience. The onboarding guidance explained how to message potential business owners step-by-step. I closed my first client on day 3 and earned ₹8,400 in my very first month!',
+    verifiedPayout: 'Verified UPI Transfer: ₹8,400',
   },
   {
-    name: "Sneha Mukherjee",
-    role: "Freelance Client Coordinator",
-    location: "Ranchi, Jharkhand",
-    earnings: "₹18,000 Earnings",
-    clientsClosed: "15 Clients Closed",
-    image: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80",
+    id: '6',
+    name: 'Vikram Singh Rajput',
+    city: 'Jaipur',
+    state: 'Rajasthan',
+    role: 'Sales Assistant Manager',
+    tenure: '4 months with Walt',
+    earnings: '₹15,600',
+    numericEarnings: 15600,
+    clientsClosed: 13,
+    category: 'part_time',
+    categoryLabel: 'Flexible Freelancer',
     rating: 5,
-    tag: "Remote Sales • 100% WFH",
-    review: "The WhatsApp message templates and portfolio links made it very convenient to convince clients. I reached ₹18,000 in monthly commissions with complete freedom of working hours.",
+    image: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=300&h=300&q=80',
+    quote:
+      'What sets Walt Designs apart is honest communication and rapid commission clearance. As soon as a client makes an advance payment, my ₹1,200 commission is locked. Pocketed ₹15,600 working from my laptop at home in Jaipur.',
+    verifiedPayout: 'Verified Bank Sync: ₹15,600',
   },
 ];
 
 export const CareersPage: React.FC = () => {
   const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<'all' | 'student' | 'top_earner' | 'part_time'>('all');
   const [formData, setFormData] = useState({
     name: '',
     number: '',
@@ -108,6 +170,10 @@ export const CareersPage: React.FC = () => {
     age: '',
     dob: '',
   });
+
+  const filteredStories = activeFilter === 'all'
+    ? SUCCESS_STORIES
+    : SUCCESS_STORIES.filter((story) => story.category === activeFilter);
 
   const [formStatus, setFormStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
@@ -517,8 +583,237 @@ export const CareersPage: React.FC = () => {
         </section>
 
         {/* ========================================================================= */}
-        {/* WHY JOIN WALT DESIGNS STUDIO (Sample Workspace Images & Culture) */}
+        {/* SUCCESS STORIES & TESTIMONIALS (INDIAN FREELANCE SALES MANAGERS) */}
         {/* ========================================================================= */}
+        <section id="success-stories" className="py-14 sm:py-20 bg-zinc-50/80 border-b border-zinc-200">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
+            
+            {/* Section Header */}
+            <div className="text-center max-w-3xl mx-auto space-y-4">
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold font-mono uppercase tracking-wider">
+                <BadgeCheck className="w-4 h-4 text-emerald-600" />
+                <span>Verified Indian Freelancers • Real Monthly Payouts</span>
+              </div>
+
+              <h2 className="text-3xl sm:text-4xl font-extrabold text-zinc-950 tracking-tight">
+                Success Stories from Our Sales Team
+              </h2>
+
+              <p className="text-sm sm:text-base text-zinc-600 leading-relaxed">
+                Meet students, homemakers, and remote sales associates across India who earn steady commission between <strong className="text-zinc-900 font-bold">₹7,000 and ₹21,000+</strong> every month with Walt Designs & Studio — 100% remote with zero upfront fees.
+              </p>
+            </div>
+
+            {/* Quick Metrics Strip */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+              <div className="p-4 rounded-2xl bg-white border border-zinc-200 shadow-2xs space-y-1">
+                <span className="text-xs font-mono font-bold text-zinc-500 uppercase block">Earnings Range</span>
+                <p className="text-lg sm:text-xl font-black text-emerald-700">₹7,000 – ₹21,000+</p>
+                <p className="text-[11px] text-zinc-500">Monthly per freelancer</p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-white border border-zinc-200 shadow-2xs space-y-1">
+                <span className="text-xs font-mono font-bold text-zinc-500 uppercase block">Client Incentive</span>
+                <p className="text-lg sm:text-xl font-black text-zinc-900">₹1,200 / Client</p>
+                <p className="text-[11px] text-zinc-500">Instant commission credit</p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-white border border-zinc-200 shadow-2xs space-y-1">
+                <span className="text-xs font-mono font-bold text-zinc-500 uppercase block">Joining Fee</span>
+                <p className="text-lg sm:text-xl font-black text-emerald-700">₹0 (Zero Investment)</p>
+                <p className="text-[11px] text-zinc-500">100% Free to start</p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-white border border-zinc-200 shadow-2xs space-y-1">
+                <span className="text-xs font-mono font-bold text-zinc-500 uppercase block">Payout Frequency</span>
+                <p className="text-lg sm:text-xl font-black text-zinc-900">Weekly Sync</p>
+                <p className="text-[11px] text-zinc-500">Direct UPI / Bank Transfer</p>
+              </div>
+            </div>
+
+            {/* Category Filter Pills */}
+            <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setActiveFilter('all')}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  activeFilter === 'all'
+                    ? 'bg-red-600 text-white shadow-md'
+                    : 'bg-white border border-zinc-300 text-zinc-700 hover:bg-zinc-100'
+                }`}
+              >
+                All Reviews ({SUCCESS_STORIES.length})
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveFilter('top_earner')}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  activeFilter === 'top_earner'
+                    ? 'bg-red-600 text-white shadow-md'
+                    : 'bg-white border border-zinc-300 text-zinc-700 hover:bg-zinc-100'
+                }`}
+              >
+                <TrendingUp className="w-3.5 h-3.5" />
+                <span>Top Earners (₹15,000 - ₹21,000)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveFilter('student')}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  activeFilter === 'student'
+                    ? 'bg-red-600 text-white shadow-md'
+                    : 'bg-white border border-zinc-300 text-zinc-700 hover:bg-zinc-100'
+                }`}
+              >
+                <GraduationCap className="w-3.5 h-3.5" />
+                <span>Students & Freshers</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveFilter('part_time')}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  activeFilter === 'part_time'
+                    ? 'bg-red-600 text-white shadow-md'
+                    : 'bg-white border border-zinc-300 text-zinc-700 hover:bg-zinc-100'
+                }`}
+              >
+                <Clock className="w-3.5 h-3.5" />
+                <span>Part-Time Freelancers</span>
+              </button>
+            </div>
+
+            {/* Testimonials Cards Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredStories.map((story) => (
+                <div
+                  key={story.id}
+                  className="bg-white rounded-3xl border border-zinc-200 hover:border-red-300 shadow-sm hover:shadow-lg transition-all duration-300 p-6 flex flex-col justify-between space-y-5 group"
+                >
+                  {/* Top: Profile Header */}
+                  <div className="space-y-4">
+                    <div className="flex items-start gap-3.5">
+                      {/* Avatar with Verified Badge */}
+                      <div className="relative shrink-0">
+                        <img
+                          src={story.image}
+                          alt={`${story.name} - Freelance Sales Assistant Manager`}
+                          className="w-14 h-14 rounded-2xl object-cover border-2 border-white shadow-md group-hover:scale-105 transition-transform"
+                        />
+                        <span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-xs">
+                          <Check className="w-3 h-3 stroke-[3]" />
+                        </span>
+                      </div>
+
+                      {/* Name, Role & Location */}
+                      <div className="space-y-0.5 flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-1">
+                          <h3 className="text-base font-extrabold text-zinc-950 truncate">
+                            {story.name}
+                          </h3>
+                        </div>
+                        
+                        <div className="flex items-center gap-1 text-xs text-zinc-600">
+                          <MapPin className="w-3.5 h-3.5 text-red-600 shrink-0" />
+                          <span className="truncate">{story.city}, {story.state}</span>
+                        </div>
+
+                        <div className="flex items-center gap-1 text-[11px] font-mono text-zinc-500">
+                          <Clock className="w-3 h-3 text-zinc-400 shrink-0" />
+                          <span>{story.tenure}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Role & Category Badge */}
+                    <div className="flex flex-wrap gap-1.5">
+                      <span className="px-2.5 py-1 rounded-lg bg-zinc-100 border border-zinc-200 text-[11px] font-bold text-zinc-800">
+                        {story.role}
+                      </span>
+                      <span className="px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-200 text-[11px] font-bold text-amber-900">
+                        {story.categoryLabel}
+                      </span>
+                    </div>
+
+                    {/* Monthly Earnings Callout Highlight */}
+                    <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200/80 flex items-center justify-between">
+                      <div>
+                        <span className="text-[10px] font-mono font-bold text-emerald-800 uppercase tracking-wider block">
+                          Monthly Earning
+                        </span>
+                        <p className="text-lg sm:text-xl font-black text-emerald-950 font-mono">
+                          {story.earnings}
+                        </p>
+                      </div>
+
+                      <div className="text-right">
+                        <span className="text-[10px] font-mono text-emerald-700 block">
+                          Performance
+                        </span>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-emerald-600 text-white font-black text-xs font-mono">
+                          {story.clientsClosed} Clients Closed
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Star Rating */}
+                    <div className="flex items-center gap-1 text-amber-500">
+                      {[...Array(story.rating)].map((_, i) => (
+                        <Star key={i} className="w-4 h-4 fill-amber-400 text-amber-400" />
+                      ))}
+                      <span className="text-xs font-bold text-zinc-700 ml-1.5">5.0 Verified Review</span>
+                    </div>
+
+                    {/* Quote */}
+                    <div className="relative pt-1">
+                      <Quote className="w-5 h-5 text-zinc-300 absolute -top-1 -left-1 opacity-40" />
+                      <p className="text-xs sm:text-sm text-zinc-700 leading-relaxed italic pl-3 border-l-2 border-red-500/40">
+                        "{story.quote}"
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Bottom Verification Seal */}
+                  <div className="pt-3 border-t border-zinc-100 flex items-center justify-between text-[11px] font-mono">
+                    <span className="text-emerald-700 font-bold flex items-center gap-1">
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      <span>{story.verifiedPayout}</span>
+                    </span>
+                    <span className="text-zinc-400 text-[10px]">100% Genuine</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Bottom Section Banner with Quick Apply */}
+            <div className="p-6 sm:p-8 rounded-3xl bg-gradient-to-r from-zinc-950 via-zinc-900 to-zinc-950 text-white flex flex-col sm:flex-row items-center justify-between gap-6 border border-zinc-800 shadow-xl">
+              <div className="space-y-1.5 text-center sm:text-left">
+                <div className="inline-flex items-center gap-1.5 text-xs font-mono font-bold text-amber-400 uppercase tracking-wider">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Start Your Remote Sales Journey</span>
+                </div>
+                <h3 className="text-xl sm:text-2xl font-extrabold text-white">
+                  Want to earn ₹7,000 – ₹21,000+ per month from home?
+                </h3>
+                <p className="text-xs sm:text-sm text-zinc-400 max-w-xl">
+                  Get company lead support, pitch playbooks, and ₹1,200 direct commission per closed client. No fees ever.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsApplyModalOpen(true)}
+                className="px-7 py-3.5 rounded-2xl bg-red-600 hover:bg-red-700 text-white font-extrabold text-xs sm:text-sm uppercase tracking-wider shadow-lg hover:shadow-xl transition-all cursor-pointer shrink-0 flex items-center gap-2 transform hover:-translate-y-0.5"
+              >
+                <span>Apply for this Role Now</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+
+          </div>
+        </section>
         <section className="py-14 sm:py-20 bg-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center max-w-2xl mx-auto space-y-3 mb-12">
@@ -575,142 +870,6 @@ export const CareersPage: React.FC = () => {
               </div>
 
             </div>
-          </div>
-        </section>
-
-        {/* ========================================================================= */}
-        {/* SUCCESS STORIES SECTION (Testimonials from Indian Freelance Sales Managers) */}
-        {/* ========================================================================= */}
-        <section className="py-16 sm:py-24 bg-zinc-50 border-t border-zinc-200/80 relative">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
-            
-            {/* Section Header */}
-            <div className="text-center max-w-3xl mx-auto space-y-3">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-100 border border-red-200 text-red-700 text-xs font-mono font-bold uppercase tracking-wider">
-                <Star className="w-3.5 h-3.5 fill-red-600 text-red-600" />
-                <span>Verified Indian Freelancers</span>
-              </div>
-              <h2 className="text-2xl sm:text-4xl font-extrabold text-zinc-950 tracking-tight">
-                Success Stories & Reviews
-              </h2>
-              <p className="text-xs sm:text-base text-zinc-600 leading-relaxed">
-                Hear directly from our active freelance sales managers across India. Real people, genuine performance payouts, and zero upfront fees.
-              </p>
-            </div>
-
-            {/* Quick Metrics Strip */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 max-w-4xl mx-auto">
-              <div className="p-4 rounded-2xl bg-white border border-zinc-200 shadow-xs text-center space-y-1">
-                <span className="text-xl sm:text-2xl font-extrabold text-zinc-950 font-mono block">₹1,200</span>
-                <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">Base Payout / Client</span>
-              </div>
-              <div className="p-4 rounded-2xl bg-white border border-zinc-200 shadow-xs text-center space-y-1">
-                <span className="text-xl sm:text-2xl font-extrabold text-emerald-600 font-mono block">100%</span>
-                <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">On-Time Disbursal</span>
-              </div>
-              <div className="p-4 rounded-2xl bg-white border border-zinc-200 shadow-xs text-center space-y-1">
-                <span className="text-xl sm:text-2xl font-extrabold text-red-600 font-mono block">₹0 Fee</span>
-                <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">Zero Investment</span>
-              </div>
-              <div className="p-4 rounded-2xl bg-white border border-zinc-200 shadow-xs text-center space-y-1">
-                <span className="text-xl sm:text-2xl font-extrabold text-blue-600 font-mono block">WFH</span>
-                <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">Any City in India</span>
-              </div>
-            </div>
-
-            {/* Testimonials Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {SUCCESS_STORIES.map((story, index) => (
-                <div
-                  key={index}
-                  className="p-6 sm:p-7 rounded-3xl bg-white border border-zinc-200 shadow-sm hover:shadow-md transition-all flex flex-col justify-between space-y-6 relative overflow-hidden group"
-                >
-                  <div className="space-y-4">
-                    
-                    {/* Top Row: User Avatar, Name, Location & Star Rating */}
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex items-center gap-3.5">
-                        <img
-                          src={story.image}
-                          alt={story.name}
-                          className="w-13 h-13 rounded-2xl object-cover border-2 border-zinc-200 shadow-xs shrink-0"
-                          loading="lazy"
-                        />
-                        <div>
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <h3 className="text-base font-bold text-zinc-950">
-                              {story.name}
-                            </h3>
-                            <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold uppercase">
-                              Verified
-                            </span>
-                          </div>
-                          <p className="text-xs font-semibold text-zinc-700">
-                            {story.role}
-                          </p>
-                          <div className="flex items-center gap-1 text-[11px] text-zinc-500 mt-0.5">
-                            <MapPin className="w-3 h-3 text-red-500 shrink-0" />
-                            <span>{story.location}</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Stars */}
-                      <div className="flex items-center gap-0.5 shrink-0 bg-amber-50 px-2 py-1 rounded-lg border border-amber-200/60">
-                        {[...Array(story.rating)].map((_, i) => (
-                          <Star key={i} className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Review Quote */}
-                    <div className="relative pl-3 border-l-2 border-red-500/40 py-0.5">
-                      <p className="text-xs sm:text-sm text-zinc-700 leading-relaxed italic">
-                        "{story.review}"
-                      </p>
-                    </div>
-
-                  </div>
-
-                  {/* Bottom Stats Badge */}
-                  <div className="pt-4 border-t border-zinc-100 flex flex-wrap items-center justify-between gap-2 text-xs">
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-red-50 text-red-800 font-mono font-bold text-[11px] border border-red-200">
-                      <TrendingUp className="w-3.5 h-3.5 text-red-600" />
-                      <span>{story.earnings}</span>
-                    </span>
-                    <span className="text-[11px] font-mono text-zinc-500 font-medium">
-                      {story.clientsClosed}
-                    </span>
-                  </div>
-
-                </div>
-              ))}
-            </div>
-
-            {/* Bottom Callout Banner */}
-            <div className="p-6 sm:p-8 rounded-3xl bg-gradient-to-r from-red-600 via-red-700 to-red-600 text-white flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl">
-              <div className="space-y-1.5 text-center md:text-left">
-                <span className="text-xs font-mono font-bold uppercase tracking-wider text-red-200">
-                  Ready to Start Your Freelance Journey?
-                </span>
-                <h3 className="text-xl sm:text-2xl font-extrabold text-white">
-                  Join Our Pan-India Freelance Sales Network Today
-                </h3>
-                <p className="text-xs sm:text-sm text-red-100 max-w-xl">
-                  No previous experience required. Freshers and students are welcome. Start earning ₹1,200 per client right from your home.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setIsApplyModalOpen(true)}
-                className="px-7 py-3.5 rounded-2xl bg-white hover:bg-zinc-100 text-red-700 font-extrabold text-xs uppercase tracking-wider shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 cursor-pointer shrink-0"
-              >
-                <span>Apply for Freelance Role</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
-            </div>
-
           </div>
         </section>
 

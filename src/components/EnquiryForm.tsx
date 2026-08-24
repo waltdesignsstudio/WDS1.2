@@ -130,7 +130,7 @@ export const EnquiryForm: React.FC<EnquiryFormProps> = ({
           </h4>
           
           <p className="text-zinc-300 text-xs sm:text-sm max-w-md mx-auto leading-relaxed">
-            Thank you, <span className="text-amber-400 font-semibold">{formData.name}</span>. Founder Prince Kumar and our senior technical team have received your project details for <span className="text-amber-300">"{formData.service}"</span>.
+            Thank you, <span className="text-amber-400 font-semibold">{formData.name}</span>. Founder Priyanshu Kumar and our senior technical team have received your project details for <span className="text-amber-300">"{formData.service}"</span>.
           </p>
 
           <div className="p-3.5 bg-zinc-900/80 border border-zinc-800 rounded-xl max-w-md mx-auto text-xs text-zinc-400 text-left space-y-1 font-mono">
