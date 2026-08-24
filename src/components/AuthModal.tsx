@@ -111,7 +111,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
 
     if (!captchaToken) {
-      setErrorMessage('Please solve the math question to verify.');
+      setErrorMessage('Please write the red text captcha code to verify.');
       return;
     }
 
@@ -152,7 +152,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
 
     if (!captchaToken) {
-      setErrorMessage('Please solve the math question to verify.');
+      setErrorMessage('Please write the red text captcha code to verify.');
       return;
     }
 

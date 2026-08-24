@@ -96,6 +96,9 @@ export const Footer: React.FC = () => {
                 <a href="/about" className="hover:text-white hover:underline transition-colors block">About Walt Story</a>
               </li>
               <li>
+                <a href="/careers" className="hover:text-white hover:underline transition-colors block text-amber-200 font-semibold">Careers & Hiring (1 Role)</a>
+              </li>
+              <li>
                 <a href="/contact" className="hover:text-white hover:underline transition-colors block">Direct Contact & Inquiry</a>
               </li>
               <li>

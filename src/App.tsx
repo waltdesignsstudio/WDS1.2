@@ -3,6 +3,7 @@ import { HomePage } from './pages/HomePage';
 import { ServicesPage } from './pages/ServicesPage';
 import { AboutPage } from './pages/AboutPage';
 import { ContactPage } from './pages/ContactPage';
+import { CareersPage } from './pages/CareersPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { AdminDashboard } from './components/AdminDashboard';
 import { CorporateDashboard } from './components/CorporateDashboard';
@@ -70,6 +71,8 @@ function AppContent() {
     PageComponent = <AboutPage />;
   } else if (currentPath.includes('contact')) {
     PageComponent = <ContactPage />;
+  } else if (currentPath.includes('career') || currentPath.includes('carrer')) {
+    PageComponent = <CareersPage />;
   }
 
   return (

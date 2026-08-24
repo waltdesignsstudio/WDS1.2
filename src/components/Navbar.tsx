@@ -18,7 +18,7 @@ import { useAuth } from '../context/AuthContext';
 import { AuthModal } from './AuthModal';
 
 interface NavbarProps {
-  currentPage?: 'home' | 'services' | 'about' | 'contact' | 'dashboard';
+  currentPage?: 'home' | 'services' | 'about' | 'contact' | 'dashboard' | 'careers';
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ currentPage = 'home' }) => {
@@ -39,6 +39,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPage = 'home' }) => {
   const navLinks = [
     { label: 'Home', href: '/', key: 'home' },
     { label: 'Services', href: '/services', key: 'services' },
+    { label: 'Careers', href: '/careers', key: 'careers' },
     { label: 'About us', href: '/about', key: 'about' },
     { label: 'Contact us', href: '/contact', key: 'contact' },
   ];
