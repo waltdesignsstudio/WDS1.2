@@ -1255,7 +1255,7 @@ export const AdminDashboard: React.FC = () => {
 
                   <div className="p-4 rounded-2xl bg-white border border-pink-300 shadow-xs space-y-1">
                     <span className="text-[11px] font-bold text-pink-900 uppercase tracking-wider block">Name</span>
-                    <div className="text-base font-extrabold text-zinc-900">{profile?.name || 'Priyanshu Kumar'}</div>
+                    <div className="text-base font-extrabold text-zinc-900">{profile?.name || 'Prince Kumar'}</div>
                   </div>
 
                   <div className="p-4 rounded-2xl bg-white border border-pink-300 shadow-xs space-y-1">
@@ -1706,7 +1706,7 @@ export const AdminDashboard: React.FC = () => {
                       required
                       value={regName}
                       onChange={(e) => setRegName(e.target.value)}
-                      placeholder="e.g. Priyanshu Kumar"
+                      placeholder="e.g. Prince Kumar"
                       className="w-full bg-white border border-pink-300 focus:border-pink-600 rounded-xl px-3.5 py-2 text-xs text-zinc-900 outline-none"
                     />
                   </div>

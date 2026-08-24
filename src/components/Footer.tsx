@@ -52,7 +52,7 @@ export const Footer: React.FC = () => {
                 <span className="text-zinc-400 font-normal">Founder & Creative Director</span>
               </div>
               <p className="text-sm font-bold text-white">
-                Priyanshu Kumar
+                Prince Kumar
               </p>
               <p className="text-xs text-[#d1b8a7] italic leading-relaxed">
                 "We set out to challenge the average agency narrative in India. No slow templates, no generic templates, and no hidden billing brackets. Every Walt project gets my direct focus and execution signature."
@@ -118,14 +118,6 @@ export const Footer: React.FC = () => {
             
             <div className="space-y-2 text-xs text-[#e8d5c8]">
               <a 
-                href={`tel:${AGENCY_INFO.phoneRaw}`} 
-                className="flex items-center gap-2.5 p-2.5 rounded-xl bg-[#1f1009] hover:bg-[#3d2114] border border-[#52301f] transition-all group"
-              >
-                <Phone className="w-3.5 h-3.5 text-amber-400 shrink-0 group-hover:scale-110 transition-transform" />
-                <span className="font-semibold text-white">{AGENCY_INFO.phone}</span>
-              </a>
-
-              <a 
                 href={`mailto:${AGENCY_INFO.email}`} 
                 className="flex items-center gap-2.5 p-2.5 rounded-xl bg-[#1f1009] hover:bg-[#3d2114] border border-[#52301f] transition-all group"
               >
@@ -141,13 +133,11 @@ export const Footer: React.FC = () => {
 
             <div className="pt-1">
               <a
-                href="https://wa.me/918276825128?text=Hello%20Walt%20Designs%20%26%20Studio%2C%20I%20would%20like%20to%20discuss%20a%20project."
-                target="_blank"
-                rel="noreferrer"
+                href="/contact"
                 className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-3.5 rounded-xl text-xs font-bold bg-[#4a154b] hover:bg-[#631c64] text-white transition-all shadow-md cursor-pointer border border-[#7a227b]"
               >
                 <MessageSquare className="w-4 h-4 text-amber-300" />
-                <span>Chat on WhatsApp</span>
+                <span>Submit Inquiry Online</span>
               </a>
             </div>
           </div>

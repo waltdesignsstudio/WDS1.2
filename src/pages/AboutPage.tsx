@@ -95,7 +95,7 @@ export const AboutPage: React.FC = () => {
                       "{AGENCY_INFO.founderQuote}"
                     </p>
                     <span className="block mt-3 text-xs font-mono uppercase tracking-widest text-amber-800 font-bold">
-                      — Priyanshu Kumar, Founder Signature
+                      — Prince Kumar, Founder Signature
                     </span>
                   </div>
 
@@ -262,7 +262,7 @@ export const AboutPage: React.FC = () => {
 
                   <div className="p-3 bg-white rounded-xl border border-zinc-200 space-y-0.5 shadow-xs">
                     <span className="text-xs font-mono text-amber-700 uppercase font-bold">Technical Coordinator</span>
-                    <p className="text-zinc-900 font-semibold">Priyanshu Kumar (Founder) for seamless digital collaboration.</p>
+                    <p className="text-zinc-900 font-semibold">Prince Kumar (Founder) for seamless digital collaboration.</p>
                   </div>
                 </div>
 

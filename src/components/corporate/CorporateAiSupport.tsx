@@ -146,7 +146,7 @@ As a corporate sales executive at Walt Designs & Studio:
 2. **Current Service Packages**: Web Dev (Rs.4999, 2-3 days), Resume (Rs.199, 1-2h), Thumbnails/Video (Rs.499, 8-10h), Growth (Rs.3999), Registrations (Rs.299).
 3. **Update Status**: Remember to switch lead status to "Interested" or "Not Interested" promptly.
 4. **Daily Reports**: Submit all daily outreach numbers before 10:00 PM for verification.
-5. For urgent escalations, reach Founder Priyanshu Kumar directly at +91 8276825128.`;
+5. For urgent escalations, reach Founder Prince Kumar directly via the Admin Desk or official email.`;
   };
 
   const handleSendMessage = async (textToSend?: string) => {
@@ -178,7 +178,7 @@ As a corporate sales executive at Walt Designs & Studio:
 
       if (apiKey) {
         const ai = new GoogleGenAI({ apiKey });
-        const systemInstruction = `You are the specialized Corporate AI Strategy & Employee Help Desk Assistant for "Walt Designs & Studio" (Founder & Director: Priyanshu Kumar, HQ: Delhi NCR & West Bengal, Phone: +91 8276825128, Email: waltdesignsstudio@gmail.com).
+        const systemInstruction = `You are the specialized Corporate AI Strategy & Employee Help Desk Assistant for "Walt Designs & Studio" (Founder & Director: Prince Kumar, HQ: Delhi NCR & West Bengal, Email: waltdesignsstudio@gmail.com).
 
 Current Employee Info:
 - Name: ${employeeName}

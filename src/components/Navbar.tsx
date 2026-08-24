@@ -291,11 +291,12 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPage = 'home' }) => {
               )}
 
               <a
-                href="tel:+918276825128"
-                className="flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-mono text-zinc-200 bg-black/30 border border-white/10"
+                href="/contact"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-medium text-zinc-200 bg-black/30 border border-white/10"
               >
-                <Phone className="w-3.5 h-3.5 text-amber-400" />
-                <span>Call +91 8276825128</span>
+                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                <span>Get Agency Consultation</span>
               </a>
               <a
                 href="/contact"

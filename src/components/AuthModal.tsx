@@ -205,7 +205,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         setForgotSubmitted(true);
         setForgotMessage({
           type: 'success',
-          text: `Recovery protocol initiated for ${target.toUpperCase()}. Your designated Super Admin / Founder Priyanshu Kumar has been notified. You can also connect via direct executive WhatsApp.`,
+          text: `Recovery protocol initiated for ${target.toUpperCase()}. Your designated Super Admin / Founder Prince Kumar has been notified. You can also connect via direct executive WhatsApp desk.`,
         });
       }
     } catch (err: any) {
@@ -214,7 +214,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       setForgotSubmitted(true);
       setForgotMessage({
         type: 'success',
-        text: `Recovery instructions for ${target} have been logged. Please reach out to the Admin desk or WhatsApp hotline (+91 8276825128) for immediate PIN re-issuance.`,
+        text: `Recovery instructions for ${target} have been logged. Please reach out to the Admin desk or WhatsApp desk for immediate PIN re-issuance.`,
       });
     } finally {
       setIsForgotLoading(false);
@@ -702,11 +702,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   </a>
 
                   <a
-                    href={`tel:+918276825128`}
+                    href="mailto:waltdesignsstudio@gmail.com?subject=Corporate%20PIN%20Reset%20Request"
                     className="p-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-900 text-white font-bold text-[11px] flex items-center justify-center gap-1.5 shadow-xs transition-all"
                   >
-                    <Phone className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Call Hotline</span>
+                    <Mail className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Email Support</span>
                   </a>
                 </div>
               </div>
