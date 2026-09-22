@@ -47,6 +47,10 @@ service cloud.firestore {
         (!('adminUserId' in data) || (data.adminUserId is string && data.adminUserId.size() <= 40)) &&
         (!('location' in data) || (data.location is string && data.location.size() <= 120)) &&
         (!('corporateRole' in data) || (data.corporateRole is string && data.corporateRole.size() <= 100)) &&
+        (!('accountStatus' in data) || (data.accountStatus in ['active', 'banned', 'suspended', 'terminated'])) &&
+        (!('statusReason' in data) || (data.statusReason is string && data.statusReason.size() <= 500)) &&
+        (!('statusUpdatedAt' in data) || (data.statusUpdatedAt is string || data.statusUpdatedAt is timestamp)) &&
+        (!('statusUpdatedBy' in data) || (data.statusUpdatedBy is string && data.statusUpdatedBy.size() <= 120)) &&
         (!('basicSalary' in data) || (data.basicSalary is number)) &&
         (!('income' in data) || (data.income is number)) &&
         (!('target' in data) || (data.target is number)) &&
@@ -65,6 +69,23 @@ service cloud.firestore {
         data.todayWorkHours is number && data.todayWorkHours >= 0 && data.todayWorkHours <= 24 &&
         data.expectedClients is number && data.expectedClients >= 0 &&
         data.status in ['pending', 'approved', 'rejected'] &&
+        (!('createdAt' in data) || data.createdAt is timestamp || data.createdAt is string) &&
+        (!('updatedAt' in data) || data.updatedAt is timestamp || data.updatedAt is string);
+    }
+
+    // Leave Application Record Validation Blueprint
+    function isValidLeaveRequest(data) {
+      return data.keys().hasAll(['employeeUid', 'employeeCode', 'employeeName', 'startDate', 'endDate', 'reason', 'status']) &&
+        data.employeeUid is string && data.employeeUid.size() > 0 && data.employeeUid.size() <= 128 &&
+        data.employeeCode is string && data.employeeCode.size() > 0 && data.employeeCode.size() <= 40 &&
+        data.employeeName is string && data.employeeName.size() > 0 && data.employeeName.size() <= 120 &&
+        data.startDate is string && data.startDate.size() >= 8 && data.startDate.size() <= 20 &&
+        data.endDate is string && data.endDate.size() >= 8 && data.endDate.size() <= 20 &&
+        data.reason is string && data.reason.size() > 0 && data.reason.size() <= 1000 &&
+        data.status in ['pending', 'approved', 'rejected'] &&
+        (!('adminNote' in data) || (data.adminNote is string && data.adminNote.size() <= 500)) &&
+        (!('reviewedBy' in data) || (data.reviewedBy is string && data.reviewedBy.size() <= 120)) &&
+        (!('reviewedAt' in data) || data.reviewedAt is timestamp || data.reviewedAt is string) &&
         (!('createdAt' in data) || data.createdAt is timestamp || data.createdAt is string) &&
         (!('updatedAt' in data) || data.updatedAt is timestamp || data.updatedAt is string);
     }
@@ -178,6 +199,39 @@ service cloud.firestore {
 
       // Deletion: Admin only
       allow delete: if isSignedIn() && isValidId(attendanceId) && isAdmin();
+    }
+
+    // Leave Applications Collection: /leaves/{leaveId}
+    match /leaves/{leaveId} {
+      // Read: Admin can read all leaves; Corporate staff can read their own leave requests
+      allow get: if isSignedIn() && isValidId(leaveId) && (
+        isAdmin() || resource.data.employeeUid == request.auth.uid
+      );
+
+      allow list: if isSignedIn() && (
+        isAdmin() || resource.data.employeeUid == request.auth.uid
+      );
+
+      // Create: Signed-in corporate employee creating their own leave request
+      allow create: if isSignedIn() && isValidId(leaveId) &&
+        isValidLeaveRequest(incoming()) &&
+        (
+          isAdmin() ||
+          (
+            incoming().employeeUid == request.auth.uid &&
+            incoming().status == 'pending' &&
+            exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'corporate' &&
+            incoming().employeeCode == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.corporateUserId
+          )
+        );
+
+      // Update: Admin can approve/reject leave requests
+      allow update: if isSignedIn() && isValidId(leaveId) && isAdmin() &&
+        isValidLeaveRequest(incoming());
+
+      // Deletion: Admin only
+      allow delete: if isSignedIn() && isValidId(leaveId) && isAdmin();
     }
 
     // Daily Data Reports Collection: /daily_reports/{reportId}

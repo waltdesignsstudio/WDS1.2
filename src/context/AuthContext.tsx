@@ -30,6 +30,8 @@ import {
 } from 'firebase/auth';
 import { auth, db, firebaseConfig, handleFirestoreError, OperationType } from '../lib/firebase';
 
+export type CorporateAccountStatus = 'active' | 'suspended' | 'banned' | 'terminated';
+
 export interface UserProfile {
   uid: string;
   name: string;
@@ -44,6 +46,10 @@ export interface UserProfile {
   income?: number; // My Current Earnings (₹)
   target?: number; // Sales Target (₹)
   progress?: number; // Target Progress %
+  accountStatus?: CorporateAccountStatus; // 'active' | 'suspended' | 'banned' | 'terminated' (default: 'active')
+  statusReason?: string; // Reason entered by administrator
+  statusUpdatedAt?: string;
+  statusUpdatedBy?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -129,6 +135,31 @@ export interface AdminCreateCorporatePayload {
 }
 
 // -------------------------------------------------------------
+// LEAVE APPLICATION SYSTEM
+// -------------------------------------------------------------
+export interface LeaveApplication {
+  id: string;
+  employeeUid: string;
+  employeeCode: string;
+  employeeName: string;
+  startDate: string;
+  endDate: string;
+  reason: string;
+  status: 'pending' | 'approved' | 'rejected';
+  adminNote?: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface CreateLeavePayload {
+  startDate: string;
+  endDate: string;
+  reason: string;
+}
+
+// -------------------------------------------------------------
 // 1. AUDIT LOG SYSTEM
 // -------------------------------------------------------------
 export interface AuditLogItem {
@@ -140,6 +171,7 @@ export interface AuditLogItem {
   actionType:
     | 'salary_update'
     | 'attendance_status'
+    | 'leave_status'
     | 'expected_data_create'
     | 'expected_data_delete'
     | 'user_register'
@@ -155,8 +187,9 @@ export interface AuditLogItem {
     | 'leaderboard_update'
     | 'leaderboard_delete'
     | 'leaderboard_sync'
-    | 'profile_update';
-  entityType: 'User' | 'Attendance' | 'ExpectedData' | 'DailyReport' | 'Notice' | 'Notification' | 'Leaderboard';
+    | 'profile_update'
+    | 'user_status_update';
+  entityType: 'User' | 'Attendance' | 'Leave' | 'ExpectedData' | 'DailyReport' | 'Notice' | 'Notification' | 'Leaderboard';
   targetId?: string;
   targetName?: string;
   details: string;
@@ -275,7 +308,15 @@ interface AuthContextType {
   fetchUserAttendance: () => Promise<AttendanceRecord[]>;
   fetchAllAttendance: () => Promise<AttendanceRecord[]>;
   updateAttendanceStatus: (attendanceId: string, status: 'pending' | 'approved' | 'rejected') => Promise<{ success: boolean; error?: string }>;
+  
+  // Leaves
+  applyForLeave: (data: CreateLeavePayload) => Promise<{ success: boolean; error?: string }>;
+  fetchUserLeaves: () => Promise<LeaveApplication[]>;
+  fetchAllLeaves: () => Promise<LeaveApplication[]>;
+  updateLeaveStatus: (leaveId: string, status: 'approved' | 'rejected', adminNote?: string) => Promise<{ success: boolean; error?: string }>;
+
   fetchAllCorporateUsers: () => Promise<UserProfile[]>;
+  updateCorporateUserStatus: (targetUid: string, status: CorporateAccountStatus, reason?: string) => Promise<{ success: boolean; error?: string }>;
   updateUserProgressByAdmin: (targetUid: string, data: { basicSalary?: number; income?: number; target?: number; progress?: number }) => Promise<void>;
   createDailyReport: (data: CreateDailyReportPayload) => Promise<{ success: boolean; error?: string }>;
   fetchAdminDailyReports: () => Promise<DailyReportItem[]>;
@@ -347,7 +388,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const userDocRef = doc(db, 'users', uid);
       const snap = await getDoc(userDocRef);
       if (snap.exists()) {
-        return snap.data() as UserProfile;
+        const raw = snap.data() as UserProfile;
+        return {
+          ...raw,
+          accountStatus: raw.accountStatus || 'active',
+        };
       }
       return null;
     } catch (err) {
@@ -698,6 +743,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { success: false, error: errDetail };
     }
 
+    // Step 2b: Check if corporate account is banned, suspended, or terminated
+    if (currentProfile.accountStatus && currentProfile.accountStatus !== 'active') {
+      const statusLabel = currentProfile.accountStatus.toUpperCase();
+      const errDetail = `Account access is restricted (${statusLabel}). Attendance submissions are blocked. Reason: ${currentProfile.statusReason || 'Administrative decision'}.`;
+      console.error('[Attendance Submission Error]', errDetail);
+      return { success: false, error: errDetail };
+    }
+
     // Step 3: Obtain employeeCode strictly from authenticated user's own profile
     const employeeCode = currentProfile.corporateUserId;
     if (!employeeCode) {
@@ -886,6 +939,207 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (err: any) {
       handleFirestoreError(err, OperationType.UPDATE, `attendance/${attendanceId}`);
       return { success: false, error: err?.message || 'Failed to update attendance status.' };
+    }
+  };
+
+  // =========================================================================
+  // LEAVE APPLICATION OPERATIONS
+  // =========================================================================
+
+  // Corporate: Submit Leave Application
+  const applyForLeave = async (
+    data: CreateLeavePayload
+  ): Promise<{ success: boolean; error?: string }> => {
+    if (!auth.currentUser) {
+      return { success: false, error: 'User is not authenticated.' };
+    }
+    const currentProfile = profile || (await fetchProfileForUid(auth.currentUser.uid));
+    if (!currentProfile) {
+      return { success: false, error: 'User profile not found.' };
+    }
+    if (currentProfile.accountStatus && currentProfile.accountStatus !== 'active') {
+      return {
+        success: false,
+        error: `Account is currently ${currentProfile.accountStatus}. Leave applications are restricted.`,
+      };
+    }
+    if (!data.startDate || !data.endDate || !data.reason.trim()) {
+      return { success: false, error: 'Please enter From date, To date, and a valid reason for leave.' };
+    }
+    if (new Date(data.endDate) < new Date(data.startDate)) {
+      return { success: false, error: 'Leave "To" date cannot be earlier than "From" date.' };
+    }
+
+    try {
+      const leavesRef = collection(db, 'leaves');
+      const payload = {
+        employeeUid: auth.currentUser.uid,
+        employeeCode: currentProfile.corporateUserId || 'WDS-ACTIVE',
+        employeeName: currentProfile.name || auth.currentUser.displayName || 'Corporate Representative',
+        startDate: data.startDate,
+        endDate: data.endDate,
+        reason: data.reason.trim(),
+        status: 'pending' as const,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      };
+
+      await addDoc(leavesRef, payload);
+      return { success: true };
+    } catch (err: any) {
+      console.error('Leave application submission error:', err);
+      return { success: false, error: err?.message || 'Failed to submit leave request.' };
+    }
+  };
+
+  // Corporate: Fetch current user's leave applications
+  const fetchUserLeaves = async (): Promise<LeaveApplication[]> => {
+    if (!auth.currentUser) return [];
+    try {
+      const leavesRef = collection(db, 'leaves');
+      const q = query(leavesRef, where('employeeUid', '==', auth.currentUser.uid));
+      const snap = await getDocs(q);
+      const list: LeaveApplication[] = [];
+      snap.forEach((d) => {
+        const raw = d.data();
+        const createdAtStr = raw.createdAt?.toDate
+          ? raw.createdAt.toDate().toISOString()
+          : typeof raw.createdAt === 'string'
+          ? raw.createdAt
+          : new Date().toISOString();
+        const updatedAtStr = raw.updatedAt?.toDate
+          ? raw.updatedAt.toDate().toISOString()
+          : typeof raw.updatedAt === 'string'
+          ? raw.updatedAt
+          : undefined;
+
+        list.push({
+          id: d.id,
+          employeeUid: raw.employeeUid,
+          employeeCode: raw.employeeCode,
+          employeeName: raw.employeeName,
+          startDate: raw.startDate,
+          endDate: raw.endDate,
+          reason: raw.reason,
+          status: raw.status || 'pending',
+          adminNote: raw.adminNote,
+          reviewedBy: raw.reviewedBy,
+          reviewedAt: raw.reviewedAt,
+          createdAt: createdAtStr,
+          updatedAt: updatedAtStr,
+        });
+      });
+      return list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    } catch (err) {
+      console.warn('Fetch user leaves notice:', err);
+      return [];
+    }
+  };
+
+  // Admin: Fetch all corporate leave applications
+  const fetchAllLeaves = async (): Promise<LeaveApplication[]> => {
+    try {
+      const leavesRef = collection(db, 'leaves');
+      const snap = await getDocs(leavesRef);
+      const list: LeaveApplication[] = [];
+      snap.forEach((d) => {
+        const raw = d.data();
+        const createdAtStr = raw.createdAt?.toDate
+          ? raw.createdAt.toDate().toISOString()
+          : typeof raw.createdAt === 'string'
+          ? raw.createdAt
+          : new Date().toISOString();
+        const updatedAtStr = raw.updatedAt?.toDate
+          ? raw.updatedAt.toDate().toISOString()
+          : typeof raw.updatedAt === 'string'
+          ? raw.updatedAt
+          : undefined;
+
+        list.push({
+          id: d.id,
+          employeeUid: raw.employeeUid,
+          employeeCode: raw.employeeCode,
+          employeeName: raw.employeeName,
+          startDate: raw.startDate,
+          endDate: raw.endDate,
+          reason: raw.reason,
+          status: raw.status || 'pending',
+          adminNote: raw.adminNote,
+          reviewedBy: raw.reviewedBy,
+          reviewedAt: raw.reviewedAt,
+          createdAt: createdAtStr,
+          updatedAt: updatedAtStr,
+        });
+      });
+      return list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    } catch (err) {
+      console.warn('Fetch all leaves notice:', err);
+      return [];
+    }
+  };
+
+  // Admin: Approve or Reject leave application
+  const updateLeaveStatus = async (
+    leaveId: string,
+    status: 'approved' | 'rejected',
+    adminNote?: string
+  ): Promise<{ success: boolean; error?: string }> => {
+    if (!auth.currentUser) {
+      return { success: false, error: 'Administrator credentials required.' };
+    }
+    try {
+      const docRef = doc(db, 'leaves', leaveId);
+      const snap = await getDoc(docRef);
+      if (!snap.exists()) {
+        return { success: false, error: 'Leave request not found.' };
+      }
+      const existingData = snap.data();
+      const adminName = profile?.name || auth.currentUser.email || 'Management Admin';
+
+      await updateDoc(docRef, {
+        status,
+        adminNote: adminNote || '',
+        reviewedBy: adminName,
+        reviewedAt: new Date().toISOString(),
+        updatedAt: serverTimestamp(),
+      });
+
+      // Automated notification to the employee
+      try {
+        await sendNotification({
+          recipientUid: existingData.employeeUid,
+          recipientName: existingData.employeeName,
+          recipientCode: existingData.employeeCode,
+          title: `Leave Request ${status === 'approved' ? 'Approved ✓' : 'Rejected ✗'}`,
+          message: `Your leave request for ${existingData.startDate} to ${existingData.endDate} has been ${status.toUpperCase()} by administration.${adminNote ? ` Reviewer Note: "${adminNote}"` : ''}`,
+          priority: status === 'approved' ? 'important' : 'urgent',
+          type: status === 'approved' ? 'milestone' : 'warning',
+        });
+      } catch (notifErr) {
+        console.warn('Leave notification send error:', notifErr);
+      }
+
+      // Enterprise Audit Log entry
+      await logAdminAction({
+        actionType: 'leave_status',
+        entityType: 'Leave',
+        targetId: leaveId,
+        targetName: existingData.employeeName,
+        details: `${status.toUpperCase()} leave request (${existingData.startDate} to ${existingData.endDate}) for ${existingData.employeeName} (${existingData.employeeCode})${adminNote ? `. Note: ${adminNote}` : ''}`,
+        metadata: {
+          leaveId,
+          status,
+          adminNote,
+          startDate: existingData.startDate,
+          endDate: existingData.endDate,
+          employeeUid: existingData.employeeUid,
+        },
+      });
+
+      return { success: true };
+    } catch (err: any) {
+      console.error('Update leave status error:', err);
+      return { success: false, error: err?.message || 'Failed to update leave status.' };
     }
   };
 
@@ -1288,6 +1542,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         income: Number(data.income) || 0,
         target: Number(data.target) || 100000,
         progress: Number(data.progress) || 0,
+        accountStatus: 'active',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
@@ -1346,12 +1601,98 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const querySnapshot = await getDocs(q);
       const list: UserProfile[] = [];
       querySnapshot.forEach((docSnap) => {
-        list.push(docSnap.data() as UserProfile);
+        const raw = docSnap.data() as UserProfile;
+        list.push({
+          ...raw,
+          accountStatus: raw.accountStatus || 'active',
+        });
       });
       return list;
     } catch (err) {
       handleFirestoreError(err, OperationType.LIST, 'users');
       return [];
+    }
+  };
+
+  // Admin function: update corporate account status (Active/Unban, Suspend, Ban, Terminate)
+  const updateCorporateUserStatus = async (
+    targetUid: string,
+    status: CorporateAccountStatus,
+    reason?: string
+  ): Promise<{ success: boolean; error?: string }> => {
+    if (!auth.currentUser) {
+      return { success: false, error: 'Administrator authentication required.' };
+    }
+
+    try {
+      const userRef = doc(db, 'users', targetUid);
+      const userSnap = await getDoc(userRef);
+      if (!userSnap.exists()) {
+        return { success: false, error: 'Corporate user record not found in system.' };
+      }
+
+      const targetData = userSnap.data() as UserProfile;
+      const adminName = profile?.name || auth.currentUser.displayName || auth.currentUser.email || 'Administrator';
+      const nowIso = new Date().toISOString();
+      const cleanReason = reason?.trim() || (status === 'active' ? 'Account restored to active standing' : 'Administrative action');
+
+      const updatePayload: Partial<UserProfile> = {
+        accountStatus: status,
+        statusReason: cleanReason,
+        statusUpdatedAt: nowIso,
+        statusUpdatedBy: adminName,
+        updatedAt: nowIso,
+      };
+
+      await updateDoc(userRef, updatePayload);
+
+      // Automated direct notification to employee
+      try {
+        const notifTitle = status === 'active'
+          ? 'Corporate Dashboard Access Restored'
+          : `Account Status Notice: ${status.toUpperCase()}`;
+        const notifMessage = status === 'active'
+          ? `Your corporate access privileges have been restored to Active standing by Administrator ${adminName}. You can now access your corporate dashboard.`
+          : `Your corporate account status has been set to ${status.toUpperCase()} by Administrator ${adminName}. Reason: "${cleanReason}". Corporate dashboard access is restricted until restored.`;
+
+        await addDoc(collection(db, 'notifications'), {
+          title: notifTitle,
+          message: notifMessage,
+          priority: status === 'active' ? 'important' : 'urgent',
+          type: status === 'active' ? 'general' : 'warning',
+          senderUid: auth.currentUser.uid,
+          senderName: adminName,
+          recipientUid: targetUid,
+          recipientName: targetData.name || 'Corporate Employee',
+          recipientCode: targetData.corporateUserId || '',
+          isRead: false,
+          createdAt: nowIso,
+        });
+      } catch (notifErr) {
+        console.warn('Status notification notice:', notifErr);
+      }
+
+      // Log to Audit Trail
+      await logAdminAction({
+        actionType: 'user_status_update',
+        entityType: 'User',
+        targetId: targetUid,
+        targetName: targetData.name,
+        details: `Administrator changed account status for ${targetData.name} (${targetData.corporateUserId || targetUid}) to '${status.toUpperCase()}'. Reason: ${cleanReason}`,
+        metadata: {
+          targetUid,
+          corporateUserId: targetData.corporateUserId,
+          targetEmail: targetData.email,
+          newStatus: status,
+          previousStatus: targetData.accountStatus || 'active',
+          reason: cleanReason,
+        },
+      });
+
+      return { success: true };
+    } catch (err: any) {
+      handleFirestoreError(err, OperationType.UPDATE, `users/${targetUid}`);
+      return { success: false, error: err?.message || 'Failed to update user status.' };
     }
   };
 
@@ -1955,7 +2296,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         fetchUserAttendance,
         fetchAllAttendance,
         updateAttendanceStatus,
+        applyForLeave,
+        fetchUserLeaves,
+        fetchAllLeaves,
+        updateLeaveStatus,
         fetchAllCorporateUsers,
+        updateCorporateUserStatus,
         updateUserProgressByAdmin,
         createDailyReport,
         fetchAdminDailyReports,

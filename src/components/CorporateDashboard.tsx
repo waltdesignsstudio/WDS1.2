@@ -46,6 +46,11 @@ import {
   ChevronRight,
   Bot,
   HelpCircle,
+  Camera,
+  CameraOff,
+  Plane,
+  CalendarCheck,
+  FileText,
 } from 'lucide-react';
 import {
   useAuth,
@@ -55,12 +60,14 @@ import {
   NotificationItem,
   NoticeItem,
   LeaderboardItem,
+  LeaveApplication,
 } from '../context/AuthContext';
 import { AGENCY_INFO, DIVISIONS } from '../data/agencyData';
 import { CorporateNotificationsSection } from './corporate/CorporateNotificationsSection';
 import { CorporateNoticesSection } from './corporate/CorporateNoticesSection';
 import { CorporateLeaderboardSection } from './corporate/CorporateLeaderboardSection';
 import { CorporateAiSupport } from './corporate/CorporateAiSupport';
+import { CorporateAccountRestricted } from './corporate/CorporateAccountRestricted';
 
 type CorporateTab =
   | 'dashboard'
@@ -68,7 +75,8 @@ type CorporateTab =
   | 'portfolio'
   | 'attendance'
   | 'data-report'
-  | 'expected-data';
+  | 'expected-data'
+  | 'notifications-notices';
 
 export const CorporateDashboard: React.FC = () => {
   const {
@@ -80,6 +88,8 @@ export const CorporateDashboard: React.FC = () => {
     changeUserPassword,
     submitAttendance,
     fetchUserAttendance,
+    applyForLeave,
+    fetchUserLeaves,
     fetchEmployeeDailyReports,
     fetchEmployeeExpectedData,
     updateExpectedDataStatus,
@@ -90,6 +100,17 @@ export const CorporateDashboard: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<CorporateTab>('dashboard');
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // If corporate account is banned, suspended, or terminated: block access to dashboard
+  if (profile && profile.accountStatus && profile.accountStatus !== 'active') {
+    return (
+      <CorporateAccountRestricted
+        profile={profile}
+        onRefresh={refreshProfile}
+        onLogout={logout}
+      />
+    );
+  }
 
   // Live Timing Clock (Ticks every 1s)
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
@@ -199,6 +220,27 @@ export const CorporateDashboard: React.FC = () => {
   const [isLeaderboardModalOpen, setIsLeaderboardModalOpen] = useState(false);
   const [isAiSupportOpen, setIsAiSupportOpen] = useState(false);
 
+  // Phone view / combined Notifications & Notices sub-tab
+  const [notifNoticesSubTab, setNotifNoticesSubTab] = useState<'notifications' | 'notices'>('notifications');
+
+  // Attendance Selfie Verification State
+  const [isSelfieVerified, setIsSelfieVerified] = useState(false);
+  const [isCameraActive, setIsCameraActive] = useState(false);
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const [isCapturing, setIsCapturing] = useState(false);
+  const videoRef = React.useRef<HTMLVideoElement | null>(null);
+
+  // Leave Management State
+  const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
+  const [leaveStartDate, setLeaveStartDate] = useState('');
+  const [leaveEndDate, setLeaveEndDate] = useState('');
+  const [leaveReason, setLeaveReason] = useState('');
+  const [isSubmittingLeave, setIsSubmittingLeave] = useState(false);
+  const [leaveMessage, setLeaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [userLeavesList, setUserLeavesList] = useState<LeaveApplication[]>([]);
+  const [loadingUserLeaves, setLoadingUserLeaves] = useState(false);
+
   const corporateId = profile?.corporateUserId || 'WDS-ACTIVE';
   const basicSalary = profile?.basicSalary ?? 25000;
   const income = profile?.income || 0;
@@ -238,12 +280,13 @@ export const CorporateDashboard: React.FC = () => {
     }
   }, [localTodayStr]);
 
-  // Load attendance, daily data reports, expected data, and dashboard extras
+  // Load attendance, daily data reports, expected data, user leaves, and dashboard extras
   useEffect(() => {
     loadAttendance();
     loadReports();
     loadExpectedData();
     loadDashboardExtras();
+    loadUserLeaves();
   }, [user]);
 
   const loadDashboardExtras = async () => {
@@ -261,11 +304,136 @@ export const CorporateDashboard: React.FC = () => {
     }
   };
 
+  const loadUserLeaves = async () => {
+    setLoadingUserLeaves(true);
+    try {
+      const list = await fetchUserLeaves();
+      setUserLeavesList(list);
+    } catch (err) {
+      console.warn('Failed to load user leaves:', err);
+    } finally {
+      setLoadingUserLeaves(false);
+    }
+  };
+
+  // Camera Selfie Verification Handlers
+  // Browser will ask for camera permission. We capture for verification only and DO NOT save the photo.
+  const handleStartCamera = async () => {
+    setCameraError(null);
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('Camera device API is not supported on this browser or connection.');
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: 'user',
+          width: { ideal: 640 },
+          height: { ideal: 480 },
+        },
+        audio: false,
+      });
+      setCameraStream(stream);
+      setIsCameraActive(true);
+    } catch (err: any) {
+      console.error('Camera access error:', err);
+      let msg = 'Failed to access camera. Please allow camera permissions in your browser.';
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        msg = 'Camera permission was denied. Please allow camera access in your browser settings to verify attendance.';
+      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+        msg = 'No camera device detected on this device.';
+      }
+      setCameraError(msg);
+    }
+  };
+
+  // Sync stream to video element
+  useEffect(() => {
+    if (isCameraActive && cameraStream && videoRef.current) {
+      videoRef.current.srcObject = cameraStream;
+      videoRef.current.play().catch((err) => console.warn('Video playback notice:', err));
+    }
+  }, [isCameraActive, cameraStream]);
+
+  // Stop camera helper
+  const handleStopCamera = () => {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach((track) => track.stop());
+      setCameraStream(null);
+    }
+    setIsCameraActive(false);
+  };
+
+  // Capture Selfie: "when shoted so it should be marked as done...dont save photo just for verification"
+  const handleCaptureSelfie = () => {
+    setIsCapturing(true);
+    setTimeout(() => {
+      handleStopCamera();
+      setIsCapturing(false);
+      setIsSelfieVerified(true);
+      setAttendanceMessage({
+        type: 'success',
+        text: 'Selfie verification successful! Identity confirmed for today\'s attendance.',
+      });
+    }, 450);
+  };
+
+  // Cleanup camera stream on unmount
+  useEffect(() => {
+    return () => {
+      if (cameraStream) {
+        cameraStream.getTracks().forEach((track) => track.stop());
+      }
+    };
+  }, [cameraStream]);
+
+  // Handle Leave Application Submit
+  const handleApplyLeaveSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLeaveMessage(null);
+    if (!leaveStartDate || !leaveEndDate || !leaveReason.trim()) {
+      setLeaveMessage({ type: 'error', text: 'Please fill out From date, To date, and a valid reason for leave.' });
+      return;
+    }
+    if (new Date(leaveEndDate) < new Date(leaveStartDate)) {
+      setLeaveMessage({ type: 'error', text: 'Leave "To" date cannot be earlier than "From" date.' });
+      return;
+    }
+    setIsSubmittingLeave(true);
+    try {
+      const res = await applyForLeave({
+        startDate: leaveStartDate,
+        endDate: leaveEndDate,
+        reason: leaveReason.trim(),
+      });
+      if (res.success) {
+        setLeaveMessage({
+          type: 'success',
+          text: 'Leave application submitted successfully! Your request has been sent to administration for review.',
+        });
+        setLeaveStartDate('');
+        setLeaveEndDate('');
+        setLeaveReason('');
+        await loadUserLeaves();
+        setTimeout(() => {
+          setIsLeaveModalOpen(false);
+          setLeaveMessage(null);
+        }, 2200);
+      } else {
+        setLeaveMessage({ type: 'error', text: res.error || 'Failed to submit leave request.' });
+      }
+    } catch (err: any) {
+      setLeaveMessage({ type: 'error', text: err?.message || 'Failed to submit leave request.' });
+    } finally {
+      setIsSubmittingLeave(false);
+    }
+  };
+
   const loadAttendance = async () => {
     setLoadingAttendance(true);
     try {
       const records = await fetchUserAttendance();
       setAttendanceHistory(records);
+      await loadUserLeaves();
     } catch (err) {
       console.error('Failed to load attendance:', err);
     } finally {
@@ -412,6 +580,15 @@ export const CorporateDashboard: React.FC = () => {
       return;
     }
 
+    // Strict selfie verification check (Mandatory for attendance)
+    if (!isSelfieVerified && !hasMarkedTodayAttendance) {
+      setAttendanceMessage({
+        type: 'error',
+        text: 'Selfie verification required! Please capture your photo selfie before submitting attendance.',
+      });
+      return;
+    }
+
     setIsSubmittingAttendance(true);
     try {
       const res = await submitAttendance({
@@ -425,7 +602,8 @@ export const CorporateDashboard: React.FC = () => {
           type: 'success',
           text: `Attendance for ${attendanceDate} submitted successfully! Your submission is recorded and locked until tomorrow 12:00 AM.`,
         });
-        // Clear form fields as requested
+        // Reset selfie state and clear form fields
+        setIsSelfieVerified(false);
         setWorkHours('');
         setExpectedClients('');
         setAttendanceDate(localTodayStr);
@@ -530,12 +708,12 @@ export const CorporateDashboard: React.FC = () => {
   const totalPendingAction = expectedDataList.filter((i) => i.status === 'Pending').length;
 
   return (
-    <div className="min-h-screen bg-[#FEF3C7] text-amber-950 flex flex-col font-sans selection:bg-amber-500 selection:text-black">
+    <div className="min-h-screen bg-gradient-to-br from-[#2b0230] via-[#4a044e] to-[#6d1373] text-fuchsia-950 flex flex-col font-sans selection:bg-fuchsia-500 selection:text-white pb-20 md:pb-8">
       
       {/* ========================================================================= */}
-      {/* PURPLE HEADER WITH LIVE CLOCK */}
+      {/* MAGENTA HEADER WITH LIVE CLOCK */}
       {/* ========================================================================= */}
-      <header className="bg-[#3B0764] text-white border-b border-purple-900 sticky top-0 z-40 shadow-xl">
+      <header className="bg-[#1f0124]/95 text-white border-b border-fuchsia-900/60 sticky top-0 z-40 shadow-xl backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5">
           <div className="flex items-center justify-between gap-4">
             
@@ -544,19 +722,19 @@ export const CorporateDashboard: React.FC = () => {
               <img
                 src={AGENCY_INFO.logoUrl}
                 alt="Walt Designs & Studio"
-                className="w-10 h-10 rounded-xl object-cover ring-2 ring-amber-400/50 shadow-md"
+                className="w-10 h-10 rounded-xl object-cover ring-2 ring-fuchsia-400/50 shadow-md"
               />
               <div>
                 <div className="flex items-center gap-2">
                   <span className="font-bold text-lg text-white tracking-tight">
                     Walt Designs & Studio
                   </span>
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-400 text-purple-950 uppercase tracking-wider shadow-sm">
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-fuchsia-500 text-white uppercase tracking-wider shadow-sm">
                     Corporate Portal
                   </span>
                 </div>
-                <p className="text-xs text-purple-200 font-mono flex items-center gap-1.5">
-                  Corporate ID: <span className="text-amber-300 font-bold">{corporateId}</span>
+                <p className="text-xs text-fuchsia-200 font-mono flex items-center gap-1.5">
+                  Corporate ID: <span className="text-fuchsia-300 font-bold">{corporateId}</span>
                 </p>
               </div>
             </div>
@@ -564,14 +742,14 @@ export const CorporateDashboard: React.FC = () => {
             {/* Top Right: Live Timing Clock & User Controls */}
             <div className="flex items-center gap-3">
               
-              {/* Live Timing Clock on Purple Header */}
-              <div className="hidden md:flex items-center gap-2.5 px-3.5 py-1.5 rounded-2xl bg-purple-950/80 border border-purple-700/70 shadow-inner">
-                <Clock className="w-4 h-4 text-amber-400 animate-pulse" />
+              {/* Live Timing Clock on Magenta Header */}
+              <div className="hidden md:flex items-center gap-2.5 px-3.5 py-1.5 rounded-2xl bg-fuchsia-950/80 border border-fuchsia-800/70 shadow-inner">
+                <Clock className="w-4 h-4 text-fuchsia-400 animate-pulse" />
                 <div className="text-right">
-                  <div className="font-mono text-xs font-bold text-amber-300 tracking-wider">
+                  <div className="font-mono text-xs font-bold text-fuchsia-300 tracking-wider">
                     {formattedTime}
                   </div>
-                  <div className="text-[10px] text-purple-200 font-medium">
+                  <div className="text-[10px] text-fuchsia-200 font-medium">
                     {formattedDate}
                   </div>
                 </div>
@@ -579,10 +757,10 @@ export const CorporateDashboard: React.FC = () => {
 
               <button
                 onClick={handleRefresh}
-                className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-purple-100 hover:text-white transition-all cursor-pointer hidden sm:flex items-center gap-1.5 text-xs font-semibold"
+                className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-fuchsia-100 hover:text-white transition-all cursor-pointer hidden sm:flex items-center gap-1.5 text-xs font-semibold"
                 title="Sync metrics & attendance"
               >
-                <RefreshCw className={`w-3.5 h-3.5 text-amber-300 ${isRefreshing ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`w-3.5 h-3.5 text-fuchsia-300 ${isRefreshing ? 'animate-spin' : ''}`} />
                 <span>Sync</span>
               </button>
 
@@ -597,51 +775,48 @@ export const CorporateDashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* CORPORATE NAVIGATION TABS ON PURPLE HEADER */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 border-t border-purple-800/80 overflow-x-auto no-scrollbar">
+        {/* CORPORATE NAVIGATION TABS ON MAGENTA HEADER */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 border-t border-fuchsia-900/60 overflow-x-auto no-scrollbar">
           <nav className="flex items-center gap-2 py-2">
+            
+            {/* 1. HOME / DASHBOARD TAB */}
             <button
               onClick={() => setActiveTab('dashboard')}
               className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
                 activeTab === 'dashboard'
-                  ? 'bg-amber-400 text-purple-950 shadow-md font-extrabold'
-                  : 'text-purple-200 hover:text-white hover:bg-white/10'
+                  ? 'bg-fuchsia-600 text-white shadow-md font-extrabold ring-2 ring-fuchsia-400/50'
+                  : 'text-fuchsia-200 hover:text-white hover:bg-white/10'
               }`}
             >
               <LayoutDashboard className="w-4 h-4" />
-              <span>Dashboard</span>
+              <span>Home</span>
             </button>
 
+            {/* 2. NOTIFICATIONS & NOTICES TAB (Especially requested for phone view & corporate users) */}
             <button
-              onClick={() => setActiveTab('profile')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
-                activeTab === 'profile'
-                  ? 'bg-amber-400 text-purple-950 shadow-md font-extrabold'
-                  : 'text-purple-200 hover:text-white hover:bg-white/10'
+              onClick={() => setActiveTab('notifications-notices')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap relative ${
+                activeTab === 'notifications-notices'
+                  ? 'bg-fuchsia-600 text-white shadow-md font-extrabold ring-2 ring-fuchsia-400/50'
+                  : 'text-fuchsia-200 hover:text-white hover:bg-white/10'
               }`}
             >
-              <User className="w-4 h-4" />
-              <span>My Profile</span>
+              <Bell className="w-4 h-4" />
+              <span>Notifications & Notices</span>
+              {unreadNotificationsCount > 0 && (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-red-500 text-white animate-pulse shadow-sm">
+                  {unreadNotificationsCount}
+                </span>
+              )}
             </button>
 
-            <button
-              onClick={() => setActiveTab('portfolio')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
-                activeTab === 'portfolio'
-                  ? 'bg-amber-400 text-purple-950 shadow-md font-extrabold'
-                  : 'text-purple-200 hover:text-white hover:bg-white/10'
-              }`}
-            >
-              <Layers className="w-4 h-4" />
-              <span>Portfolio</span>
-            </button>
-
+            {/* 3. ATTENDANCE TAB */}
             <button
               onClick={() => setActiveTab('attendance')}
               className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
                 activeTab === 'attendance'
-                  ? 'bg-amber-400 text-purple-950 shadow-md font-extrabold'
-                  : 'text-purple-200 hover:text-white hover:bg-white/10'
+                  ? 'bg-fuchsia-600 text-white shadow-md font-extrabold ring-2 ring-fuchsia-400/50'
+                  : 'text-fuchsia-200 hover:text-white hover:bg-white/10'
               }`}
             >
               <Calendar className="w-4 h-4" />
@@ -657,55 +832,82 @@ export const CorporateDashboard: React.FC = () => {
               )}
             </button>
 
-            {/* EXPECTED DATA TAB WITH PROMINENT POP-UP HIGHLIGHT WHEN DATA RECEIVED */}
+            {/* 4. EXPECTED DATA TAB WITH PROMINENT HIGHLIGHT WHEN DATA RECEIVED */}
             <button
               onClick={() => setActiveTab('expected-data')}
               className={`px-4 py-2 rounded-xl text-xs font-extrabold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap relative ${
                 activeTab === 'expected-data'
-                  ? 'bg-amber-400 text-purple-950 shadow-md font-black ring-2 ring-amber-300'
+                  ? 'bg-fuchsia-600 text-white shadow-md font-black ring-2 ring-fuchsia-300'
                   : expectedDataList.length > 0
-                  ? 'bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-400 text-purple-950 font-black shadow-xl ring-2 ring-yellow-400 ring-offset-1 ring-offset-purple-950 animate-bounce hover:scale-105 transform'
-                  : 'text-purple-200 hover:text-white hover:bg-white/10'
+                  ? 'bg-gradient-to-r from-fuchsia-500 via-pink-500 to-fuchsia-600 text-white font-black shadow-xl ring-2 ring-pink-400 ring-offset-1 ring-offset-purple-950 animate-bounce hover:scale-105 transform'
+                  : 'text-fuchsia-200 hover:text-white hover:bg-white/10'
               }`}
             >
-              <Target className={`w-4 h-4 ${expectedDataList.length > 0 ? 'text-purple-950 animate-spin' : ''}`} />
+              <Target className={`w-4 h-4 ${expectedDataList.length > 0 ? 'text-white animate-spin' : ''}`} />
               <span>Expected Data</span>
               {expectedDataList.length > 0 && (
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-black bg-purple-950 text-amber-300 animate-pulse shadow-xs">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-black bg-purple-950 text-fuchsia-300 animate-pulse shadow-xs">
                   {expectedDataList.length}
                 </span>
               )}
             </button>
 
+            {/* 5. PORTFOLIO TAB */}
+            <button
+              onClick={() => setActiveTab('portfolio')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+                activeTab === 'portfolio'
+                  ? 'bg-fuchsia-600 text-white shadow-md font-extrabold ring-2 ring-fuchsia-400/50'
+                  : 'text-fuchsia-200 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              <Layers className="w-4 h-4" />
+              <span>Portfolio</span>
+            </button>
+
+            {/* 6. DATA REPORT TAB */}
             <button
               onClick={() => setActiveTab('data-report')}
               className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
                 activeTab === 'data-report'
-                  ? 'bg-amber-400 text-purple-950 shadow-md font-extrabold'
-                  : 'text-purple-200 hover:text-white hover:bg-white/10'
+                  ? 'bg-fuchsia-600 text-white shadow-md font-extrabold ring-2 ring-fuchsia-400/50'
+                  : 'text-fuchsia-200 hover:text-white hover:bg-white/10'
               }`}
             >
               <FileSpreadsheet className="w-4 h-4" />
               <span>Data Report Status</span>
               {dailyReports.length > 0 && (
                 <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
-                  activeTab === 'data-report' ? 'bg-purple-950 text-amber-300' : 'bg-purple-800 text-white'
+                  activeTab === 'data-report' ? 'bg-purple-950 text-fuchsia-300' : 'bg-fuchsia-800 text-white'
                 }`}>
                   {dailyReports.length}
                 </span>
               )}
             </button>
 
+            {/* 7. MY PROFILE TAB */}
+            <button
+              onClick={() => setActiveTab('profile')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+                activeTab === 'profile'
+                  ? 'bg-fuchsia-600 text-white shadow-md font-extrabold ring-2 ring-fuchsia-400/50'
+                  : 'text-fuchsia-200 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              <User className="w-4 h-4" />
+              <span>My Profile</span>
+            </button>
+
             {/* AI HELP DESK QUICK CHAT TRIGGER IN NAV */}
             <button
               type="button"
               onClick={() => setIsAiSupportOpen(true)}
-              className="px-3.5 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap bg-amber-400/20 text-amber-300 border border-amber-400/40 hover:bg-amber-400 hover:text-purple-950 shadow-sm"
+              className="px-3.5 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap bg-fuchsia-500/20 text-fuchsia-200 border border-fuchsia-400/40 hover:bg-fuchsia-500 hover:text-white shadow-sm ml-auto"
               title="Open AI Help Desk & Strategy Assistant"
             >
-              <Bot className="w-4 h-4 text-amber-300 hover:text-purple-950" />
+              <Bot className="w-4 h-4 text-fuchsia-300" />
               <span>AI Help Desk</span>
-              <Sparkles className="w-3 h-3 text-amber-300 animate-pulse" />
+              <Sparkles className="w-3 h-3 text-fuchsia-300 animate-pulse" />
             </button>
           </nav>
         </div>
@@ -1249,6 +1451,78 @@ export const CorporateDashboard: React.FC = () => {
         )}
 
         {/* ======================================================================= */}
+        {/* TAB: NOTIFICATIONS & NOTICES (DEDICATED SECTION WITH SUB-TABS) */}
+        {/* ======================================================================= */}
+        {activeTab === 'notifications-notices' && (
+          <div className="space-y-6 animate-in fade-in">
+            {/* Top Sub-tabs Header Bar */}
+            <div className="p-4 sm:p-5 rounded-3xl bg-white/95 backdrop-blur-md border-2 border-fuchsia-200 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-fuchsia-100 flex items-center justify-center text-fuchsia-700 shrink-0">
+                  <Bell className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="font-extrabold text-base sm:text-lg text-purple-950">
+                    Notifications & Circular Notices
+                  </h2>
+                  <p className="text-xs text-fuchsia-800">
+                    Stay updated with real-time agency broadcasts, system alerts, and official notices
+                  </p>
+                </div>
+              </div>
+
+              {/* Sub-tab pills toggle */}
+              <div className="flex items-center gap-2 p-1.5 rounded-2xl bg-fuchsia-100/80 border border-fuchsia-300 self-start sm:self-auto">
+                <button
+                  type="button"
+                  onClick={() => setNotifNoticesSubTab('notifications')}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+                    notifNoticesSubTab === 'notifications'
+                      ? 'bg-fuchsia-600 text-white shadow-md'
+                      : 'text-purple-950 hover:bg-white/60'
+                  }`}
+                >
+                  <Bell className="w-3.5 h-3.5" />
+                  <span>Notifications</span>
+                  {unreadNotificationsCount > 0 && (
+                    <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-rose-500 text-white">
+                      {unreadNotificationsCount}
+                    </span>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setNotifNoticesSubTab('notices')}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+                    notifNoticesSubTab === 'notices'
+                      ? 'bg-fuchsia-600 text-white shadow-md'
+                      : 'text-purple-950 hover:bg-white/60'
+                  }`}
+                >
+                  <Megaphone className="w-3.5 h-3.5" />
+                  <span>Official Notices</span>
+                  {recentNoticesList.length > 0 && (
+                    <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-purple-900 text-fuchsia-200">
+                      {recentNoticesList.length}
+                    </span>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Sub-tab active component view */}
+            <div className="p-4 sm:p-6 rounded-3xl bg-white/95 backdrop-blur-md border-2 border-fuchsia-200 shadow-xl">
+              {notifNoticesSubTab === 'notifications' ? (
+                <CorporateNotificationsSection />
+              ) : (
+                <CorporateNoticesSection />
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ======================================================================= */}
         {/* TAB 2: MY PROFILE (UNIFIED & MERGED CARD WITH EDIT TOGGLE) */}
         {/* ======================================================================= */}
         {activeTab === 'profile' && (
@@ -1602,43 +1876,74 @@ export const CorporateDashboard: React.FC = () => {
         )}
 
         {/* ======================================================================= */}
-        {/* TAB 4: ATTENDANCE (1 PER DAY STRICT LOCK & UNLOCKS AT NEXT 12:00 AM) */}
+        {/* TAB 4: ATTENDANCE & LEAVES (SELFIE VERIFICATION + 1 PER DAY STRICT LOCK) */}
         {/* ======================================================================= */}
         {activeTab === 'attendance' && (
           <div className="space-y-6 animate-in fade-in">
+            
+            {/* LEAVE APPLICATION PROMINENT BANNER WITH RED BUTTON */}
+            <div className="p-6 rounded-3xl bg-gradient-to-r from-red-600 via-rose-600 to-red-700 text-white shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-2 border-red-400/50">
+              <div className="flex items-center gap-3.5">
+                <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/30 shrink-0">
+                  <Plane className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h4 className="font-extrabold text-base tracking-tight">
+                    Need Time Off or Medical Leave?
+                  </h4>
+                  <p className="text-xs text-rose-100 mt-0.5">
+                    Submit a formal corporate leave application with dates and reason for administrator approval.
+                  </p>
+                </div>
+              </div>
+
+              {/* RED BG BUTTON: "Need Leave? Apply for leave" */}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsLeaveModalOpen(true);
+                  setLeaveMessage(null);
+                }}
+                className="px-6 py-3 rounded-2xl bg-red-600 hover:bg-red-700 active:bg-red-800 text-white font-extrabold text-xs shadow-xl border-2 border-white/50 flex items-center justify-center gap-2 cursor-pointer transition-all hover:scale-105 shrink-0"
+              >
+                <CalendarCheck className="w-4 h-4" />
+                <span>Need Leave? Apply for leave</span>
+              </button>
+            </div>
+
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               
               {/* Attendance Submission Form Card */}
-              <div className="p-6 sm:p-7 rounded-3xl bg-[#FFFBEB] border-2 border-amber-300 shadow-md space-y-4">
+              <div className="p-6 sm:p-7 rounded-3xl bg-white/95 backdrop-blur-md border-2 border-fuchsia-200 shadow-xl shadow-fuchsia-950/10 space-y-4">
                 <div>
-                  <h3 className="font-extrabold text-base text-amber-950 flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-amber-700" />
+                  <h3 className="font-extrabold text-base text-purple-950 flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-fuchsia-600" />
                     <span>Submit Attendance</span>
                   </h3>
-                  <p className="text-xs text-amber-800 mt-0.5">
-                    Log your daily work hours and client outreach (1 submission / calendar day)
+                  <p className="text-xs text-fuchsia-800 mt-0.5">
+                    Log daily work hours & client outreach (1 submission / day with selfie check)
                   </p>
                 </div>
 
                 {/* Daily Submission Limit Alert Notice */}
                 {hasMarkedTodayAttendance ? (
-                  <div className="p-4 rounded-2xl bg-amber-100 border-2 border-amber-400 text-amber-950 space-y-2 shadow-sm">
-                    <div className="flex items-center gap-2 font-extrabold text-xs text-amber-950">
-                      <Lock className="w-4 h-4 text-amber-800" />
+                  <div className="p-4 rounded-2xl bg-fuchsia-50 border-2 border-fuchsia-300 text-purple-950 space-y-2 shadow-xs">
+                    <div className="flex items-center gap-2 font-extrabold text-xs text-purple-950">
+                      <Lock className="w-4 h-4 text-fuchsia-700" />
                       <span>Today's Attendance Locked</span>
                     </div>
-                    <p className="text-[11px] text-amber-900 leading-relaxed">
-                      You have already marked your attendance for today ({localTodayStr}). Status: <strong className="font-mono uppercase">{todayAttendanceRecord?.status}</strong>.
+                    <p className="text-[11px] text-fuchsia-900 leading-relaxed">
+                      You have already marked attendance for today ({localTodayStr}). Status: <strong className="font-mono uppercase text-fuchsia-950">{todayAttendanceRecord?.status}</strong>.
                     </p>
-                    <div className="p-2 rounded-xl bg-amber-200/80 border border-amber-300 text-[11px] text-amber-950 flex items-center gap-1.5 font-mono">
-                      <Clock className="w-3.5 h-3.5 text-amber-800 shrink-0" />
-                      <span>Unlocks after 12:00 AM in: <strong>{getMidnightUnlockCountdown()}</strong></span>
+                    <div className="p-2.5 rounded-xl bg-fuchsia-100/90 border border-fuchsia-300 text-[11px] text-purple-950 flex items-center gap-1.5 font-mono font-bold">
+                      <Clock className="w-3.5 h-3.5 text-fuchsia-700 shrink-0" />
+                      <span>Unlocks tomorrow after 12:00 AM in: <strong>{getMidnightUnlockCountdown()}</strong></span>
                     </div>
                   </div>
                 ) : (
-                  <div className="p-3 rounded-xl bg-amber-100/70 border border-amber-300 text-[11px] text-amber-900 flex items-center gap-2 font-medium">
-                    <Clock className="w-3.5 h-3.5 text-amber-700 shrink-0" />
-                    <span>Portal is open for today: <strong className="font-mono">{localTodayStr}</strong></span>
+                  <div className="p-3 rounded-xl bg-fuchsia-50 border border-fuchsia-200 text-[11px] text-purple-900 flex items-center gap-2 font-medium">
+                    <Clock className="w-3.5 h-3.5 text-fuchsia-600 shrink-0" />
+                    <span>Attendance portal open for today: <strong className="font-mono">{localTodayStr}</strong></span>
                   </div>
                 )}
 
@@ -1663,7 +1968,7 @@ export const CorporateDashboard: React.FC = () => {
                 <form onSubmit={handleAttendanceSubmit} className="space-y-3.5">
                   {/* Employee Code (Auto-filled & Read-only) */}
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-amber-950 block">
+                    <label className="text-xs font-bold text-purple-950 block">
                       Employee Code
                     </label>
                     <input
@@ -1671,20 +1976,17 @@ export const CorporateDashboard: React.FC = () => {
                       readOnly
                       disabled
                       value={corporateId}
-                      className="w-full bg-amber-100/70 border border-amber-300 rounded-xl px-3.5 py-2 text-xs font-mono font-bold text-amber-950 cursor-not-allowed outline-none"
+                      className="w-full bg-fuchsia-50 border border-fuchsia-200 rounded-xl px-3.5 py-2 text-xs font-mono font-bold text-purple-950 cursor-not-allowed outline-none"
                     />
-                    <span className="text-[10px] text-amber-800 block pl-1">
-                      Automatically linked to your verified Corporate ID
-                    </span>
                   </div>
 
-                  {/* Attendance Date (Locked & Auto-filled to Today's date) */}
+                  {/* Attendance Date (Locked & Auto-filled to Today) */}
                   <div className="space-y-1">
                     <div className="flex items-center justify-between">
-                      <label className="text-xs font-bold text-amber-950 block">
+                      <label className="text-xs font-bold text-purple-950 block">
                         Attendance Date
                       </label>
-                      <span className="text-[10px] text-amber-800 font-mono font-bold">
+                      <span className="text-[10px] text-fuchsia-700 font-mono font-bold">
                         Auto-locked to Today
                       </span>
                     </div>
@@ -1693,16 +1995,13 @@ export const CorporateDashboard: React.FC = () => {
                       readOnly
                       disabled
                       value={localTodayStr}
-                      className="w-full bg-amber-100/70 border border-amber-300 rounded-xl px-3.5 py-2 text-xs font-mono font-bold text-amber-950 cursor-not-allowed outline-none"
+                      className="w-full bg-fuchsia-50 border border-fuchsia-200 rounded-xl px-3.5 py-2 text-xs font-mono font-bold text-purple-950 cursor-not-allowed outline-none"
                     />
-                    <span className="text-[10px] text-amber-800 block pl-1">
-                      Attendance date is automatically set by the system clock and locked.
-                    </span>
                   </div>
 
-                  {/* Today's Work Hours (Clear initially) */}
+                  {/* Today's Work Hours */}
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-amber-950 block">
+                    <label className="text-xs font-bold text-purple-950 block">
                       Today's Work Hours
                     </label>
                     <input
@@ -1714,13 +2013,13 @@ export const CorporateDashboard: React.FC = () => {
                       value={workHours}
                       onChange={(e) => setWorkHours(e.target.value)}
                       placeholder="Enter work hours (e.g. 8)"
-                      className="w-full bg-white disabled:bg-zinc-100 disabled:cursor-not-allowed border border-amber-300 focus:border-amber-600 rounded-xl px-3.5 py-2 text-xs text-zinc-900 outline-none placeholder:text-zinc-400"
+                      className="w-full bg-white disabled:bg-zinc-100 disabled:cursor-not-allowed border border-fuchsia-200 focus:border-fuchsia-600 rounded-xl px-3.5 py-2 text-xs text-zinc-900 outline-none placeholder:text-zinc-400"
                     />
                   </div>
 
-                  {/* Expected Clients (Clear initially) */}
+                  {/* Expected Clients */}
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-amber-950 block">
+                    <label className="text-xs font-bold text-purple-950 block">
                       Expected Clients / Meetings
                     </label>
                     <input
@@ -1731,18 +2030,122 @@ export const CorporateDashboard: React.FC = () => {
                       value={expectedClients}
                       onChange={(e) => setExpectedClients(e.target.value)}
                       placeholder="Enter expected clients (e.g. 5)"
-                      className="w-full bg-white disabled:bg-zinc-100 disabled:cursor-not-allowed border border-amber-300 focus:border-amber-600 rounded-xl px-3.5 py-2 text-xs text-zinc-900 outline-none placeholder:text-zinc-400"
+                      className="w-full bg-white disabled:bg-zinc-100 disabled:cursor-not-allowed border border-fuchsia-200 focus:border-fuchsia-600 rounded-xl px-3.5 py-2 text-xs text-zinc-900 outline-none placeholder:text-zinc-400"
                     />
                   </div>
 
-                  {/* Submit Button (Locked if marked today) */}
+                  {/* SELFIE VERIFICATION SECTION (CAMERA INTEGRATION) */}
+                  {!hasMarkedTodayAttendance && (
+                    <div className="p-3.5 rounded-2xl bg-fuchsia-50/80 border-2 border-fuchsia-300 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-extrabold text-purple-950 flex items-center gap-1.5">
+                          <Camera className="w-4 h-4 text-fuchsia-700" />
+                          <span>Selfie Verification (Required)</span>
+                        </span>
+                        {isSelfieVerified ? (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500 text-white flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3" /> Done
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500 text-white animate-pulse">
+                            Required
+                          </span>
+                        )}
+                      </div>
+
+                      <p className="text-[11px] text-fuchsia-900 leading-tight">
+                        Live camera check to confirm your identity. Browser will request permission. Photo is not saved or uploaded.
+                      </p>
+
+                      {/* Camera viewfinder when active */}
+                      {isCameraActive ? (
+                        <div className="space-y-2.5">
+                          <div className="relative rounded-2xl overflow-hidden border-2 border-fuchsia-400 bg-black aspect-video max-h-48 mx-auto flex items-center justify-center">
+                            <video
+                              ref={videoRef}
+                              autoPlay
+                              playsInline
+                              muted
+                              className={`w-full h-full object-cover transform -scale-x-100 ${
+                                isCapturing ? 'opacity-30' : 'opacity-100'
+                              } transition-opacity`}
+                            />
+                            {/* Center Face Guide Oval */}
+                            <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+                              <div className="w-28 h-36 rounded-full border-2 border-dashed border-fuchsia-300/80 shadow-[0_0_15px_rgba(217,70,239,0.6)] flex items-center justify-center">
+                                <span className="text-[9px] text-white/90 bg-black/60 px-2 py-0.5 rounded-full">
+                                  Center face
+                                </span>
+                              </div>
+                            </div>
+                            {isCapturing && (
+                              <div className="absolute inset-0 bg-white animate-pulse" />
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={handleCaptureSelfie}
+                              disabled={isCapturing}
+                              className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-md flex items-center justify-center gap-1.5 cursor-pointer transition-all"
+                            >
+                              <Camera className="w-4 h-4" />
+                              <span>{isCapturing ? 'Verifying...' : 'Capture Photo'}</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleStopCamera}
+                              className="px-3 py-2.5 rounded-xl bg-zinc-200 hover:bg-zinc-300 text-zinc-800 font-bold text-xs cursor-pointer"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      ) : isSelfieVerified ? (
+                        <div className="p-3 rounded-xl bg-emerald-100 border border-emerald-400 text-emerald-950 flex items-center justify-between text-xs font-bold">
+                          <div className="flex items-center gap-2">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
+                            <span>Selfie verification complete!</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={handleStartCamera}
+                            className="text-[11px] text-emerald-800 underline hover:text-emerald-950 cursor-pointer"
+                          >
+                            Retake
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <button
+                            type="button"
+                            onClick={handleStartCamera}
+                            className="w-full py-2.5 rounded-xl bg-fuchsia-600 hover:bg-fuchsia-700 text-white font-extrabold text-xs shadow-md flex items-center justify-center gap-2 cursor-pointer transition-all hover:scale-[1.02]"
+                          >
+                            <Camera className="w-4 h-4" />
+                            <span>Open Camera & Take Selfie</span>
+                          </button>
+                          {cameraError && (
+                            <div className="p-2.5 rounded-xl bg-red-100 border border-red-300 text-red-800 text-[11px] leading-tight">
+                              {cameraError}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Submit Button (Requires Selfie & Not Marked Today) */}
                   <button
                     type="submit"
-                    disabled={isSubmittingAttendance || hasMarkedTodayAttendance}
+                    disabled={isSubmittingAttendance || hasMarkedTodayAttendance || !isSelfieVerified}
                     className={`w-full py-3 rounded-xl font-extrabold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer ${
                       hasMarkedTodayAttendance
-                        ? 'bg-zinc-300 text-zinc-600 cursor-not-allowed border border-zinc-400 shadow-none'
-                        : 'bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-amber-950 ring-2 ring-amber-400/60'
+                        ? 'bg-zinc-200 text-zinc-500 cursor-not-allowed border border-zinc-300 shadow-none'
+                        : !isSelfieVerified
+                        ? 'bg-fuchsia-300 text-fuchsia-800 cursor-not-allowed border border-fuchsia-400 shadow-none'
+                        : 'bg-gradient-to-r from-fuchsia-600 to-pink-600 hover:from-fuchsia-700 hover:to-pink-700 text-white ring-2 ring-fuchsia-400/60'
                     }`}
                   >
                     {isSubmittingAttendance ? (
@@ -1752,8 +2155,13 @@ export const CorporateDashboard: React.FC = () => {
                       </>
                     ) : hasMarkedTodayAttendance ? (
                       <>
-                        <Lock className="w-3.5 h-3.5 text-zinc-600" />
+                        <Lock className="w-3.5 h-3.5 text-zinc-500" />
                         <span>Attendance Marked for Today (Locked)</span>
+                      </>
+                    ) : !isSelfieVerified ? (
+                      <>
+                        <Camera className="w-3.5 h-3.5 text-fuchsia-700" />
+                        <span>Take Selfie to Unlock Submit</span>
                       </>
                     ) : (
                       <>
@@ -1766,30 +2174,30 @@ export const CorporateDashboard: React.FC = () => {
               </div>
 
               {/* Attendance History Table Card */}
-              <div className="lg:col-span-2 p-6 sm:p-7 rounded-3xl bg-[#FFFBEB] border-2 border-amber-300 shadow-md space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-amber-200">
+              <div className="lg:col-span-2 p-6 sm:p-7 rounded-3xl bg-white/95 backdrop-blur-md border-2 border-fuchsia-200 shadow-xl shadow-fuchsia-950/10 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-fuchsia-200">
                   <div>
-                    <h3 className="font-extrabold text-base text-amber-950 flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-amber-700" />
+                    <h3 className="font-extrabold text-base text-purple-950 flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-fuchsia-600" />
                       <span>My Attendance Log</span>
                     </h3>
-                    <p className="text-xs text-amber-800 mt-0.5">
+                    <p className="text-xs text-fuchsia-800 mt-0.5">
                       Historical log of your daily attendance and admin approval statuses
                     </p>
                   </div>
 
                   <button
                     onClick={loadAttendance}
-                    className="p-2 rounded-xl bg-amber-200/80 hover:bg-amber-300 text-amber-950 text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-1.5 self-start sm:self-auto"
+                    className="p-2 rounded-xl bg-fuchsia-100 hover:bg-fuchsia-200 text-purple-950 text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-1.5 self-start sm:self-auto"
                   >
-                    <RefreshCw className={`w-3.5 h-3.5 ${loadingAttendance ? 'animate-spin' : ''}`} />
+                    <RefreshCw className={`w-3.5 h-3.5 text-fuchsia-700 ${loadingAttendance ? 'animate-spin' : ''}`} />
                     <span>Refresh</span>
                   </button>
                 </div>
 
-                <div className="overflow-x-auto rounded-2xl border border-amber-300 bg-white shadow-xs">
+                <div className="overflow-x-auto rounded-2xl border border-fuchsia-200 bg-white shadow-xs">
                   <table className="w-full text-left text-xs">
-                    <thead className="bg-amber-100/90 text-amber-950 font-mono uppercase text-[10px] font-bold border-b border-amber-300">
+                    <thead className="bg-fuchsia-100/90 text-purple-950 font-mono uppercase text-[10px] font-bold border-b border-fuchsia-200">
                       <tr>
                         <th className="px-3.5 py-3">Date</th>
                         <th className="px-3.5 py-3">Employee Code</th>
@@ -1798,28 +2206,28 @@ export const CorporateDashboard: React.FC = () => {
                         <th className="px-3.5 py-3">Status</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-amber-100">
+                    <tbody className="divide-y divide-fuchsia-100">
                       {loadingAttendance ? (
                         <tr>
-                          <td colSpan={5} className="px-4 py-8 text-center text-amber-800">
-                            <div className="w-6 h-6 border-2 border-amber-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                          <td colSpan={5} className="px-4 py-8 text-center text-fuchsia-800">
+                            <div className="w-6 h-6 border-2 border-fuchsia-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
                             <span>Loading Attendance Logs...</span>
                           </td>
                         </tr>
                       ) : attendanceHistory.length === 0 ? (
                         <tr>
-                          <td colSpan={5} className="px-4 py-8 text-center text-amber-800">
-                            <Calendar className="w-8 h-8 text-amber-400 mx-auto mb-2" />
-                            <p className="font-bold text-amber-950">No attendance submitted yet.</p>
-                            <p className="text-[11px] text-amber-800 mt-0.5">
-                              Fill in the form on the left to log your work hours for today ({localTodayStr}).
+                          <td colSpan={5} className="px-4 py-8 text-center text-fuchsia-800">
+                            <Calendar className="w-8 h-8 text-fuchsia-300 mx-auto mb-2" />
+                            <p className="font-bold text-purple-950">No attendance submitted yet.</p>
+                            <p className="text-[11px] text-fuchsia-700 mt-0.5">
+                              Fill in the form on the left with selfie verification to log your work hours for today ({localTodayStr}).
                             </p>
                           </td>
                         </tr>
                       ) : (
                         attendanceHistory.map((rec) => (
-                          <tr key={rec.id} className="hover:bg-amber-50/80 transition-colors">
-                            <td className="px-3.5 py-3 font-mono font-bold text-amber-950">
+                          <tr key={rec.id} className="hover:bg-fuchsia-50/60 transition-colors">
+                            <td className="px-3.5 py-3 font-mono font-bold text-purple-950">
                               {rec.date}
                             </td>
                             <td className="px-3.5 py-3 font-mono text-zinc-700">
@@ -1863,6 +2271,75 @@ export const CorporateDashboard: React.FC = () => {
                     </tbody>
                   </table>
                 </div>
+
+                {/* MY LEAVE APPLICATIONS SECTION */}
+                <div className="pt-4 border-t border-fuchsia-200 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-extrabold text-sm text-purple-950 flex items-center gap-2">
+                      <Plane className="w-4 h-4 text-rose-600" />
+                      <span>My Leave Applications ({userLeavesList.length})</span>
+                    </h4>
+                    <button
+                      onClick={loadUserLeaves}
+                      className="text-xs text-fuchsia-700 hover:text-fuchsia-950 font-bold inline-flex items-center gap-1 cursor-pointer"
+                    >
+                      <RefreshCw className={`w-3 h-3 ${loadingUserLeaves ? 'animate-spin' : ''}`} />
+                      <span>Refresh Leaves</span>
+                    </button>
+                  </div>
+
+                  {userLeavesList.length === 0 ? (
+                    <div className="p-4 rounded-2xl bg-fuchsia-50/60 border border-fuchsia-200 text-center text-xs text-fuchsia-800">
+                      No leave applications submitted yet. Click <strong>"Need Leave? Apply for leave"</strong> above to submit one.
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto rounded-2xl border border-fuchsia-200 bg-white">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-rose-50 text-rose-950 font-mono uppercase text-[10px] font-bold border-b border-rose-200">
+                          <tr>
+                            <th className="px-3.5 py-2.5">Date Range</th>
+                            <th className="px-3.5 py-2.5">Reason</th>
+                            <th className="px-3.5 py-2.5">Status</th>
+                            <th className="px-3.5 py-2.5">Admin Note</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-fuchsia-100">
+                          {userLeavesList.map((leave) => (
+                            <tr key={leave.id} className="hover:bg-fuchsia-50/40">
+                              <td className="px-3.5 py-2.5 font-mono font-bold text-purple-950 whitespace-nowrap">
+                                {leave.startDate} → {leave.endDate}
+                              </td>
+                              <td className="px-3.5 py-2.5 text-zinc-800 max-w-xs truncate" title={leave.reason}>
+                                {leave.reason}
+                              </td>
+                              <td className="px-3.5 py-2.5 whitespace-nowrap">
+                                {leave.status === 'approved' && (
+                                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-900 border border-emerald-400">
+                                    Approved
+                                  </span>
+                                )}
+                                {leave.status === 'rejected' && (
+                                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-red-100 text-red-900 border border-red-400">
+                                    Rejected
+                                  </span>
+                                )}
+                                {leave.status === 'pending' && (
+                                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-400">
+                                    Pending Review
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-3.5 py-2.5 text-xs text-zinc-600 italic">
+                                {leave.adminNotes || '—'}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+
               </div>
 
             </div>
@@ -2406,6 +2883,146 @@ export const CorporateDashboard: React.FC = () => {
           </div>
         )}
 
+        {/* ======================================================================= */}
+        {/* LEAVE APPLICATION MODAL: "Need Leave? Apply for leave" */}
+        {/* ======================================================================= */}
+        {isLeaveModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl border-2 border-red-400 overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
+              
+              {/* Modal Header */}
+              <div className="p-5 bg-gradient-to-r from-red-600 via-rose-600 to-red-700 text-white flex items-center justify-between border-b border-red-300/40">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center font-bold">
+                    <Plane className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-extrabold text-base text-white">
+                      Apply for Corporate Leave
+                    </h3>
+                    <p className="text-[11px] text-rose-100">
+                      Submit your leave duration and reason for administrator review
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsLeaveModalOpen(false);
+                    setLeaveMessage(null);
+                  }}
+                  className="p-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-all cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Modal Body / Form */}
+              <form onSubmit={handleApplyLeaveSubmit} className="p-6 space-y-4 bg-fuchsia-50/20">
+                {leaveMessage && (
+                  <div
+                    className={`p-3 rounded-xl text-xs flex items-center gap-2 ${
+                      leaveMessage.type === 'success'
+                        ? 'bg-emerald-100 border border-emerald-400 text-emerald-900 font-medium'
+                        : 'bg-red-100 border border-red-400 text-red-900 font-medium'
+                    }`}
+                  >
+                    {leaveMessage.type === 'success' ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 text-red-700 shrink-0" />
+                    )}
+                    <span>{leaveMessage.text}</span>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  {/* From Date */}
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-purple-950 block">
+                      Date From <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      value={leaveStartDate}
+                      min={localTodayStr}
+                      onChange={(e) => setLeaveStartDate(e.target.value)}
+                      className="w-full bg-white border border-fuchsia-200 focus:border-red-500 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 outline-none"
+                    />
+                  </div>
+
+                  {/* To Date */}
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-purple-950 block">
+                      Date To <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      value={leaveEndDate}
+                      min={leaveStartDate || localTodayStr}
+                      onChange={(e) => setLeaveEndDate(e.target.value)}
+                      className="w-full bg-white border border-fuchsia-200 focus:border-red-500 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 outline-none"
+                    />
+                  </div>
+                </div>
+
+                {/* Reason */}
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-purple-950 block">
+                    Reason for Leave <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    required
+                    rows={3}
+                    value={leaveReason}
+                    onChange={(e) => setLeaveReason(e.target.value)}
+                    placeholder="e.g. Medical emergency, urgent family event, personal leave..."
+                    className="w-full bg-white border border-fuchsia-200 focus:border-red-500 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 outline-none placeholder:text-zinc-400 resize-none"
+                  />
+                </div>
+
+                <div className="p-3 rounded-xl bg-amber-50 border border-amber-300 text-[11px] text-amber-900 flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-amber-700 shrink-0" />
+                  <span>Your request will be submitted to admin for approval or rejection.</span>
+                </div>
+
+                {/* Submit button */}
+                <div className="flex items-center justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsLeaveModalOpen(false);
+                      setLeaveMessage(null);
+                    }}
+                    className="px-4 py-2.5 rounded-xl border border-zinc-300 text-zinc-700 text-xs font-bold hover:bg-zinc-100 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmittingLeave}
+                    className="px-6 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 active:bg-red-800 text-white font-extrabold text-xs shadow-md flex items-center gap-2 cursor-pointer transition-all disabled:opacity-50"
+                  >
+                    {isSubmittingLeave ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>Submitting...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-3.5 h-3.5" />
+                        <span>Submit Leave Application</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
         {/* AI CORPORATE SUPPORT / HELP DESK CHAT MODAL */}
         <CorporateAiSupport
           isOpen={isAiSupportOpen}
@@ -2416,12 +3033,107 @@ export const CorporateDashboard: React.FC = () => {
         <button
           type="button"
           onClick={() => setIsAiSupportOpen(true)}
-          className="fixed bottom-6 right-6 z-40 p-4 rounded-full bg-gradient-to-r from-purple-950 via-purple-900 to-amber-500 text-white shadow-2xl border-2 border-amber-400 hover:scale-110 active:scale-95 transition-all duration-300 cursor-pointer flex items-center gap-2 group animate-bounce"
+          className="fixed bottom-20 md:bottom-6 right-6 z-40 p-3.5 sm:p-4 rounded-full bg-gradient-to-r from-fuchsia-700 to-pink-600 text-white shadow-2xl border-2 border-fuchsia-300 hover:scale-110 active:scale-95 transition-all duration-300 cursor-pointer flex items-center gap-2 group animate-bounce"
           title="Walt AI Corporate Help Desk & Sales Assistant"
         >
-          <Bot className="w-6 h-6 text-amber-300 group-hover:rotate-12 transition-transform" />
-          <span className="font-extrabold text-xs text-amber-200 pr-1 hidden sm:inline">AI Help Desk</span>
+          <Bot className="w-5 h-5 text-white group-hover:rotate-12 transition-transform" />
+          <span className="font-extrabold text-xs text-white pr-1 hidden sm:inline">AI Help</span>
         </button>
+
+        {/* ======================================================================= */}
+        {/* PHONE VIEW NAVIGATION TABS: HOME & NOTIFICATIONS & NOTICES */}
+        {/* ======================================================================= */}
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#1f0124]/95 backdrop-blur-xl border-t border-fuchsia-800/80 shadow-2xl px-2 py-2 flex items-center justify-around">
+          
+          {/* Home */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('dashboard')}
+            className={`flex flex-col items-center gap-1 py-1 px-2.5 rounded-xl text-[11px] font-bold transition-all cursor-pointer ${
+              activeTab === 'dashboard'
+                ? 'text-fuchsia-300 font-extrabold'
+                : 'text-fuchsia-100/70 hover:text-white'
+            }`}
+          >
+            <div className={`p-1.5 rounded-lg ${activeTab === 'dashboard' ? 'bg-fuchsia-600 text-white shadow-sm' : ''}`}>
+              <LayoutDashboard className="w-4 h-4" />
+            </div>
+            <span>Home</span>
+          </button>
+
+          {/* Notifications & Notices */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('notifications-notices')}
+            className={`flex flex-col items-center gap-1 py-1 px-2.5 rounded-xl text-[11px] font-bold transition-all cursor-pointer relative ${
+              activeTab === 'notifications-notices'
+                ? 'text-fuchsia-300 font-extrabold'
+                : 'text-fuchsia-100/70 hover:text-white'
+            }`}
+          >
+            <div className={`p-1.5 rounded-lg relative ${activeTab === 'notifications-notices' ? 'bg-fuchsia-600 text-white shadow-sm' : ''}`}>
+              <Bell className="w-4 h-4" />
+              {unreadNotificationsCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-red-500 ring-2 ring-[#1f0124] animate-pulse" />
+              )}
+            </div>
+            <span>Notices</span>
+          </button>
+
+          {/* Attendance */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('attendance')}
+            className={`flex flex-col items-center gap-1 py-1 px-2.5 rounded-xl text-[11px] font-bold transition-all cursor-pointer ${
+              activeTab === 'attendance'
+                ? 'text-fuchsia-300 font-extrabold'
+                : 'text-fuchsia-100/70 hover:text-white'
+            }`}
+          >
+            <div className={`p-1.5 rounded-lg relative ${activeTab === 'attendance' ? 'bg-fuchsia-600 text-white shadow-sm' : ''}`}>
+              <Calendar className="w-4 h-4" />
+              {!hasMarkedTodayAttendance && (
+                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-amber-400 ring-2 ring-[#1f0124] animate-pulse" />
+              )}
+            </div>
+            <span>Attendance</span>
+          </button>
+
+          {/* Expected Data */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('expected-data')}
+            className={`flex flex-col items-center gap-1 py-1 px-2.5 rounded-xl text-[11px] font-bold transition-all cursor-pointer ${
+              activeTab === 'expected-data'
+                ? 'text-fuchsia-300 font-extrabold'
+                : 'text-fuchsia-100/70 hover:text-white'
+            }`}
+          >
+            <div className={`p-1.5 rounded-lg relative ${activeTab === 'expected-data' ? 'bg-fuchsia-600 text-white shadow-sm' : ''}`}>
+              <Target className="w-4 h-4" />
+              {expectedDataList.length > 0 && (
+                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-pink-400 ring-2 ring-[#1f0124] animate-pulse" />
+              )}
+            </div>
+            <span>Expected</span>
+          </button>
+
+          {/* Profile */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('profile')}
+            className={`flex flex-col items-center gap-1 py-1 px-2.5 rounded-xl text-[11px] font-bold transition-all cursor-pointer ${
+              activeTab === 'profile'
+                ? 'text-fuchsia-300 font-extrabold'
+                : 'text-fuchsia-100/70 hover:text-white'
+            }`}
+          >
+            <div className={`p-1.5 rounded-lg ${activeTab === 'profile' ? 'bg-fuchsia-600 text-white shadow-sm' : ''}`}>
+              <User className="w-4 h-4" />
+            </div>
+            <span>Profile</span>
+          </button>
+        </nav>
 
       </main>
     </div>

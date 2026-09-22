@@ -45,19 +45,26 @@ import {
   Bell,
   Megaphone,
   Trophy,
+  ShieldAlert,
+  AlertTriangle,
+  UserX,
+  Plane,
 } from 'lucide-react';
 import {
   useAuth,
   UserProfile,
+  CorporateAccountStatus,
   AttendanceRecord,
   DailyReportItem,
   ExpectedDataItem,
+  LeaveApplication,
 } from '../context/AuthContext';
 import { AGENCY_INFO } from '../data/agencyData';
 import { AdminAuditLogsSection } from './admin/AdminAuditLogsSection';
 import { AdminNotificationsSection } from './admin/AdminNotificationsSection';
 import { AdminNoticesSection } from './admin/AdminNoticesSection';
 import { AdminLeaderboardSection } from './admin/AdminLeaderboardSection';
+import { AdminUserStatusModal } from './admin/AdminUserStatusModal';
 
 type AdminTab =
   | 'dashboard'
@@ -78,6 +85,7 @@ export const AdminDashboard: React.FC = () => {
     profile,
     logout,
     fetchAllCorporateUsers,
+    updateCorporateUserStatus,
     adminCreateCorporateUser,
     updateUserProgressByAdmin,
     refreshProfile,
@@ -93,12 +101,24 @@ export const AdminDashboard: React.FC = () => {
     fetchAdminExpectedData,
     updateExpectedDataStatus,
     deleteExpectedData,
+    fetchAllLeaves,
+    updateLeaveStatus,
   } = useAuth();
 
   const [activeTab, setActiveTab] = useState<AdminTab>('dashboard');
   const [corporateList, setCorporateList] = useState<UserProfile[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Corporate User Account Status Management Modal State
+  const [statusModalUser, setStatusModalUser] = useState<UserProfile | null>(null);
+  const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'suspended' | 'banned' | 'terminated'>('all');
+
+  const handleOpenStatusModal = (user: UserProfile) => {
+    setStatusModalUser(user);
+    setIsStatusModalOpen(true);
+  };
 
   // Live Timing Clock & Time-based Wishes for Admin
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
@@ -165,6 +185,13 @@ export const AdminDashboard: React.FC = () => {
   const [loadingAttendance, setLoadingAttendance] = useState(false);
   const [attendanceFilter, setAttendanceFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
   const [attendanceActionId, setAttendanceActionId] = useState<string | null>(null);
+
+  // Staff Leave applications state
+  const [leavesList, setLeavesList] = useState<LeaveApplication[]>([]);
+  const [loadingLeaves, setLoadingLeaves] = useState(false);
+  const [leaveFilter, setLeaveFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
+  const [leaveActionId, setLeaveActionId] = useState<string | null>(null);
+  const [adminLeaveNotes, setAdminLeaveNotes] = useState<{ [id: string]: string }>({});
 
   // Daily Data Report state
   const [dailyReportList, setDailyReportList] = useState<DailyReportItem[]>([]);
@@ -287,6 +314,7 @@ export const AdminDashboard: React.FC = () => {
     loadAttendanceData();
     loadDailyReports();
     loadExpectedData();
+    loadLeavesData();
   }, []);
 
   useEffect(() => {
@@ -308,11 +336,37 @@ export const AdminDashboard: React.FC = () => {
     }
   };
 
+  const loadLeavesData = async () => {
+    setLoadingLeaves(true);
+    try {
+      const list = await fetchAllLeaves();
+      setLeavesList(list);
+    } catch (err) {
+      console.warn('Failed to load leaves for admin:', err);
+    } finally {
+      setLoadingLeaves(false);
+    }
+  };
+
+  const handleUpdateLeaveStatus = async (leaveId: string, status: 'approved' | 'rejected') => {
+    setLeaveActionId(leaveId);
+    try {
+      const note = adminLeaveNotes[leaveId] || undefined;
+      await updateLeaveStatus(leaveId, status, note);
+      await loadLeavesData();
+    } catch (err) {
+      console.error('Failed to update leave status:', err);
+    } finally {
+      setLeaveActionId(null);
+    }
+  };
+
   const loadAttendanceData = async () => {
     setLoadingAttendance(true);
     try {
       const list = await fetchAllAttendance();
       setAttendanceList(list);
+      await loadLeavesData();
     } catch (err) {
       console.error('Failed to load attendance records:', err);
     } finally {
@@ -1132,22 +1186,23 @@ export const AdminDashboard: React.FC = () => {
                       <th className="px-3.5 py-3">Name</th>
                       <th className="px-3.5 py-3">Email</th>
                       <th className="px-3.5 py-3">Designation</th>
-                      <th className="px-3.5 py-3">Location</th>
+                      <th className="px-3.5 py-3">Account Status</th>
                       <th className="px-3.5 py-3">Sales Income</th>
                       <th className="px-3.5 py-3">Target Progress</th>
+                      <th className="px-3.5 py-3 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-pink-100">
                     {loadingUsers ? (
                       <tr>
-                        <td colSpan={7} className="px-4 py-8 text-center text-pink-800">
+                        <td colSpan={8} className="px-4 py-8 text-center text-pink-800">
                           <div className="w-6 h-6 border-2 border-pink-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
                           <span>Loading corporate accounts...</span>
                         </td>
                       </tr>
                     ) : corporateList.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="px-4 py-8 text-center text-pink-800">
+                        <td colSpan={8} className="px-4 py-8 text-center text-pink-800">
                           <Users className="w-8 h-8 text-pink-400 mx-auto mb-2" />
                           <p className="font-bold">No corporate users registered yet.</p>
                           <p className="text-[11px] mt-0.5">Use "Corporate Registration" to create staff credentials.</p>
@@ -1168,8 +1223,32 @@ export const AdminDashboard: React.FC = () => {
                           <td className="px-3.5 py-3 text-zinc-800">
                             {corp.corporateRole || 'Asst. Sales Manager'}
                           </td>
-                          <td className="px-3.5 py-3 text-zinc-700">
-                            {corp.location || 'Pan-India Corporate'}
+                          <td className="px-3.5 py-3">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenStatusModal(corp)}
+                              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-mono text-[10px] font-extrabold uppercase border cursor-pointer hover:scale-105 transition-transform ${
+                                corp.accountStatus === 'banned'
+                                  ? 'bg-red-100 text-red-800 border-red-300'
+                                  : corp.accountStatus === 'suspended'
+                                  ? 'bg-amber-100 text-amber-800 border-amber-300'
+                                  : corp.accountStatus === 'terminated'
+                                  ? 'bg-zinc-100 text-zinc-800 border-zinc-300'
+                                  : 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                              }`}
+                              title={`Status: ${(corp.accountStatus || 'active').toUpperCase()} - Click to modify`}
+                            >
+                              {corp.accountStatus === 'banned' ? (
+                                <ShieldAlert className="w-3 h-3 text-red-600" />
+                              ) : corp.accountStatus === 'suspended' ? (
+                                <AlertTriangle className="w-3 h-3 text-amber-600" />
+                              ) : corp.accountStatus === 'terminated' ? (
+                                <UserX className="w-3 h-3 text-zinc-600" />
+                              ) : (
+                                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                              )}
+                              <span>{corp.accountStatus || 'active'}</span>
+                            </button>
                           </td>
                           <td className="px-3.5 py-3 font-mono font-bold text-emerald-700">
                             ₹{(corp.income || 0).toLocaleString('en-IN')}
@@ -1184,6 +1263,16 @@ export const AdminDashboard: React.FC = () => {
                                 />
                               </div>
                             </div>
+                          </td>
+                          <td className="px-3.5 py-3 text-right">
+                            <button
+                              onClick={() => handleOpenStatusModal(corp)}
+                              className="px-2.5 py-1 rounded-lg bg-pink-100 hover:bg-pink-200 text-pink-900 text-xs font-bold transition-colors cursor-pointer inline-flex items-center gap-1"
+                              title="Ban / Unban / Suspend / Terminate user"
+                            >
+                              <Shield className="w-3 h-3 text-pink-700" />
+                              <span>Status</span>
+                            </button>
                           </td>
                         </tr>
                       ))
@@ -1457,6 +1546,67 @@ export const AdminDashboard: React.FC = () => {
                 </div>
               </div>
 
+              {updateSuccess && (
+                <div className="p-3 rounded-xl bg-emerald-100 border border-emerald-400 text-emerald-900 text-xs font-semibold flex items-center gap-2 animate-in fade-in">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
+                  <span>{updateSuccess}</span>
+                </div>
+              )}
+
+              {/* Account Status Filter Pills */}
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <span className="text-[11px] font-bold text-pink-900 uppercase tracking-wider mr-1">
+                  Filter by Status:
+                </span>
+                {(
+                  [
+                    { key: 'all', label: 'All Staff', count: corporateList.length },
+                    {
+                      key: 'active',
+                      label: 'Active',
+                      count: corporateList.filter((c) => (c.accountStatus || 'active') === 'active').length,
+                    },
+                    {
+                      key: 'suspended',
+                      label: 'Suspended',
+                      count: corporateList.filter((c) => c.accountStatus === 'suspended').length,
+                    },
+                    {
+                      key: 'banned',
+                      label: 'Banned',
+                      count: corporateList.filter((c) => c.accountStatus === 'banned').length,
+                    },
+                    {
+                      key: 'terminated',
+                      label: 'Terminated',
+                      count: corporateList.filter((c) => c.accountStatus === 'terminated').length,
+                    },
+                  ] as const
+                ).map((tab) => {
+                  const isActive = statusFilter === tab.key;
+                  return (
+                    <button
+                      key={tab.key}
+                      onClick={() => setStatusFilter(tab.key)}
+                      className={`px-3 py-1 rounded-xl text-xs font-bold border transition-all cursor-pointer flex items-center gap-1.5 ${
+                        isActive
+                          ? 'bg-pink-600 text-white border-pink-600 shadow-xs'
+                          : 'bg-white hover:bg-pink-50 border-pink-200 text-zinc-700'
+                      }`}
+                    >
+                      <span>{tab.label}</span>
+                      <span
+                        className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-extrabold ${
+                          isActive ? 'bg-white/20 text-white' : 'bg-pink-100 text-pink-800'
+                        }`}
+                      >
+                        {tab.count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
               <div className="overflow-x-auto rounded-2xl border border-pink-300 bg-white shadow-xs">
                 <table className="w-full text-left text-xs">
                   <thead className="bg-pink-100 text-purple-950 font-mono uppercase text-[10px] font-bold border-b border-pink-300">
@@ -1464,6 +1614,7 @@ export const AdminDashboard: React.FC = () => {
                       <th className="px-3.5 py-3">Corporate ID</th>
                       <th className="px-3.5 py-3">Employee Details</th>
                       <th className="px-3.5 py-3">Designation</th>
+                      <th className="px-3.5 py-3">Account Status</th>
                       <th className="px-3.5 py-3">Basic Salary (₹)</th>
                       <th className="px-3.5 py-3">Current Earnings (₹)</th>
                       <th className="px-3.5 py-3">Sales Target (₹)</th>
@@ -1474,14 +1625,14 @@ export const AdminDashboard: React.FC = () => {
                   <tbody className="divide-y divide-pink-100">
                     {loadingUsers ? (
                       <tr>
-                        <td colSpan={8} className="px-4 py-8 text-center text-pink-800">
+                        <td colSpan={9} className="px-4 py-8 text-center text-pink-800">
                           <div className="w-6 h-6 border-2 border-pink-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
                           <span>Loading performance data...</span>
                         </td>
                       </tr>
                     ) : corporateList.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="px-4 py-8 text-center text-pink-800">
+                        <td colSpan={9} className="px-4 py-8 text-center text-pink-800">
                           <Users className="w-8 h-8 text-pink-400 mx-auto mb-2" />
                           <p className="font-bold">No staff records available.</p>
                         </td>
@@ -1489,6 +1640,10 @@ export const AdminDashboard: React.FC = () => {
                     ) : (
                       corporateList
                         .filter((c) => {
+                          if (statusFilter !== 'all') {
+                            const cStatus = c.accountStatus || 'active';
+                            if (cStatus !== statusFilter) return false;
+                          }
                           const q = searchQuery.toLowerCase().trim();
                           return (
                             !q ||
@@ -1510,6 +1665,35 @@ export const AdminDashboard: React.FC = () => {
                               </td>
                               <td className="px-3.5 py-3 text-zinc-800">
                                 {corp.corporateRole || 'Asst. Sales Manager'}
+                              </td>
+
+                              {/* Account Status Badge with click to edit */}
+                              <td className="px-3.5 py-3">
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenStatusModal(corp)}
+                                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-mono text-[10px] font-extrabold uppercase border transition-transform hover:scale-105 cursor-pointer ${
+                                    corp.accountStatus === 'banned'
+                                      ? 'bg-red-100 text-red-800 border-red-300'
+                                      : corp.accountStatus === 'suspended'
+                                      ? 'bg-amber-100 text-amber-800 border-amber-300'
+                                      : corp.accountStatus === 'terminated'
+                                      ? 'bg-zinc-100 text-zinc-800 border-zinc-300'
+                                      : 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                                  }`}
+                                  title={`Click to change status (Currently: ${(corp.accountStatus || 'active').toUpperCase()})`}
+                                >
+                                  {corp.accountStatus === 'banned' ? (
+                                    <ShieldAlert className="w-3 h-3 text-red-600" />
+                                  ) : corp.accountStatus === 'suspended' ? (
+                                    <AlertTriangle className="w-3 h-3 text-amber-600" />
+                                  ) : corp.accountStatus === 'terminated' ? (
+                                    <UserX className="w-3 h-3 text-zinc-600" />
+                                  ) : (
+                                    <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                  )}
+                                  <span>{corp.accountStatus || 'active'}</span>
+                                </button>
                               </td>
 
                               {/* Basic Salary Edit */}
@@ -1611,13 +1795,23 @@ export const AdminDashboard: React.FC = () => {
                                     </button>
                                   </div>
                                 ) : (
-                                  <button
-                                    onClick={() => handleStartEdit(corp)}
-                                    className="p-1.5 rounded-lg bg-pink-200 hover:bg-pink-300 text-purple-950 text-xs transition-colors cursor-pointer"
-                                    title="Edit salary and performance targets"
-                                  >
-                                    <Edit3 className="w-3.5 h-3.5" />
-                                  </button>
+                                  <div className="flex items-center justify-end gap-1.5">
+                                    <button
+                                      onClick={() => handleOpenStatusModal(corp)}
+                                      className="p-1.5 rounded-lg bg-pink-100 hover:bg-pink-200 text-pink-900 text-xs transition-colors cursor-pointer inline-flex items-center gap-1 font-bold"
+                                      title="Change User Status (Ban / Unban / Suspend / Terminate)"
+                                    >
+                                      <Shield className="w-3.5 h-3.5 text-pink-700" />
+                                      <span className="hidden xl:inline text-[11px]">Status</span>
+                                    </button>
+                                    <button
+                                      onClick={() => handleStartEdit(corp)}
+                                      className="p-1.5 rounded-lg bg-pink-200 hover:bg-pink-300 text-purple-950 text-xs transition-colors cursor-pointer"
+                                      title="Edit salary and performance targets"
+                                    >
+                                      <Edit3 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
                                 )}
                               </td>
                             </tr>
@@ -1992,6 +2186,163 @@ export const AdminDashboard: React.FC = () => {
                                       disabled={isProcessing}
                                       className="px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 bg-red-600 hover:bg-red-700 text-white shadow-xs disabled:opacity-50"
                                       title="Reject Attendance"
+                                    >
+                                      <XCircle className="w-3 h-3" />
+                                      <span>Reject</span>
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <span className="text-zinc-400 text-xs font-bold">—</span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Staff Leave Applications Review Section */}
+            <div className="p-6 sm:p-8 rounded-3xl bg-[#FDF2F8] border-2 border-red-300 shadow-md space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-red-200">
+                <div>
+                  <h3 className="font-extrabold text-base text-purple-950 flex items-center gap-2">
+                    <Plane className="w-4 h-4 text-red-600" />
+                    <span>Staff Leave Applications & Approval Requests</span>
+                  </h3>
+                  <p className="text-xs text-red-900 mt-0.5">
+                    Review, approve, or reject employee leave duration requests
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <select
+                    value={leaveFilter}
+                    onChange={(e) => setLeaveFilter(e.target.value as any)}
+                    className="bg-white border border-red-300 rounded-xl px-3 py-1.5 text-xs text-purple-950 font-bold outline-none cursor-pointer"
+                  >
+                    <option value="all">All Leaves ({leavesList.length})</option>
+                    <option value="pending">Pending ({leavesList.filter((l) => l.status === 'pending').length})</option>
+                    <option value="approved">Approved ({leavesList.filter((l) => l.status === 'approved').length})</option>
+                    <option value="rejected">Rejected ({leavesList.filter((l) => l.status === 'rejected').length})</option>
+                  </select>
+
+                  <button
+                    onClick={loadLeavesData}
+                    className="p-2 rounded-xl bg-red-100 hover:bg-red-200 text-red-950 text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-1.5"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${loadingLeaves ? 'animate-spin' : ''}`} />
+                    <span>Refresh Leaves</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto rounded-2xl border border-red-200 bg-white shadow-xs">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-red-100/90 text-red-950 font-mono uppercase text-[10px] font-bold border-b border-red-200">
+                    <tr>
+                      <th className="px-3.5 py-3">Applied Date</th>
+                      <th className="px-3.5 py-3">Employee</th>
+                      <th className="px-3.5 py-3">Leave Duration</th>
+                      <th className="px-3.5 py-3">Reason</th>
+                      <th className="px-3.5 py-3">Status</th>
+                      <th className="px-3.5 py-3">Admin Note</th>
+                      <th className="px-3.5 py-3 text-right">Approval Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-red-100">
+                    {loadingLeaves ? (
+                      <tr>
+                        <td colSpan={7} className="px-4 py-8 text-center text-red-800">
+                          <div className="w-6 h-6 border-2 border-red-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                          <span>Loading leave requests...</span>
+                        </td>
+                      </tr>
+                    ) : leavesList.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="px-4 py-8 text-center text-red-800">
+                          <Plane className="w-8 h-8 text-red-400 mx-auto mb-2" />
+                          <p className="font-bold">No leave applications submitted yet.</p>
+                        </td>
+                      </tr>
+                    ) : (
+                      leavesList
+                        .filter((item) => leaveFilter === 'all' || item.status === leaveFilter)
+                        .map((leave) => {
+                          const isProcessing = leaveActionId === leave.id;
+                          return (
+                            <tr key={leave.id} className="hover:bg-red-50/50 transition-colors">
+                              <td className="px-3.5 py-3 font-mono text-zinc-600 whitespace-nowrap">
+                                {leave.createdAt ? new Date(leave.createdAt).toLocaleDateString('en-IN') : 'Recent'}
+                              </td>
+                              <td className="px-3.5 py-3 font-bold text-zinc-900 whitespace-nowrap">
+                                <div>{leave.userName || leave.employeeName || 'Staff'}</div>
+                                <div className="font-mono text-[10px] text-red-700 font-bold">{leave.employeeCode}</div>
+                              </td>
+                              <td className="px-3.5 py-3 whitespace-nowrap font-mono font-bold text-purple-950">
+                                <span className="text-zinc-900">{leave.startDate}</span>
+                                <span className="text-red-500 mx-1">➔</span>
+                                <span className="text-zinc-900">{leave.endDate}</span>
+                              </td>
+                              <td className="px-3.5 py-3 text-zinc-700 max-w-xs">
+                                <p className="truncate" title={leave.reason}>{leave.reason}</p>
+                              </td>
+                              <td className="px-3.5 py-3 whitespace-nowrap">
+                                {leave.status === 'pending' && (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 border border-amber-300 text-amber-900">
+                                    <Clock className="w-3 h-3 text-amber-700 animate-pulse" />
+                                    <span>Pending Review</span>
+                                  </span>
+                                )}
+                                {leave.status === 'approved' && (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 border border-emerald-300 text-emerald-900">
+                                    <CheckCircle2 className="w-3 h-3 text-emerald-700" />
+                                    <span>Approved</span>
+                                  </span>
+                                )}
+                                {leave.status === 'rejected' && (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-red-100 border border-red-300 text-red-900">
+                                    <XCircle className="w-3 h-3 text-red-700" />
+                                    <span>Rejected</span>
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-3.5 py-3">
+                                {leave.status === 'pending' ? (
+                                  <input
+                                    type="text"
+                                    placeholder="Optional note..."
+                                    value={adminLeaveNotes[leave.id] || ''}
+                                    onChange={(e) =>
+                                      setAdminLeaveNotes({ ...adminLeaveNotes, [leave.id]: e.target.value })
+                                    }
+                                    className="w-32 sm:w-40 bg-white border border-red-200 rounded-lg px-2 py-1 text-[11px] text-zinc-800 outline-none focus:border-red-500"
+                                  />
+                                ) : (
+                                  <span className="text-xs text-zinc-600 italic">
+                                    {leave.adminNote || '—'}
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-3.5 py-3 text-right whitespace-nowrap">
+                                {leave.status === 'pending' ? (
+                                  <div className="inline-flex items-center gap-1.5">
+                                    <button
+                                      onClick={() => handleUpdateLeaveStatus(leave.id, 'approved')}
+                                      disabled={isProcessing}
+                                      className="px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs disabled:opacity-50"
+                                      title="Approve Leave"
+                                    >
+                                      <CheckCircle2 className="w-3 h-3" />
+                                      <span>Approve</span>
+                                    </button>
+                                    <button
+                                      onClick={() => handleUpdateLeaveStatus(leave.id, 'rejected')}
+                                      disabled={isProcessing}
+                                      className="px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 bg-red-600 hover:bg-red-700 text-white shadow-xs disabled:opacity-50"
+                                      title="Reject Leave"
                                     >
                                       <XCircle className="w-3 h-3" />
                                       <span>Reject</span>
@@ -2752,6 +3103,22 @@ export const AdminDashboard: React.FC = () => {
             <AdminAuditLogsSection />
           </div>
         )}
+
+        {/* Corporate User Account Status Management Modal (Ban / Unban / Suspend / Terminate) */}
+        <AdminUserStatusModal
+          user={statusModalUser}
+          isOpen={isStatusModalOpen}
+          onClose={() => {
+            setIsStatusModalOpen(false);
+            setStatusModalUser(null);
+          }}
+          onUpdateStatus={updateCorporateUserStatus}
+          onSuccess={() => {
+            loadCorporateData();
+            setUpdateSuccess('Corporate user account status updated successfully.');
+            setTimeout(() => setUpdateSuccess(null), 4000);
+          }}
+        />
 
       </main>
     </div>

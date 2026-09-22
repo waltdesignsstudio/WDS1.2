@@ -225,6 +225,69 @@
         }
       },
       "required": ["name", "email", "number", "location", "requirement", "status", "assignedEmployeeUid"]
+    },
+    "LeaveApplication": {
+      "title": "LeaveApplication",
+      "description": "Leave requests submitted by corporate employees and approved/rejected by Admin",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique leave document ID"
+        },
+        "employeeUid": {
+          "type": "string",
+          "description": "Firebase Auth UID of the employee requesting leave"
+        },
+        "employeeCode": {
+          "type": "string",
+          "description": "Corporate employee code (e.g. WDS-4827)"
+        },
+        "employeeName": {
+          "type": "string",
+          "description": "Full name of the employee"
+        },
+        "startDate": {
+          "type": "string",
+          "description": "Leave start date in YYYY-MM-DD format"
+        },
+        "endDate": {
+          "type": "string",
+          "description": "Leave end date in YYYY-MM-DD format"
+        },
+        "reason": {
+          "type": "string",
+          "description": "Detailed reason for the leave request"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "approved", "rejected"],
+          "description": "Current status of the leave request"
+        },
+        "adminNote": {
+          "type": "string",
+          "description": "Optional administrator review note or feedback"
+        },
+        "reviewedBy": {
+          "type": "string",
+          "description": "Administrator name or email who reviewed the leave"
+        },
+        "reviewedAt": {
+          "type": "string",
+          "description": "Timestamp when the leave was approved/rejected"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Document creation timestamp"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Document update timestamp"
+        }
+      },
+      "required": ["employeeUid", "employeeCode", "employeeName", "startDate", "endDate", "reason", "status"]
     }
   },
   "firestore": {
@@ -239,6 +302,12 @@
         "$ref": "#/entities/AttendanceRecord"
       },
       "description": "Collection of employee attendance submissions managed by Admin"
+    },
+    "/leaves/{leaveId}": {
+      "schema": {
+        "$ref": "#/entities/LeaveApplication"
+      },
+      "description": "Collection of employee leave requests submitted by staff and reviewed by Admin"
     },
     "/daily_reports/{reportId}": {
       "schema": {
