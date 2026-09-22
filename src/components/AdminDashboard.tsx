@@ -45,14 +45,10 @@ import {
   Bell,
   Megaphone,
   Trophy,
-  ShieldAlert,
-  AlertTriangle,
-  UserX,
 } from 'lucide-react';
 import {
   useAuth,
   UserProfile,
-  CorporateAccountStatus,
   AttendanceRecord,
   DailyReportItem,
   ExpectedDataItem,
@@ -62,7 +58,6 @@ import { AdminAuditLogsSection } from './admin/AdminAuditLogsSection';
 import { AdminNotificationsSection } from './admin/AdminNotificationsSection';
 import { AdminNoticesSection } from './admin/AdminNoticesSection';
 import { AdminLeaderboardSection } from './admin/AdminLeaderboardSection';
-import { AdminUserStatusModal } from './admin/AdminUserStatusModal';
 
 type AdminTab =
   | 'dashboard'
@@ -83,7 +78,6 @@ export const AdminDashboard: React.FC = () => {
     profile,
     logout,
     fetchAllCorporateUsers,
-    updateCorporateUserStatus,
     adminCreateCorporateUser,
     updateUserProgressByAdmin,
     refreshProfile,
@@ -105,16 +99,6 @@ export const AdminDashboard: React.FC = () => {
   const [corporateList, setCorporateList] = useState<UserProfile[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-
-  // Corporate User Account Status Management Modal State
-  const [statusModalUser, setStatusModalUser] = useState<UserProfile | null>(null);
-  const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'suspended' | 'banned' | 'terminated'>('all');
-
-  const handleOpenStatusModal = (user: UserProfile) => {
-    setStatusModalUser(user);
-    setIsStatusModalOpen(true);
-  };
 
   // Live Timing Clock & Time-based Wishes for Admin
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
@@ -1148,23 +1132,22 @@ export const AdminDashboard: React.FC = () => {
                       <th className="px-3.5 py-3">Name</th>
                       <th className="px-3.5 py-3">Email</th>
                       <th className="px-3.5 py-3">Designation</th>
-                      <th className="px-3.5 py-3">Account Status</th>
+                      <th className="px-3.5 py-3">Location</th>
                       <th className="px-3.5 py-3">Sales Income</th>
                       <th className="px-3.5 py-3">Target Progress</th>
-                      <th className="px-3.5 py-3 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-pink-100">
                     {loadingUsers ? (
                       <tr>
-                        <td colSpan={8} className="px-4 py-8 text-center text-pink-800">
+                        <td colSpan={7} className="px-4 py-8 text-center text-pink-800">
                           <div className="w-6 h-6 border-2 border-pink-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
                           <span>Loading corporate accounts...</span>
                         </td>
                       </tr>
                     ) : corporateList.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="px-4 py-8 text-center text-pink-800">
+                        <td colSpan={7} className="px-4 py-8 text-center text-pink-800">
                           <Users className="w-8 h-8 text-pink-400 mx-auto mb-2" />
                           <p className="font-bold">No corporate users registered yet.</p>
                           <p className="text-[11px] mt-0.5">Use "Corporate Registration" to create staff credentials.</p>
@@ -1185,32 +1168,8 @@ export const AdminDashboard: React.FC = () => {
                           <td className="px-3.5 py-3 text-zinc-800">
                             {corp.corporateRole || 'Asst. Sales Manager'}
                           </td>
-                          <td className="px-3.5 py-3">
-                            <button
-                              type="button"
-                              onClick={() => handleOpenStatusModal(corp)}
-                              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-mono text-[10px] font-extrabold uppercase border cursor-pointer hover:scale-105 transition-transform ${
-                                corp.accountStatus === 'banned'
-                                  ? 'bg-red-100 text-red-800 border-red-300'
-                                  : corp.accountStatus === 'suspended'
-                                  ? 'bg-amber-100 text-amber-800 border-amber-300'
-                                  : corp.accountStatus === 'terminated'
-                                  ? 'bg-zinc-100 text-zinc-800 border-zinc-300'
-                                  : 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                              }`}
-                              title={`Status: ${(corp.accountStatus || 'active').toUpperCase()} - Click to modify`}
-                            >
-                              {corp.accountStatus === 'banned' ? (
-                                <ShieldAlert className="w-3 h-3 text-red-600" />
-                              ) : corp.accountStatus === 'suspended' ? (
-                                <AlertTriangle className="w-3 h-3 text-amber-600" />
-                              ) : corp.accountStatus === 'terminated' ? (
-                                <UserX className="w-3 h-3 text-zinc-600" />
-                              ) : (
-                                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                              )}
-                              <span>{corp.accountStatus || 'active'}</span>
-                            </button>
+                          <td className="px-3.5 py-3 text-zinc-700">
+                            {corp.location || 'Pan-India Corporate'}
                           </td>
                           <td className="px-3.5 py-3 font-mono font-bold text-emerald-700">
                             ₹{(corp.income || 0).toLocaleString('en-IN')}
@@ -1225,16 +1184,6 @@ export const AdminDashboard: React.FC = () => {
                                 />
                               </div>
                             </div>
-                          </td>
-                          <td className="px-3.5 py-3 text-right">
-                            <button
-                              onClick={() => handleOpenStatusModal(corp)}
-                              className="px-2.5 py-1 rounded-lg bg-pink-100 hover:bg-pink-200 text-pink-900 text-xs font-bold transition-colors cursor-pointer inline-flex items-center gap-1"
-                              title="Ban / Unban / Suspend / Terminate user"
-                            >
-                              <Shield className="w-3 h-3 text-pink-700" />
-                              <span>Status</span>
-                            </button>
                           </td>
                         </tr>
                       ))
@@ -1508,67 +1457,6 @@ export const AdminDashboard: React.FC = () => {
                 </div>
               </div>
 
-              {updateSuccess && (
-                <div className="p-3 rounded-xl bg-emerald-100 border border-emerald-400 text-emerald-900 text-xs font-semibold flex items-center gap-2 animate-in fade-in">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
-                  <span>{updateSuccess}</span>
-                </div>
-              )}
-
-              {/* Account Status Filter Pills */}
-              <div className="flex flex-wrap items-center gap-2 pt-1">
-                <span className="text-[11px] font-bold text-pink-900 uppercase tracking-wider mr-1">
-                  Filter by Status:
-                </span>
-                {(
-                  [
-                    { key: 'all', label: 'All Staff', count: corporateList.length },
-                    {
-                      key: 'active',
-                      label: 'Active',
-                      count: corporateList.filter((c) => (c.accountStatus || 'active') === 'active').length,
-                    },
-                    {
-                      key: 'suspended',
-                      label: 'Suspended',
-                      count: corporateList.filter((c) => c.accountStatus === 'suspended').length,
-                    },
-                    {
-                      key: 'banned',
-                      label: 'Banned',
-                      count: corporateList.filter((c) => c.accountStatus === 'banned').length,
-                    },
-                    {
-                      key: 'terminated',
-                      label: 'Terminated',
-                      count: corporateList.filter((c) => c.accountStatus === 'terminated').length,
-                    },
-                  ] as const
-                ).map((tab) => {
-                  const isActive = statusFilter === tab.key;
-                  return (
-                    <button
-                      key={tab.key}
-                      onClick={() => setStatusFilter(tab.key)}
-                      className={`px-3 py-1 rounded-xl text-xs font-bold border transition-all cursor-pointer flex items-center gap-1.5 ${
-                        isActive
-                          ? 'bg-pink-600 text-white border-pink-600 shadow-xs'
-                          : 'bg-white hover:bg-pink-50 border-pink-200 text-zinc-700'
-                      }`}
-                    >
-                      <span>{tab.label}</span>
-                      <span
-                        className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-extrabold ${
-                          isActive ? 'bg-white/20 text-white' : 'bg-pink-100 text-pink-800'
-                        }`}
-                      >
-                        {tab.count}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-
               <div className="overflow-x-auto rounded-2xl border border-pink-300 bg-white shadow-xs">
                 <table className="w-full text-left text-xs">
                   <thead className="bg-pink-100 text-purple-950 font-mono uppercase text-[10px] font-bold border-b border-pink-300">
@@ -1576,7 +1464,6 @@ export const AdminDashboard: React.FC = () => {
                       <th className="px-3.5 py-3">Corporate ID</th>
                       <th className="px-3.5 py-3">Employee Details</th>
                       <th className="px-3.5 py-3">Designation</th>
-                      <th className="px-3.5 py-3">Account Status</th>
                       <th className="px-3.5 py-3">Basic Salary (₹)</th>
                       <th className="px-3.5 py-3">Current Earnings (₹)</th>
                       <th className="px-3.5 py-3">Sales Target (₹)</th>
@@ -1587,14 +1474,14 @@ export const AdminDashboard: React.FC = () => {
                   <tbody className="divide-y divide-pink-100">
                     {loadingUsers ? (
                       <tr>
-                        <td colSpan={9} className="px-4 py-8 text-center text-pink-800">
+                        <td colSpan={8} className="px-4 py-8 text-center text-pink-800">
                           <div className="w-6 h-6 border-2 border-pink-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
                           <span>Loading performance data...</span>
                         </td>
                       </tr>
                     ) : corporateList.length === 0 ? (
                       <tr>
-                        <td colSpan={9} className="px-4 py-8 text-center text-pink-800">
+                        <td colSpan={8} className="px-4 py-8 text-center text-pink-800">
                           <Users className="w-8 h-8 text-pink-400 mx-auto mb-2" />
                           <p className="font-bold">No staff records available.</p>
                         </td>
@@ -1602,10 +1489,6 @@ export const AdminDashboard: React.FC = () => {
                     ) : (
                       corporateList
                         .filter((c) => {
-                          if (statusFilter !== 'all') {
-                            const cStatus = c.accountStatus || 'active';
-                            if (cStatus !== statusFilter) return false;
-                          }
                           const q = searchQuery.toLowerCase().trim();
                           return (
                             !q ||
@@ -1627,35 +1510,6 @@ export const AdminDashboard: React.FC = () => {
                               </td>
                               <td className="px-3.5 py-3 text-zinc-800">
                                 {corp.corporateRole || 'Asst. Sales Manager'}
-                              </td>
-
-                              {/* Account Status Badge with click to edit */}
-                              <td className="px-3.5 py-3">
-                                <button
-                                  type="button"
-                                  onClick={() => handleOpenStatusModal(corp)}
-                                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-mono text-[10px] font-extrabold uppercase border transition-transform hover:scale-105 cursor-pointer ${
-                                    corp.accountStatus === 'banned'
-                                      ? 'bg-red-100 text-red-800 border-red-300'
-                                      : corp.accountStatus === 'suspended'
-                                      ? 'bg-amber-100 text-amber-800 border-amber-300'
-                                      : corp.accountStatus === 'terminated'
-                                      ? 'bg-zinc-100 text-zinc-800 border-zinc-300'
-                                      : 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                                  }`}
-                                  title={`Click to change status (Currently: ${(corp.accountStatus || 'active').toUpperCase()})`}
-                                >
-                                  {corp.accountStatus === 'banned' ? (
-                                    <ShieldAlert className="w-3 h-3 text-red-600" />
-                                  ) : corp.accountStatus === 'suspended' ? (
-                                    <AlertTriangle className="w-3 h-3 text-amber-600" />
-                                  ) : corp.accountStatus === 'terminated' ? (
-                                    <UserX className="w-3 h-3 text-zinc-600" />
-                                  ) : (
-                                    <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                                  )}
-                                  <span>{corp.accountStatus || 'active'}</span>
-                                </button>
                               </td>
 
                               {/* Basic Salary Edit */}
@@ -1757,23 +1611,13 @@ export const AdminDashboard: React.FC = () => {
                                     </button>
                                   </div>
                                 ) : (
-                                  <div className="flex items-center justify-end gap-1.5">
-                                    <button
-                                      onClick={() => handleOpenStatusModal(corp)}
-                                      className="p-1.5 rounded-lg bg-pink-100 hover:bg-pink-200 text-pink-900 text-xs transition-colors cursor-pointer inline-flex items-center gap-1 font-bold"
-                                      title="Change User Status (Ban / Unban / Suspend / Terminate)"
-                                    >
-                                      <Shield className="w-3.5 h-3.5 text-pink-700" />
-                                      <span className="hidden xl:inline text-[11px]">Status</span>
-                                    </button>
-                                    <button
-                                      onClick={() => handleStartEdit(corp)}
-                                      className="p-1.5 rounded-lg bg-pink-200 hover:bg-pink-300 text-purple-950 text-xs transition-colors cursor-pointer"
-                                      title="Edit salary and performance targets"
-                                    >
-                                      <Edit3 className="w-3.5 h-3.5" />
-                                    </button>
-                                  </div>
+                                  <button
+                                    onClick={() => handleStartEdit(corp)}
+                                    className="p-1.5 rounded-lg bg-pink-200 hover:bg-pink-300 text-purple-950 text-xs transition-colors cursor-pointer"
+                                    title="Edit salary and performance targets"
+                                  >
+                                    <Edit3 className="w-3.5 h-3.5" />
+                                  </button>
                                 )}
                               </td>
                             </tr>
@@ -2908,22 +2752,6 @@ export const AdminDashboard: React.FC = () => {
             <AdminAuditLogsSection />
           </div>
         )}
-
-        {/* Corporate User Account Status Management Modal (Ban / Unban / Suspend / Terminate) */}
-        <AdminUserStatusModal
-          user={statusModalUser}
-          isOpen={isStatusModalOpen}
-          onClose={() => {
-            setIsStatusModalOpen(false);
-            setStatusModalUser(null);
-          }}
-          onUpdateStatus={updateCorporateUserStatus}
-          onSuccess={() => {
-            loadCorporateData();
-            setUpdateSuccess('Corporate user account status updated successfully.');
-            setTimeout(() => setUpdateSuccess(null), 4000);
-          }}
-        />
 
       </main>
     </div>

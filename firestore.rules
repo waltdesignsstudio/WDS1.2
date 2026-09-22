@@ -47,10 +47,6 @@ service cloud.firestore {
         (!('adminUserId' in data) || (data.adminUserId is string && data.adminUserId.size() <= 40)) &&
         (!('location' in data) || (data.location is string && data.location.size() <= 120)) &&
         (!('corporateRole' in data) || (data.corporateRole is string && data.corporateRole.size() <= 100)) &&
-        (!('accountStatus' in data) || (data.accountStatus in ['active', 'banned', 'suspended', 'terminated'])) &&
-        (!('statusReason' in data) || (data.statusReason is string && data.statusReason.size() <= 500)) &&
-        (!('statusUpdatedAt' in data) || (data.statusUpdatedAt is string || data.statusUpdatedAt is timestamp)) &&
-        (!('statusUpdatedBy' in data) || (data.statusUpdatedBy is string && data.statusUpdatedBy.size() <= 120)) &&
         (!('basicSalary' in data) || (data.basicSalary is number)) &&
         (!('income' in data) || (data.income is number)) &&
         (!('target' in data) || (data.target is number)) &&

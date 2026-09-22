@@ -30,8 +30,6 @@ import {
 } from 'firebase/auth';
 import { auth, db, firebaseConfig, handleFirestoreError, OperationType } from '../lib/firebase';
 
-export type CorporateAccountStatus = 'active' | 'suspended' | 'banned' | 'terminated';
-
 export interface UserProfile {
   uid: string;
   name: string;
@@ -46,10 +44,6 @@ export interface UserProfile {
   income?: number; // My Current Earnings (₹)
   target?: number; // Sales Target (₹)
   progress?: number; // Target Progress %
-  accountStatus?: CorporateAccountStatus; // 'active' | 'suspended' | 'banned' | 'terminated' (default: 'active')
-  statusReason?: string; // Reason entered by administrator
-  statusUpdatedAt?: string;
-  statusUpdatedBy?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -161,8 +155,7 @@ export interface AuditLogItem {
     | 'leaderboard_update'
     | 'leaderboard_delete'
     | 'leaderboard_sync'
-    | 'profile_update'
-    | 'user_status_update';
+    | 'profile_update';
   entityType: 'User' | 'Attendance' | 'ExpectedData' | 'DailyReport' | 'Notice' | 'Notification' | 'Leaderboard';
   targetId?: string;
   targetName?: string;
@@ -283,7 +276,6 @@ interface AuthContextType {
   fetchAllAttendance: () => Promise<AttendanceRecord[]>;
   updateAttendanceStatus: (attendanceId: string, status: 'pending' | 'approved' | 'rejected') => Promise<{ success: boolean; error?: string }>;
   fetchAllCorporateUsers: () => Promise<UserProfile[]>;
-  updateCorporateUserStatus: (targetUid: string, status: CorporateAccountStatus, reason?: string) => Promise<{ success: boolean; error?: string }>;
   updateUserProgressByAdmin: (targetUid: string, data: { basicSalary?: number; income?: number; target?: number; progress?: number }) => Promise<void>;
   createDailyReport: (data: CreateDailyReportPayload) => Promise<{ success: boolean; error?: string }>;
   fetchAdminDailyReports: () => Promise<DailyReportItem[]>;
@@ -355,11 +347,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const userDocRef = doc(db, 'users', uid);
       const snap = await getDoc(userDocRef);
       if (snap.exists()) {
-        const raw = snap.data() as UserProfile;
-        return {
-          ...raw,
-          accountStatus: raw.accountStatus || 'active',
-        };
+        return snap.data() as UserProfile;
       }
       return null;
     } catch (err) {
@@ -706,14 +694,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Step 2: Check that user has role == 'corporate'
     if (currentProfile.role !== 'corporate') {
       const errDetail = `User profile role is '${currentProfile.role}', but role must be 'corporate' to submit attendance.`;
-      console.error('[Attendance Submission Error]', errDetail);
-      return { success: false, error: errDetail };
-    }
-
-    // Step 2b: Check if corporate account is banned, suspended, or terminated
-    if (currentProfile.accountStatus && currentProfile.accountStatus !== 'active') {
-      const statusLabel = currentProfile.accountStatus.toUpperCase();
-      const errDetail = `Account access is restricted (${statusLabel}). Attendance submissions are blocked. Reason: ${currentProfile.statusReason || 'Administrative decision'}.`;
       console.error('[Attendance Submission Error]', errDetail);
       return { success: false, error: errDetail };
     }
@@ -1308,7 +1288,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         income: Number(data.income) || 0,
         target: Number(data.target) || 100000,
         progress: Number(data.progress) || 0,
-        accountStatus: 'active',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
@@ -1367,98 +1346,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const querySnapshot = await getDocs(q);
       const list: UserProfile[] = [];
       querySnapshot.forEach((docSnap) => {
-        const raw = docSnap.data() as UserProfile;
-        list.push({
-          ...raw,
-          accountStatus: raw.accountStatus || 'active',
-        });
+        list.push(docSnap.data() as UserProfile);
       });
       return list;
     } catch (err) {
       handleFirestoreError(err, OperationType.LIST, 'users');
       return [];
-    }
-  };
-
-  // Admin function: update corporate account status (Active/Unban, Suspend, Ban, Terminate)
-  const updateCorporateUserStatus = async (
-    targetUid: string,
-    status: CorporateAccountStatus,
-    reason?: string
-  ): Promise<{ success: boolean; error?: string }> => {
-    if (!auth.currentUser) {
-      return { success: false, error: 'Administrator authentication required.' };
-    }
-
-    try {
-      const userRef = doc(db, 'users', targetUid);
-      const userSnap = await getDoc(userRef);
-      if (!userSnap.exists()) {
-        return { success: false, error: 'Corporate user record not found in system.' };
-      }
-
-      const targetData = userSnap.data() as UserProfile;
-      const adminName = profile?.name || auth.currentUser.displayName || auth.currentUser.email || 'Administrator';
-      const nowIso = new Date().toISOString();
-      const cleanReason = reason?.trim() || (status === 'active' ? 'Account restored to active standing' : 'Administrative action');
-
-      const updatePayload: Partial<UserProfile> = {
-        accountStatus: status,
-        statusReason: cleanReason,
-        statusUpdatedAt: nowIso,
-        statusUpdatedBy: adminName,
-        updatedAt: nowIso,
-      };
-
-      await updateDoc(userRef, updatePayload);
-
-      // Automated direct notification to employee
-      try {
-        const notifTitle = status === 'active'
-          ? 'Corporate Dashboard Access Restored'
-          : `Account Status Notice: ${status.toUpperCase()}`;
-        const notifMessage = status === 'active'
-          ? `Your corporate access privileges have been restored to Active standing by Administrator ${adminName}. You can now access your corporate dashboard.`
-          : `Your corporate account status has been set to ${status.toUpperCase()} by Administrator ${adminName}. Reason: "${cleanReason}". Corporate dashboard access is restricted until restored.`;
-
-        await addDoc(collection(db, 'notifications'), {
-          title: notifTitle,
-          message: notifMessage,
-          priority: status === 'active' ? 'important' : 'urgent',
-          type: status === 'active' ? 'general' : 'warning',
-          senderUid: auth.currentUser.uid,
-          senderName: adminName,
-          recipientUid: targetUid,
-          recipientName: targetData.name || 'Corporate Employee',
-          recipientCode: targetData.corporateUserId || '',
-          isRead: false,
-          createdAt: nowIso,
-        });
-      } catch (notifErr) {
-        console.warn('Status notification notice:', notifErr);
-      }
-
-      // Log to Audit Trail
-      await logAdminAction({
-        actionType: 'user_status_update',
-        entityType: 'User',
-        targetId: targetUid,
-        targetName: targetData.name,
-        details: `Administrator changed account status for ${targetData.name} (${targetData.corporateUserId || targetUid}) to '${status.toUpperCase()}'. Reason: ${cleanReason}`,
-        metadata: {
-          targetUid,
-          corporateUserId: targetData.corporateUserId,
-          targetEmail: targetData.email,
-          newStatus: status,
-          previousStatus: targetData.accountStatus || 'active',
-          reason: cleanReason,
-        },
-      });
-
-      return { success: true };
-    } catch (err: any) {
-      handleFirestoreError(err, OperationType.UPDATE, `users/${targetUid}`);
-      return { success: false, error: err?.message || 'Failed to update user status.' };
     }
   };
 
@@ -2063,7 +1956,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         fetchAllAttendance,
         updateAttendanceStatus,
         fetchAllCorporateUsers,
-        updateCorporateUserStatus,
         updateUserProgressByAdmin,
         createDailyReport,
         fetchAdminDailyReports,
