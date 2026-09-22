@@ -829,9 +829,9 @@ export const CorporateDashboard: React.FC = () => {
       />
       
       {/* ========================================================================= */}
-      {/* MAGENTA HEADER WITH LIVE CLOCK */}
+      {/* MAGENTA HEADER WITH LIVE CLOCK & NAVIGATION TABS */}
       {/* ========================================================================= */}
-      <header className="bg-[#1f0124]/95 text-white border-b border-fuchsia-900/60 sticky top-0 z-40 shadow-xl backdrop-blur-md">
+      <header className="bg-[#8E0074] text-white border-b border-fuchsia-400/40 sticky top-0 z-40 shadow-xl backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5">
           <div className="flex items-center justify-between gap-4">
             
@@ -840,19 +840,19 @@ export const CorporateDashboard: React.FC = () => {
               <img
                 src={AGENCY_INFO.logoUrl}
                 alt="Walt Designs & Studio"
-                className="w-10 h-10 rounded-xl object-cover ring-2 ring-fuchsia-400/50 shadow-md"
+                className="w-10 h-10 rounded-xl object-cover ring-2 ring-fuchsia-300/60 shadow-md"
               />
               <div>
                 <div className="flex items-center gap-2">
                   <span className="font-bold text-lg text-white tracking-tight">
                     Walt Designs & Studio
                   </span>
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-fuchsia-500 text-white uppercase tracking-wider shadow-sm">
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-fuchsia-950 text-amber-300 uppercase tracking-wider shadow-sm border border-fuchsia-400/40">
                     Corporate Portal
                   </span>
                 </div>
-                <p className="text-xs text-fuchsia-200 font-mono flex items-center gap-1.5">
-                  Corporate ID: <span className="text-fuchsia-300 font-bold">{corporateId}</span>
+                <p className="text-xs text-fuchsia-100 font-mono flex items-center gap-1.5">
+                  Corporate ID: <span className="text-amber-300 font-bold">{corporateId}</span>
                 </p>
               </div>
             </div>
@@ -861,13 +861,13 @@ export const CorporateDashboard: React.FC = () => {
             <div className="flex items-center gap-3">
               
               {/* Live Timing Clock on Magenta Header */}
-              <div className="hidden md:flex items-center gap-2.5 px-3.5 py-1.5 rounded-2xl bg-fuchsia-950/80 border border-fuchsia-800/70 shadow-inner">
-                <Clock className="w-4 h-4 text-fuchsia-400 animate-pulse" />
+              <div className="hidden md:flex items-center gap-2.5 px-3.5 py-1.5 rounded-2xl bg-fuchsia-950/70 border border-fuchsia-400/40 shadow-inner">
+                <Clock className="w-4 h-4 text-amber-300 animate-pulse" />
                 <div className="text-right">
-                  <div className="font-mono text-xs font-bold text-fuchsia-300 tracking-wider">
+                  <div className="font-mono text-xs font-bold text-amber-300 tracking-wider">
                     {formattedTime}
                   </div>
-                  <div className="text-[10px] text-fuchsia-200 font-medium">
+                  <div className="text-[10px] text-fuchsia-100 font-medium">
                     {formattedDate}
                   </div>
                 </div>
@@ -878,7 +878,7 @@ export const CorporateDashboard: React.FC = () => {
                 className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-fuchsia-100 hover:text-white transition-all cursor-pointer hidden sm:flex items-center gap-1.5 text-xs font-semibold"
                 title="Sync metrics & attendance"
               >
-                <RefreshCw className={`w-3.5 h-3.5 text-fuchsia-300 ${isRefreshing ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`w-3.5 h-3.5 text-amber-300 ${isRefreshing ? 'animate-spin' : ''}`} />
                 <span>Sync</span>
               </button>
 
@@ -894,7 +894,7 @@ export const CorporateDashboard: React.FC = () => {
         </div>
 
         {/* CORPORATE NAVIGATION TABS ON MAGENTA HEADER */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 border-t border-fuchsia-900/60 overflow-x-auto no-scrollbar">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 border-t border-fuchsia-400/30 overflow-x-auto no-scrollbar">
           <nav className="flex items-center gap-2 py-2">
             
             {/* 1. HOME / DASHBOARD TAB */}
@@ -1050,21 +1050,52 @@ export const CorporateDashboard: React.FC = () => {
         {activeTab === 'dashboard' && (
           <div className="space-y-6 animate-in fade-in">
             
-            {/* Top Welcome Banner with Live Timing Greeting & Dry Leaves Wallpaper Background */}
-            <div className="p-6 sm:p-8 rounded-3xl bg-[#fef9ee] border-2 border-amber-400/80 shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden group">
+            {/* Top Welcome Banner with Transparent Indian Flag (Tiranga) Background */}
+            <div className="p-6 sm:p-8 rounded-3xl bg-white/40 border-2 border-amber-400/80 shadow-2xl flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden group backdrop-blur-md">
               
-              {/* Light & Transparent Dry Leaves Wallpaper Texture Background */}
-              <div className="absolute inset-0 pointer-events-none overflow-hidden">
-                <img
-                  src="https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=1600&q=80"
-                  alt="Dry Leaves Wallpaper Background"
-                  className="w-full h-full object-cover opacity-30 mix-blend-multiply transition-transform duration-1000 group-hover:scale-105"
-                />
-                <div className="absolute inset-0 bg-gradient-to-r from-amber-50/85 via-amber-100/60 to-orange-50/80 backdrop-blur-[0.5px]" />
+              {/* Transparent Indian Flag (Tiranga) Background of Whole Section */}
+              <div className="absolute inset-0 pointer-events-none flex flex-col overflow-hidden rounded-3xl z-0">
+                {/* Top: Saffron Band (#FF9933) */}
+                <div className="flex-1 bg-gradient-to-r from-[#FF9933]/35 via-[#FF7700]/25 to-[#FF9933]/35 backdrop-blur-[0.5px]" />
                 
-                {/* Subtle Decorative Autumn Leaf Vectors / Light Accents */}
-                <div className="absolute -top-10 -right-10 w-44 h-44 bg-amber-300/30 rounded-full blur-2xl" />
-                <div className="absolute -bottom-10 -left-10 w-44 h-44 bg-orange-300/20 rounded-full blur-2xl" />
+                {/* Center: White Band with Authentic Ashoka Chakra Watermark */}
+                <div className="flex-1 bg-white/75 relative flex items-center justify-center backdrop-blur-[0.5px]">
+                  {/* Authentic 24-Spoke Navy Blue Ashoka Chakra Watermark */}
+                  <svg
+                    viewBox="0 0 100 100"
+                    className="w-36 h-36 sm:w-48 sm:h-48 text-[#000080] opacity-25 animate-spin-slow drop-shadow-sm"
+                    fill="none"
+                    stroke="currentColor"
+                  >
+                    {/* Outer Rings */}
+                    <circle cx="50" cy="50" r="46" strokeWidth="2.5" />
+                    <circle cx="50" cy="50" r="43" strokeWidth="0.8" strokeDasharray="1.5,1.5" />
+                    {/* Center Hub Rings */}
+                    <circle cx="50" cy="50" r="9" strokeWidth="2" fill="currentColor" fillOpacity="0.12" />
+                    <circle cx="50" cy="50" r="3.5" fill="currentColor" />
+                    {/* 24 Radial Spokes with authentic angle calculation */}
+                    {Array.from({ length: 24 }).map((_, i) => {
+                      const angle = (i * 360) / 24;
+                      const rad = (angle * Math.PI) / 180;
+                      const x2 = 50 + 46 * Math.cos(rad);
+                      const y2 = 50 + 46 * Math.sin(rad);
+                      return (
+                        <line
+                          key={i}
+                          x1="50"
+                          y1="50"
+                          x2={x2}
+                          y2={y2}
+                          strokeWidth="1.2"
+                          stroke="currentColor"
+                        />
+                      );
+                    })}
+                  </svg>
+                </div>
+                
+                {/* Bottom: India Green Band (#138808) */}
+                <div className="flex-1 bg-gradient-to-r from-[#138808]/35 via-[#046A38]/25 to-[#138808]/35 backdrop-blur-[0.5px]" />
               </div>
 
               <div className="space-y-2.5 z-10 relative">
@@ -1086,17 +1117,17 @@ export const CorporateDashboard: React.FC = () => {
                 </div>
 
                 {/* Personalized Greeting Title */}
-                <h1 className="text-2xl sm:text-3xl font-extrabold text-amber-950 tracking-tight drop-shadow-2xs">
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-zinc-900 tracking-tight drop-shadow-2xs">
                   {greetingInfo.greeting}, {profile?.name || 'Sales Representative'}
                 </h1>
                 
-                <p className="text-xs sm:text-sm text-amber-950 font-medium max-w-2xl leading-relaxed bg-white/60 p-2 rounded-xl border border-amber-200/60 shadow-2xs backdrop-blur-xs">
+                <p className="text-xs sm:text-sm text-zinc-900 font-medium max-w-2xl leading-relaxed bg-white/70 p-2.5 rounded-xl border border-white/80 shadow-2xs backdrop-blur-xs">
                   Access your assigned enterprise sales metrics, expected client prospects, target achievement indices, and daily attendance logs.
                 </p>
 
                 {/* Mobile Live Clock Display */}
-                <div className="flex md:hidden items-center gap-2 pt-1 font-mono text-xs font-bold text-amber-900">
-                  <Clock className="w-3.5 h-3.5 text-amber-700" />
+                <div className="flex md:hidden items-center gap-2 pt-1 font-mono text-xs font-bold text-zinc-800">
+                  <Clock className="w-3.5 h-3.5 text-purple-700" />
                   <span>{formattedTime} • {formattedDate}</span>
                 </div>
               </div>
