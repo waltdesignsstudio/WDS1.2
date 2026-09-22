@@ -61,6 +61,7 @@ import { CorporateNotificationsSection } from './corporate/CorporateNotification
 import { CorporateNoticesSection } from './corporate/CorporateNoticesSection';
 import { CorporateLeaderboardSection } from './corporate/CorporateLeaderboardSection';
 import { CorporateAiSupport } from './corporate/CorporateAiSupport';
+import { CorporateAccountRestricted } from './corporate/CorporateAccountRestricted';
 
 type CorporateTab =
   | 'dashboard'
@@ -90,6 +91,17 @@ export const CorporateDashboard: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<CorporateTab>('dashboard');
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // If corporate account is banned, suspended, or terminated: block access to dashboard
+  if (profile && profile.accountStatus && profile.accountStatus !== 'active') {
+    return (
+      <CorporateAccountRestricted
+        profile={profile}
+        onRefresh={refreshProfile}
+        onLogout={logout}
+      />
+    );
+  }
 
   // Live Timing Clock (Ticks every 1s)
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
