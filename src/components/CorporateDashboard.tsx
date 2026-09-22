@@ -51,6 +51,8 @@ import {
   Plane,
   CalendarCheck,
   FileText,
+  Navigation,
+  Loader2,
 } from 'lucide-react';
 import {
   useAuth,
@@ -70,8 +72,10 @@ import { CorporateAiSupport } from './corporate/CorporateAiSupport';
 import { CorporateAccountRestricted } from './corporate/CorporateAccountRestricted';
 import { WeatherAmbientCanvas } from './corporate/WeatherAmbientCanvas';
 import { WeatherVerificationWidget } from './corporate/WeatherVerificationWidget';
-import { fetchLiveWeather, WeatherData, WeatherCondition } from '../lib/weatherService';
+import { LocationSelectorModal } from './corporate/LocationSelectorModal';
+import { fetchLiveWeather, WeatherData } from '../lib/weatherService';
 import { analyzeSelfieFrame, AiVerificationReport } from '../lib/selfieAiAgent';
+import { autoDetectCurrentLocation } from '../lib/locationService';
 
 type CorporateTab =
   | 'dashboard'
@@ -227,19 +231,19 @@ export const CorporateDashboard: React.FC = () => {
   // Phone view / combined Notifications & Notices sub-tab
   const [notifNoticesSubTab, setNotifNoticesSubTab] = useState<'notifications' | 'notices'>('notifications');
 
-  // Weather Detection & Verification State
+  // Weather Detection & Real-Time Sync State
   const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
   const [loadingWeather, setLoadingWeather] = useState(false);
-  const [weatherOverrideCondition, setWeatherOverrideCondition] = useState<WeatherCondition | null>(null);
+  const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
+  const [isAutoDetectingLocation, setIsAutoDetectingLocation] = useState(false);
 
-  // Attendance Selfie Verification & Secret AI Vision Agent State
+  // Attendance Selfie Verification & AI Face Detection State
   const [isSelfieVerified, setIsSelfieVerified] = useState(false);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [isCapturing, setIsCapturing] = useState(false);
   const [aiVerificationReport, setAiVerificationReport] = useState<AiVerificationReport | null>(null);
-  const [liveBlurPreview, setLiveBlurPreview] = useState<number | null>(null);
   const [liveFaceDetected, setLiveFaceDetected] = useState<boolean | null>(null);
   const videoRef = React.useRef<HTMLVideoElement | null>(null);
 
@@ -356,8 +360,28 @@ export const CorporateDashboard: React.FC = () => {
     }
   };
 
-  // Camera Selfie Verification & Secret AI Vision Agent Handlers
-  // Browser will ask for camera permission. We capture for verification only and DO NOT save the photo.
+  const handleQuickAutoDetect = async () => {
+    setIsAutoDetectingLocation(true);
+    try {
+      const detected = await autoDetectCurrentLocation();
+      setEditLocation(detected.formatted);
+      await handleUpdateRegisteredArea(detected.formatted);
+      setProfileMessage({
+        type: 'success',
+        text: `Device location auto-detected: ${detected.formatted}! Live weather synchronized.`,
+      });
+    } catch (err: any) {
+      setProfileMessage({
+        type: 'error',
+        text: err.message || 'Could not auto-detect location. Please ensure device location is enabled in browser.',
+      });
+    } finally {
+      setIsAutoDetectingLocation(false);
+    }
+  };
+
+  // Camera Selfie Verification & AI Face Detection Handlers
+  // Browser will ask for camera permission. We verify face presence only and DO NOT save the photo.
   const handleStartCamera = async () => {
     setCameraError(null);
     setAiVerificationReport(null);
@@ -387,10 +411,9 @@ export const CorporateDashboard: React.FC = () => {
     }
   };
 
-  // Live frame analyzer for Secret AI Vision Agent HUD
+  // Live frame analyzer for AI Face Detection guide
   useEffect(() => {
     if (!isCameraActive || !videoRef.current) {
-      setLiveBlurPreview(null);
       setLiveFaceDetected(null);
       return;
     }
@@ -399,13 +422,12 @@ export const CorporateDashboard: React.FC = () => {
       if (videoRef.current && videoRef.current.readyState >= 2) {
         try {
           const report = analyzeSelfieFrame(videoRef.current);
-          setLiveBlurPreview(report.blurPercentage);
           setLiveFaceDetected(report.faceVisible);
         } catch {
           // silent frame sampling
         }
       }
-    }, 450);
+    }, 350);
 
     return () => clearInterval(interval);
   }, [isCameraActive]);
@@ -427,10 +449,10 @@ export const CorporateDashboard: React.FC = () => {
     setIsCameraActive(false);
   };
 
-  // Capture Selfie with Secret AI Verification Agent:
-  // 1. Face must be visible; otherwise AI orders retake.
-  // 2. Blur <= 59% is acceptable; blur > 60% is unacceptable (AI orders retake).
-  // 3. Does not save or upload photo, purely identity and quality verification.
+  // Capture Selfie with AI Face Verification:
+  // 1. Only face presence is verified (blur condition removed).
+  // 2. If face does not appear, AI rejects and prompts user to position face.
+  // 3. If face is captured, proceed and unlock attendance!
   const handleCaptureSelfie = () => {
     if (!videoRef.current) return;
     setIsCapturing(true);
@@ -441,14 +463,14 @@ export const CorporateDashboard: React.FC = () => {
         setAiVerificationReport(report);
 
         if (!report.passed) {
-          // AI AGENT REJECTS: ORDERS RETAKE
+          // AI REJECTS: Face not detected
           setIsCapturing(false);
           setAttendanceMessage({
             type: 'error',
             text: report.orderMessage,
           });
         } else {
-          // AI AGENT APPROVES: MARK AS DONE
+          // AI APPROVES: Face detected successfully
           handleStopCamera();
           setIsCapturing(false);
           setIsSelfieVerified(true);
@@ -458,12 +480,12 @@ export const CorporateDashboard: React.FC = () => {
           });
         }
       } catch (err) {
-        console.error('AI selfie verification error:', err);
+        console.error('AI face verification error:', err);
         handleStopCamera();
         setIsCapturing(false);
         setIsSelfieVerified(true);
       }
-    }, 450);
+    }, 380);
   };
 
   // Cleanup camera stream on unmount
@@ -801,7 +823,7 @@ export const CorporateDashboard: React.FC = () => {
       
       {/* Real-time Dynamic Weather Ambiance (Rain Drops, Radiant Sun, Moonlit Night, Thunderstorm) */}
       <WeatherAmbientCanvas
-        condition={weatherOverrideCondition || weatherData?.condition || 'sunny'}
+        condition={weatherData?.condition || 'sunny'}
         city={weatherData?.city || registeredArea}
         temperature={weatherData?.temperature}
       />
@@ -1014,15 +1036,12 @@ export const CorporateDashboard: React.FC = () => {
       {/* ========================================================================= */}
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 space-y-6 relative z-10">
 
-        {/* Real-time AI Weather & Registered Area Verification Widget */}
+        {/* Real-time Weather & Registered Area Verification Widget */}
         <WeatherVerificationWidget
           weather={weatherData}
           loading={loadingWeather}
           registeredLocation={registeredArea}
           onRefreshWeather={() => loadWeather()}
-          onUpdateLocation={handleUpdateRegisteredArea}
-          onOverrideCondition={setWeatherOverrideCondition}
-          activeOverrideCondition={weatherOverrideCondition}
         />
 
         {/* ======================================================================= */}
@@ -1746,13 +1765,27 @@ export const CorporateDashboard: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="p-4 rounded-2xl bg-white border border-amber-300 shadow-xs space-y-1">
-                      <span className="text-[11px] font-bold text-amber-800 uppercase tracking-wider block">
-                        Territory / Location
-                      </span>
-                      <div className="text-sm font-semibold text-zinc-800">
-                        {profile?.location || 'Pan-India Corporate'}
+                    <div className="p-4 rounded-2xl bg-white border border-amber-300 shadow-xs space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-amber-800 uppercase tracking-wider block">
+                          Territory / Location
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setIsLocationModalOpen(true)}
+                          className="text-xs font-extrabold text-purple-900 hover:text-purple-700 underline cursor-pointer inline-flex items-center gap-1"
+                        >
+                          <MapPin className="w-3.5 h-3.5 text-fuchsia-600" />
+                          <span>Change Location</span>
+                        </button>
                       </div>
+                      <div className="text-sm font-bold text-zinc-900 flex items-center gap-2">
+                        <MapPin className="w-4 h-4 text-purple-700 shrink-0" />
+                        <span>{profile?.location || 'Indore, Madhya Pradesh'}</span>
+                      </div>
+                      <p className="text-[10px] text-zinc-500 italic">
+                        Live dashboard weather dynamically synchronizes with this registered location.
+                      </p>
                     </div>
 
                   </div>
@@ -1802,15 +1835,64 @@ export const CorporateDashboard: React.FC = () => {
                         />
                       </div>
 
-                      <div className="sm:col-span-2 space-y-1">
-                        <label className="text-xs font-bold text-amber-950">Territory / Location</label>
-                        <input
-                          type="text"
-                          value={editLocation}
-                          onChange={(e) => setEditLocation(e.target.value)}
-                          placeholder="e.g. Mumbai Corporate Headquarters"
-                          className="w-full bg-white border border-amber-300 focus:border-amber-600 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 outline-none shadow-xs"
-                        />
+                      {/* Location: Auto-Detect and Maps Search / Selectable List */}
+                      <div className="sm:col-span-2 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
+                            <MapPin className="w-3.5 h-3.5 text-amber-700" />
+                            <span>Territory / Location (Maps Autocomplete & Auto-Detect)</span>
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => setIsLocationModalOpen(true)}
+                            className="text-xs font-extrabold text-purple-900 hover:text-purple-700 underline cursor-pointer flex items-center gap-1"
+                          >
+                            <Search className="w-3 h-3" />
+                            <span>Search Maps List</span>
+                          </button>
+                        </div>
+
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <div
+                            onClick={() => setIsLocationModalOpen(true)}
+                            className="flex-1 bg-white border-2 border-amber-300 hover:border-purple-500 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 outline-none shadow-xs cursor-pointer flex items-center justify-between transition-colors group"
+                          >
+                            <div className="flex items-center gap-2 truncate">
+                              <MapPin className="w-4 h-4 text-purple-700 shrink-0" />
+                              <span className={editLocation ? 'font-bold text-zinc-900' : 'text-zinc-400'}>
+                                {editLocation || 'Click to choose or search location...'}
+                              </span>
+                            </div>
+                            <span className="text-[10px] uppercase font-bold text-purple-700 bg-purple-100 group-hover:bg-purple-200 px-2 py-0.5 rounded-md shrink-0">
+                              Select from Maps
+                            </span>
+                          </div>
+
+                          {/* Auto-detect button */}
+                          <button
+                            type="button"
+                            onClick={handleQuickAutoDetect}
+                            disabled={isAutoDetectingLocation}
+                            className="px-4 py-2.5 rounded-xl bg-[#3B0764] hover:bg-purple-900 text-white font-extrabold text-xs shadow-xs flex items-center justify-center gap-1.5 cursor-pointer transition-all disabled:opacity-50 shrink-0"
+                            title="Turn on device location and auto-detect"
+                          >
+                            {isAutoDetectingLocation ? (
+                              <>
+                                <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-300" />
+                                <span>Detecting GPS...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Navigation className="w-3.5 h-3.5 text-amber-300" />
+                                <span>Turn On & Auto-Detect</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+
+                        <p className="text-[11px] text-amber-900 leading-tight">
+                          Click <strong>"Turn On & Auto-Detect"</strong> to use GPS, or click the box to search and select from verified Maps locations. Weather updates automatically based on this location.
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -2141,27 +2223,27 @@ export const CorporateDashboard: React.FC = () => {
                     />
                   </div>
 
-                  {/* SELFIE VERIFICATION SECTION (SECRET AI AGENT INTEGRATION) */}
+                  {/* SELFIE VERIFICATION SECTION (AI FACE VERIFICATION) */}
                   {!hasMarkedTodayAttendance && (
                     <div className="p-3.5 rounded-2xl bg-fuchsia-50/80 border-2 border-fuchsia-300 space-y-3">
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-extrabold text-purple-950 flex items-center gap-1.5">
                           <Camera className="w-4 h-4 text-fuchsia-700" />
-                          <span>Secret AI Selfie Verification</span>
+                          <span>AI Face Verification</span>
                         </span>
                         {isSelfieVerified ? (
                           <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500 text-white flex items-center gap-1">
-                            <CheckCircle2 className="w-3 h-3" /> AI Approved
+                            <CheckCircle2 className="w-3 h-3" /> Face Verified
                           </span>
                         ) : (
                           <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500 text-white animate-pulse">
-                            AI Check Required
+                            Face Check Required
                           </span>
                         )}
                       </div>
 
                       <p className="text-[11px] text-fuchsia-900 leading-tight">
-                        Secret AI Agent verifies face visibility and image blur (≤ 59% blur accepted, &gt; 60% blur rejected). Photo is verified on device and never saved.
+                        AI verifies human face presence before attendance submission. If your face is not captured, submission is rejected. Verified directly on device.
                       </p>
 
                       {/* Camera viewfinder when active */}
@@ -2178,26 +2260,24 @@ export const CorporateDashboard: React.FC = () => {
                               } transition-opacity`}
                             />
 
-                            {/* Top HUD: Secret AI Agent Real-Time Diagnostic Bar */}
+                            {/* Top HUD: AI Real-Time Face Status Bar */}
                             <div className="absolute top-2 inset-x-2 flex items-center justify-between pointer-events-none px-2 py-1 rounded-xl bg-black/60 backdrop-blur-xs border border-white/10 text-white text-[10px]">
                               <div className="flex items-center gap-1.5 font-bold">
-                                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                                <span className="text-fuchsia-200">Secret AI Agent</span>
+                                <span className={`w-2 h-2 rounded-full ${liveFaceDetected ? 'bg-emerald-400 animate-ping' : 'bg-red-400'}`} />
+                                <span className="text-fuchsia-200">AI Face Detection</span>
                               </div>
 
                               <div className="flex items-center gap-1.5">
-                                {liveBlurPreview !== null ? (
-                                  liveBlurPreview <= 59 ? (
-                                    <span className="px-2 py-0.5 rounded-md bg-emerald-600/90 font-mono font-bold text-white shadow-xs">
-                                      Blur: {liveBlurPreview}% (≤59% OK)
-                                    </span>
-                                  ) : (
-                                    <span className="px-2 py-0.5 rounded-md bg-red-600/90 font-mono font-bold text-white animate-pulse shadow-xs">
-                                      Blur: {liveBlurPreview}% (&gt;60% Blurry)
-                                    </span>
-                                  )
+                                {liveFaceDetected === true ? (
+                                  <span className="px-2 py-0.5 rounded-md bg-emerald-600/90 font-mono font-bold text-white shadow-xs flex items-center gap-1">
+                                    <CheckCircle2 className="w-3 h-3" /> Face Detected
+                                  </span>
+                                ) : liveFaceDetected === false ? (
+                                  <span className="px-2 py-0.5 rounded-md bg-red-600/90 font-mono font-bold text-white animate-pulse shadow-xs flex items-center gap-1">
+                                    <AlertCircle className="w-3 h-3" /> Align Face in Oval
+                                  </span>
                                 ) : (
-                                  <span className="text-zinc-300 font-mono">Analyzing...</span>
+                                  <span className="text-zinc-300 font-mono">Detecting...</span>
                                 )}
                               </div>
                             </div>
@@ -2208,8 +2288,6 @@ export const CorporateDashboard: React.FC = () => {
                                 className={`w-32 h-40 rounded-full border-2 border-dashed transition-all flex flex-col items-center justify-center p-2 text-center ${
                                   liveFaceDetected === false
                                     ? 'border-red-400/90 shadow-[0_0_20px_rgba(248,113,113,0.7)]'
-                                    : liveBlurPreview !== null && liveBlurPreview > 60
-                                    ? 'border-amber-400/90 shadow-[0_0_20px_rgba(251,191,36,0.7)]'
                                     : 'border-emerald-400/90 shadow-[0_0_20px_rgba(52,211,153,0.7)]'
                                 }`}
                               >
@@ -2217,16 +2295,12 @@ export const CorporateDashboard: React.FC = () => {
                                   className={`text-[9px] font-bold px-2 py-0.5 rounded-full mt-auto mb-1 ${
                                     liveFaceDetected === false
                                       ? 'bg-red-900/80 text-white'
-                                      : liveBlurPreview !== null && liveBlurPreview > 60
-                                      ? 'bg-amber-900/80 text-white'
                                       : 'bg-emerald-950/80 text-emerald-200'
                                   }`}
                                 >
                                   {liveFaceDetected === false
-                                    ? 'Align Face Here'
-                                    : liveBlurPreview !== null && liveBlurPreview > 60
-                                    ? 'Hold Steady'
-                                    : 'Face Detected'}
+                                    ? 'Position Face Inside'
+                                    : 'Face Captured - Ready'}
                                 </span>
                               </div>
                             </div>
@@ -2236,28 +2310,25 @@ export const CorporateDashboard: React.FC = () => {
                               <div className="absolute inset-0 bg-fuchsia-950/80 backdrop-blur-xs flex flex-col items-center justify-center text-white space-y-2">
                                 <div className="w-8 h-8 border-3 border-fuchsia-400 border-t-transparent rounded-full animate-spin" />
                                 <span className="text-xs font-black text-fuchsia-200 tracking-wide">
-                                  Secret AI Agent Verifying Face & Blur...
+                                  AI Verifying Face Presence...
                                 </span>
                               </div>
                             )}
                           </div>
 
-                          {/* AI Verdict Rejection Banner if retake is ordered */}
+                          {/* AI Verdict Rejection Banner if face is not captured */}
                           {aiVerificationReport && !aiVerificationReport.passed && (
                             <div className="p-3 rounded-xl bg-red-100 border-2 border-red-400 text-red-950 space-y-1.5 animate-in fade-in">
                               <div className="flex items-center gap-1.5 font-extrabold text-xs text-red-900">
                                 <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
-                                <span>Secret AI Agent Verdict: Retake Ordered!</span>
+                                <span>AI Verification: Face Not Detected</span>
                               </div>
                               <p className="text-[11px] text-red-900 font-medium leading-tight">
                                 {aiVerificationReport.orderMessage}
                               </p>
-                              <div className="flex flex-wrap items-center gap-2 pt-1 font-mono text-[10px] text-red-800 font-bold">
+                              <div className="flex items-center gap-2 pt-1 font-mono text-[10px] text-red-800 font-bold">
                                 <span className="bg-red-200/80 px-2 py-0.5 rounded">
-                                  Face: {aiVerificationReport.faceVisible ? '✓ Visible' : '❌ NOT VISIBLE'}
-                                </span>
-                                <span className="bg-red-200/80 px-2 py-0.5 rounded">
-                                  Blur: {aiVerificationReport.blurPercentage}% (Rule: ≤ 59% Pass, &gt; 60% Reject)
+                                  Face Status: ❌ NOT VISIBLE — Please look directly at the camera
                                 </span>
                               </div>
                             </div>
@@ -2271,7 +2342,7 @@ export const CorporateDashboard: React.FC = () => {
                               className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-md flex items-center justify-center gap-1.5 cursor-pointer transition-all"
                             >
                               <Camera className="w-4 h-4" />
-                              <span>{isCapturing ? 'AI Agent Verifying...' : 'Capture & Verify with AI'}</span>
+                              <span>{isCapturing ? 'Verifying Face...' : 'Capture & Verify Face'}</span>
                             </button>
                             <button
                               type="button"
@@ -2287,7 +2358,7 @@ export const CorporateDashboard: React.FC = () => {
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2 font-black text-xs text-emerald-900">
                               <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
-                              <span>Secret AI Agent: Verified & Approved!</span>
+                              <span>AI Face Verification: Verified & Approved!</span>
                             </div>
                             <button
                               type="button"
@@ -2298,8 +2369,7 @@ export const CorporateDashboard: React.FC = () => {
                             </button>
                           </div>
                           <p className="text-[11px] text-emerald-900 leading-tight">
-                            Face visibility confirmed ({aiVerificationReport?.faceConfidence ?? 95}%). Blur score is{' '}
-                            <strong>{aiVerificationReport?.blurPercentage ?? 24}%</strong> (Compliant: ≤ 59% acceptable threshold). Attendance submission is now unlocked.
+                            Human face presence confirmed successfully. Attendance submission is now unlocked.
                           </p>
                         </div>
                       ) : (
@@ -2310,7 +2380,7 @@ export const CorporateDashboard: React.FC = () => {
                             className="w-full py-2.5 rounded-xl bg-fuchsia-600 hover:bg-fuchsia-700 text-white font-extrabold text-xs shadow-md flex items-center justify-center gap-2 cursor-pointer transition-all hover:scale-[1.02]"
                           >
                             <Camera className="w-4 h-4" />
-                            <span>Open Camera & Verify Identity</span>
+                            <span>Open Camera & Verify Face</span>
                           </button>
                           {cameraError && (
                             <div className="p-2.5 rounded-xl bg-red-100 border border-red-300 text-red-800 text-[11px] leading-tight">
@@ -3208,6 +3278,21 @@ export const CorporateDashboard: React.FC = () => {
             </div>
           </div>
         )}
+
+        {/* GOOGLE / MAPS LOCATION SELECTOR MODAL (AUTO-DETECT & KEYWORD SEARCH) */}
+        <LocationSelectorModal
+          isOpen={isLocationModalOpen}
+          onClose={() => setIsLocationModalOpen(false)}
+          currentLocation={profile?.location || registeredArea}
+          onLocationSelected={async (newLocation) => {
+            setEditLocation(newLocation);
+            await handleUpdateRegisteredArea(newLocation);
+            setProfileMessage({
+              type: 'success',
+              text: `Registered location updated to ${newLocation}! Real-time weather synchronized.`,
+            });
+          }}
+        />
 
         {/* AI CORPORATE SUPPORT / HELP DESK CHAT MODAL */}
         <CorporateAiSupport
